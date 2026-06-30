@@ -49,14 +49,14 @@ class App:
     def _handle_edit_day(self, date: str) -> None:
         rec = self._storage.get(date)
         open_edit_dialog(
-            self._window._root,
+            self._window.root,
             date,
             rec.clock_in if rec else None,
             rec.clock_out if rec else None,
             self._handle_save_edit,
         )
 
-    def _handle_save_edit(self, work_date, clock_in_iso, clock_out_iso) -> None:
+    def _handle_save_edit(self, work_date: str, clock_in_iso: str, clock_out_iso: str | None) -> None:
         self._service.edit(work_date, clock_in_iso, clock_out_iso)
         self._refresh()
 

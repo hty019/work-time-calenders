@@ -37,6 +37,10 @@ class WidgetWindow:
         self._bind_drag()
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
 
+    @property
+    def root(self) -> tk.Tk:
+        return self._root
+
     def _bind_drag(self) -> None:
         self._drag = {"x": 0, "y": 0}
 
