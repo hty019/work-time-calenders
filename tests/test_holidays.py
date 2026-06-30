@@ -34,7 +34,7 @@ def test_get_holidays_returns_empty_without_key(tmp_path):
     assert client.get_holidays(2026, 6) == {}
 
 
-def test_get_holidays_falls_back_to_cache_on_fetch_error(tmp_path):
+def test_get_holidays_cache_first_skips_fetcher(tmp_path):
     cache = tmp_path / "cache.json"
     cache.write_text(json.dumps({"2026-06": {"2026-06-06": "현충일"}}), encoding="utf-8")
 
@@ -43,3 +43,31 @@ def test_get_holidays_falls_back_to_cache_on_fetch_error(tmp_path):
 
     client = HolidayClient("KEY", str(cache), fetcher=boom)
     assert client.get_holidays(2026, 6) == {"2026-06-06": "현충일"}
+
+
+def test_get_holidays_fetch_error_empty_cache_returns_empty(tmp_path):
+    """fetch 실패 + 빈 캐시 시 empty dict 반환하고 raise 하지 않음."""
+    cache = tmp_path / "cache.json"
+
+    def boom(key, year, month):
+        raise RuntimeError("network down")
+
+    client = HolidayClient("KEY", str(cache), fetcher=boom)
+    result = client.get_holidays(2026, 6)
+    assert result == {}
+
+
+def test_save_cache_failure_does_not_raise(tmp_path):
+    """캐시 저장 실패 시에도 get_holidays는 raise 하지 않고 parsed dict 반환."""
+    # 캐시 경로를 생성 불가능한 경로로 설정 (부모 디렉토리가 파일)
+    cache_file = tmp_path / "cache.json"
+    cache_file.write_text("")  # 파일로 생성
+    impossible_cache = str(cache_file / "subdir" / "cache.json")  # 파일 아래 경로
+
+    def fake_fetch(key, year, month):
+        return [{"locdate": 20260606, "dateName": "현충일"}]
+
+    client = HolidayClient("KEY", impossible_cache, fetcher=fake_fetch)
+    result = client.get_holidays(2026, 6)
+    # 캐시 저장은 실패했지만 parsed holidays는 반환됨
+    assert result == {"2026-06-06": "현충일"}

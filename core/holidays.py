@@ -68,9 +68,13 @@ class HolidayClient:
             return {}
 
     def _save_cache(self, cache: dict) -> None:
-        os.makedirs(os.path.dirname(os.path.abspath(self._cache_path)), exist_ok=True)
-        with open(self._cache_path, "w", encoding="utf-8") as f:
-            json.dump(cache, f, ensure_ascii=False)
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(self._cache_path)), exist_ok=True)
+            with open(self._cache_path, "w", encoding="utf-8") as f:
+                json.dump(cache, f, ensure_ascii=False)
+        except OSError:
+            # 캐시 저장은 best-effort: 디스크 부족, 권한 오류 등을 무시
+            return
 
     def get_holidays(self, year: int, month: int) -> dict[str, str]:
         key = self._cache_key(year, month)
