@@ -21,6 +21,10 @@ echo '{"service_key": "발급받은_키"}' > ~/.work-widget/config.json
 ```
 또는 환경변수 `DATA_GO_KR_SERVICE_KEY` 사용. 키가 없으면 공휴일 없이 동작.
 
+> **주의**: data.go.kr 마이페이지에서 서비스 키를 확인할 때 반드시 **디코딩(Decoding) 키**를 사용하세요.
+> `requests` 라이브러리가 파라미터를 자동으로 URL 인코딩하므로, 인코딩(Encoding) 키를 사용하면
+> 이미 인코딩된 문자열이 다시 인코딩되어 이중 인코딩(double-encoding)이 발생하고 인증에 실패합니다.
+
 ## 실행
 
 ```bash

@@ -24,8 +24,22 @@ class WidgetWindow:
         if pos:
             self._root.geometry(f"+{pos[0]}+{pos[1]}")
 
-        self._header = tk.Label(self._root, text="", font=("Helvetica", 12, "bold"))
-        self._header.pack(fill="x", padx=8, pady=(8, 4))
+        header_frame = tk.Frame(self._root)
+        header_frame.pack(fill="x", padx=8, pady=(8, 4))
+
+        self._header = tk.Label(
+            header_frame, text="", font=("Helvetica", 12, "bold"), anchor="w"
+        )
+        self._header.pack(side="left", fill="x", expand=True)
+
+        tk.Button(
+            header_frame,
+            text="✕",
+            command=self._on_close,
+            font=("Helvetica", 10),
+            relief="flat",
+            padx=4,
+        ).pack(side="right")
 
         self._cal_frame = tk.Frame(self._root)
         self._cal_frame.pack(padx=8, pady=4)
@@ -36,6 +50,7 @@ class WidgetWindow:
 
         self._bind_drag()
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
+        self._root.bind_all("<Command-q>", lambda _e: self._on_close())
 
     @property
     def root(self) -> tk.Tk:
@@ -52,8 +67,12 @@ class WidgetWindow:
             y = self._root.winfo_y() + (e.y - self._drag["y"])
             self._root.geometry(f"+{x}+{y}")
 
+        def release(_e):
+            config.save_window_pos(self._root.winfo_x(), self._root.winfo_y())
+
         self._header.bind("<Button-1>", start)
         self._header.bind("<B1-Motion>", move)
+        self._header.bind("<ButtonRelease-1>", release)
 
     def _on_close(self) -> None:
         config.save_window_pos(self._root.winfo_x(), self._root.winfo_y())

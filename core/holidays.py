@@ -8,7 +8,7 @@ from typing import Callable
 import requests
 
 _API_URL = (
-    "http://apis.data.go.kr/B090041/openapi/service/"
+    "https://apis.data.go.kr/B090041/openapi/service/"
     "SpcdeInfoService/getRestDeInfo"
 )
 _HTTP_TIMEOUT_SECONDS = 5
