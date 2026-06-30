@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import os
 import sys
+from xml.sax.saxutils import escape
 
 LABEL = "com.taeyeon.workwidget"
+_DATA_DIR = os.path.expanduser("~/.work-widget")
 
 _PLIST_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -30,9 +32,11 @@ _PLIST_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def build_plist(python_path: str, main_path: str, label: str = LABEL) -> str:
-    log_dir = os.path.expanduser("~/.work-widget")
     return _PLIST_TEMPLATE.format(
-        label=label, python_path=python_path, main_path=main_path, log_dir=log_dir
+        label=escape(label),
+        python_path=escape(python_path),
+        main_path=escape(main_path),
+        log_dir=escape(_DATA_DIR),
     )
 
 
@@ -46,7 +50,7 @@ def install() -> str:
     xml = build_plist(python_path, main_path)
     target = plist_target_path()
     os.makedirs(os.path.dirname(target), exist_ok=True)
-    os.makedirs(os.path.expanduser("~/.work-widget"), exist_ok=True)
+    os.makedirs(_DATA_DIR, exist_ok=True)
     with open(target, "w", encoding="utf-8") as f:
         f.write(xml)
     return target

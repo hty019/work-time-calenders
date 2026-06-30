@@ -13,3 +13,9 @@ def test_build_plist_contains_paths_and_runatload():
 def test_plist_target_path_uses_label():
     path = plist_target_path("com.x.y")
     assert path.endswith("Library/LaunchAgents/com.x.y.plist")
+
+
+def test_build_plist_escapes_xml_special_chars():
+    xml = build_plist("/a & b/python", "/home/test/main.py", "com.x.y")
+    assert "/a &amp; b/python" in xml
+    assert "/a & b/python" not in xml
