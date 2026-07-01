@@ -79,10 +79,9 @@ class AppController:
             self._storage, self._service, self._plans,
             year, month, holidays, now,
         )
-        self._window.render(
-            year, month, self._service.today_status(), grid, summary
-        )
-        self._render_widget(summary, self._service.today_status())
+        status = self._service.today_status()
+        self._window.render(year, month, status, grid, summary)
+        self._render_widget(summary, status)
 
     def _render_widget(self, summary, status) -> None:
         from core.calendar_model import format_hms

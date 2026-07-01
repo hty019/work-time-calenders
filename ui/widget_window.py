@@ -19,6 +19,9 @@ _STATUS_COLORS = {
     WorkStatus.CLOCKED_OUT: theme.FG_MUTED,
     WorkStatus.NOT_CLOCKED_IN: theme.FG_INCOMPLETE,
 }
+_MARGIN_H = 12   # 좌우 여백(px)
+_MARGIN_V = 10   # 상하 여백(px)
+_BORDER_RADIUS = 8  # 모서리 둥글기(px)
 
 
 @dataclass
@@ -37,13 +40,13 @@ class WidgetWindow(QWidget):
         self.setWindowFlags(
             Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
         )
-        self.setStyleSheet(f"background-color:{theme.BG_BASE}; border-radius:8px;")
+        self.setStyleSheet(f"background-color:{theme.BG_BASE}; border-radius:{_BORDER_RADIUS}px;")
         pos = config.get_window_pos()
         if pos:
             self.move(pos[0], pos[1])
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setContentsMargins(_MARGIN_H, _MARGIN_V, _MARGIN_H, _MARGIN_V)
 
         top = QHBoxLayout()
         self._status = QLabel()
