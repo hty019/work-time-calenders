@@ -6,7 +6,7 @@ from core import timeutil
 from core.attendance import AttendanceService
 from core.holidays import HolidayClient
 from core.storage import Storage
-from widget.calendar_model import (
+from core.calendar_model import (
     build_month_grid,
     format_hms,
     required_month_hours,

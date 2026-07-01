@@ -7,7 +7,7 @@ from typing import Callable
 import config
 from core.attendance import WorkStatus
 from widget import theme
-from widget.calendar_model import DayCell
+from core.calendar_model import DayCell
 from widget.calendar_view import render_grid
 
 _CLOSE_TEXT = "✕"

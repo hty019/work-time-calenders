@@ -5,6 +5,7 @@ import calendar
 import datetime
 import math
 from dataclasses import dataclass
+from typing import Callable
 
 from core.storage import Attendance
 
@@ -22,6 +23,7 @@ class DayCell:
     holiday_name: str | None
     work_seconds: int | None
     is_incomplete: bool
+    planned_minutes: int = 0
 
 
 def format_hms(seconds: int | None) -> str:
@@ -30,6 +32,11 @@ def format_hms(seconds: int | None) -> str:
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60
     return f"{hours}h {minutes}m"
+
+
+def format_hm(minutes: int) -> str:
+    """분을 'Nh Nm' 로 포맷."""
+    return f"{minutes // 60}h {minutes % 60}m"
 
 
 def _weekday_holiday_count(
@@ -71,6 +78,7 @@ def build_month_grid(
     today: str,
     records: dict[str, Attendance],
     holidays: dict[str, str],
+    effective_planned: "Callable[[str], int] | None" = None,
     today_seconds: int | None = None,
 ) -> list[list[DayCell]]:
     cal = calendar.Calendar(firstweekday=0)  # 0 = Monday
@@ -79,7 +87,7 @@ def build_month_grid(
         row: list[DayCell] = []
         for day in week:
             if day == 0:
-                row.append(DayCell(0, None, False, None, None, False))
+                row.append(DayCell(0, None, False, None, None, False, 0))
                 continue
             date = f"{year:04d}-{month:02d}-{day:02d}"
             rec = records.get(date)
@@ -89,6 +97,7 @@ def build_month_grid(
             if date == today and is_incomplete and today_seconds is not None:
                 work_seconds = today_seconds
                 is_incomplete = False
+            planned = effective_planned(date) if effective_planned else 0
             row.append(
                 DayCell(
                     day=day,
@@ -97,6 +106,7 @@ def build_month_grid(
                     holiday_name=holidays.get(date),
                     work_seconds=work_seconds,
                     is_incomplete=is_incomplete,
+                    planned_minutes=planned,
                 )
             )
         grid.append(row)

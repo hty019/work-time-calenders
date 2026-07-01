@@ -5,7 +5,7 @@ import tkinter as tk
 from typing import Callable
 
 from widget import theme
-from widget.calendar_model import DayCell, format_hms
+from core.calendar_model import DayCell, format_hms
 
 _WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
 _INCOMPLETE_TEXT = "미퇴근"
