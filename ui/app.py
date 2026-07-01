@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QApplication
 import config
 from core import timeutil
 from core.attendance import AttendanceService
-from core.calendar_model import build_month_grid
+from core.calendar_model import build_month_grid, format_hms
 from core.holidays import HolidayClient
 from core.plan import PlanService
 from core.stats import build_month_summary
@@ -17,6 +17,7 @@ from core.storage import Storage
 from ui import theme
 from ui.day_dialog import open_day_dialog
 from ui.main_window import MainWindow, MainWindowCallbacks
+from ui.widget_window import WidgetWindow, WidgetCallbacks
 
 _MINUTE_SECONDS = 60
 _SYNC_BUFFER_MS = 100
@@ -50,7 +51,6 @@ class AppController:
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._tick)
 
-        from ui.widget_window import WidgetWindow, WidgetCallbacks
         self._widget = WidgetWindow(WidgetCallbacks(
             on_clock_out=self._handle_clock_out,
             on_cancel_clock_out=self._handle_cancel_clock_out,
@@ -84,7 +84,6 @@ class AppController:
         self._render_widget(summary, status)
 
     def _render_widget(self, summary, status) -> None:
-        from core.calendar_model import format_hms
         in_prog = self._service.today_in_progress_seconds()
         header = f"오늘 {format_hms(in_prog)}" if in_prog is not None else "오늘 -"
         if summary.expected_clock_out is None:
