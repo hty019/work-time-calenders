@@ -1,6 +1,58 @@
 import json
 
+import requests
+
+import core.holidays as holidays_mod
 from core.holidays import HolidayClient, parse_items
+
+
+class _FakeResponse:
+    def __init__(self, status_code: int, payload: dict | None = None):
+        self.status_code = status_code
+        self._payload = payload or {}
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code}")
+
+    def json(self):
+        return self._payload
+
+
+def test_http_fetch_retries_on_intermittent_401(monkeypatch):
+    """게이트웨이의 간헐적 401은 재시도로 흡수되어야 한다."""
+    monkeypatch.setattr(holidays_mod.time, "sleep", lambda _s: None)
+    ok_payload = {
+        "response": {
+            "body": {"items": {"item": {"locdate": 20260606, "dateName": "현충일"}}}
+        }
+    }
+    calls = {"n": 0}
+
+    def flaky_get(url, params, timeout):
+        calls["n"] += 1
+        if calls["n"] < 3:  # 처음 두 번은 401
+            return _FakeResponse(401)
+        return _FakeResponse(200, ok_payload)
+
+    monkeypatch.setattr(holidays_mod.requests, "get", flaky_get)
+    items = holidays_mod._http_fetch("KEY", 2026, 6)
+    assert items == [{"locdate": 20260606, "dateName": "현충일"}]
+    assert calls["n"] == 3
+
+
+def test_http_fetch_raises_after_exhausting_retries(monkeypatch):
+    """모든 재시도가 401이면 최종적으로 예외를 던진다(상위에서 fallback 처리)."""
+    monkeypatch.setattr(holidays_mod.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(
+        holidays_mod.requests, "get",
+        lambda url, params, timeout: _FakeResponse(401),
+    )
+    try:
+        holidays_mod._http_fetch("KEY", 2026, 6)
+        assert False, "예외가 발생해야 한다"
+    except requests.HTTPError:
+        pass
 
 
 def test_parse_items_converts_locdate():
@@ -29,9 +81,30 @@ def test_get_holidays_uses_fetcher_and_caches(tmp_path):
     assert calls == [(2026, 6)]
 
 
-def test_get_holidays_returns_empty_without_key(tmp_path):
+def test_get_holidays_without_key_returns_fixed_offline_holidays(tmp_path):
+    """키가 없어도 양력 고정 공휴일은 오프라인 기본값으로 표시된다."""
     client = HolidayClient(None, str(tmp_path / "c.json"))
-    assert client.get_holidays(2026, 6) == {}
+    # 6월엔 현충일(6/6)이 고정 공휴일로 존재
+    assert client.get_holidays(2026, 6) == {"2026-06-06": "현충일"}
+    # 7월엔 양력 고정 공휴일이 없음
+    assert client.get_holidays(2026, 7) == {}
+
+
+def test_get_holidays_merges_api_over_fixed(tmp_path):
+    """API 결과가 오프라인 고정 공휴일과 합쳐지고, 같은 날짜는 API가 우선한다."""
+    cache = tmp_path / "cache.json"
+
+    def fake_fetch(key, year, month):
+        return [{"locdate": 20261005, "dateName": "추석"}]
+
+    client = HolidayClient("KEY", str(cache), fetcher=fake_fetch)
+    result = client.get_holidays(2026, 10)
+    # 고정(개천절·한글날) + API(추석)가 모두 포함된다
+    assert result == {
+        "2026-10-03": "개천절",
+        "2026-10-09": "한글날",
+        "2026-10-05": "추석",
+    }
 
 
 def test_get_holidays_cache_first_skips_fetcher(tmp_path):
@@ -45,16 +118,18 @@ def test_get_holidays_cache_first_skips_fetcher(tmp_path):
     assert client.get_holidays(2026, 6) == {"2026-06-06": "현충일"}
 
 
-def test_get_holidays_fetch_error_empty_cache_returns_empty(tmp_path):
-    """fetch 실패 + 빈 캐시 시 empty dict 반환하고 raise 하지 않음."""
+def test_get_holidays_fetch_error_falls_back_to_offline(tmp_path):
+    """fetch 실패 + 빈 캐시 시 raise 하지 않고 오프라인 고정 공휴일을 반환."""
     cache = tmp_path / "cache.json"
 
     def boom(key, year, month):
         raise RuntimeError("network down")
 
     client = HolidayClient("KEY", str(cache), fetcher=boom)
-    result = client.get_holidays(2026, 6)
-    assert result == {}
+    # 6월은 현충일이 오프라인 기본값으로 남는다
+    assert client.get_holidays(2026, 6) == {"2026-06-06": "현충일"}
+    # 7월은 고정 공휴일이 없어 빈 dict
+    assert client.get_holidays(2026, 7) == {}
 
 
 def test_save_cache_failure_does_not_raise(tmp_path):

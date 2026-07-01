@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import calendar
+import math
 from dataclasses import dataclass
 
 from core.storage import Attendance
+
+_WEEKLY_WORK_HOURS = 40  # 주 40시간 근로 기준
+_DAYS_PER_WEEK = 7
 
 
 @dataclass
@@ -23,6 +27,15 @@ def format_hms(seconds: int | None) -> str:
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60
     return f"{hours}h {minutes}m"
+
+
+def required_month_hours(year: int, month: int) -> int:
+    """한 달간 채워야 하는 총 근로시간(시간).
+
+    계산식: 말일 / 7 * 40 (소수점 버림). 예) 31일 → 177h.
+    """
+    last_day = calendar.monthrange(year, month)[1]
+    return math.floor(last_day / _DAYS_PER_WEEK * _WEEKLY_WORK_HOURS)
 
 
 def build_month_grid(

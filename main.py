@@ -6,7 +6,11 @@ from core import timeutil
 from core.attendance import AttendanceService
 from core.holidays import HolidayClient
 from core.storage import Storage
-from widget.calendar_model import build_month_grid, format_hms
+from widget.calendar_model import (
+    build_month_grid,
+    format_hms,
+    required_month_hours,
+)
 from widget.edit_dialog import open_edit_dialog
 from widget.window import WidgetWindow
 
@@ -36,7 +40,11 @@ class App:
         today_rec = records.get(today)
         clock_in_txt = today_rec.clock_in[11:16] if today_rec else "-"
         total = self._service.month_total_seconds(year, month)
-        header = f"출근 {clock_in_txt}  |  {month}월 누적 {format_hms(total)}"
+        required = required_month_hours(year, month)
+        header = (
+            f"출근 {clock_in_txt}  |  {month}월 누적 "
+            f"{format_hms(total)} / {required}h"
+        )
         self._window.render(header, grid)
 
     def _handle_clock_out(self) -> None:

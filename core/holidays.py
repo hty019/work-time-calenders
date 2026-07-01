@@ -3,15 +3,21 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Callable
 
 import requests
+
+from core.holiday_fallback import fixed_holidays
 
 _API_URL = (
     "https://apis.data.go.kr/B090041/openapi/service/"
     "SpcdeInfoService/getRestDeInfo"
 )
 _HTTP_TIMEOUT_SECONDS = 5
+# data.go.kr 게이트웨이가 동일 요청에도 간헐적으로 401을 반환하므로 재시도한다.
+_MAX_ATTEMPTS = 5
+_RETRY_BACKOFF_SECONDS = 0.3
 
 
 def parse_items(items: list[dict], year: int, month: int) -> dict[str, str]:
@@ -26,6 +32,16 @@ def parse_items(items: list[dict], year: int, month: int) -> dict[str, str]:
     return result
 
 
+def _parse_response(resp: requests.Response) -> list[dict]:
+    resp.raise_for_status()
+    body = resp.json()["response"]["body"]
+    items = body.get("items")
+    if not items:
+        return []
+    raw = items.get("item", [])
+    return raw if isinstance(raw, list) else [raw]
+
+
 def _http_fetch(service_key: str, year: int, month: int) -> list[dict]:
     params = {
         "serviceKey": service_key,
@@ -34,14 +50,19 @@ def _http_fetch(service_key: str, year: int, month: int) -> list[dict]:
         "_type": "json",
         "numOfRows": "100",
     }
-    resp = requests.get(_API_URL, params=params, timeout=_HTTP_TIMEOUT_SECONDS)
-    resp.raise_for_status()
-    body = resp.json()["response"]["body"]
-    items = body.get("items")
-    if not items:
-        return []
-    raw = items.get("item", [])
-    return raw if isinstance(raw, list) else [raw]
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_ATTEMPTS):
+        try:
+            resp = requests.get(
+                _API_URL, params=params, timeout=_HTTP_TIMEOUT_SECONDS
+            )
+            return _parse_response(resp)
+        except requests.RequestException as exc:
+            # 게이트웨이의 간헐적 401 등 일시적 실패는 재시도한다.
+            last_exc = exc
+            if attempt < _MAX_ATTEMPTS - 1:
+                time.sleep(_RETRY_BACKOFF_SECONDS)
+    raise last_exc  # type: ignore[misc]
 
 
 class HolidayClient:
@@ -77,17 +98,20 @@ class HolidayClient:
             return
 
     def get_holidays(self, year: int, month: int) -> dict[str, str]:
+        # 양력 고정 공휴일을 기본값으로 깔고, API/캐시 결과(대체·임시·음력 공휴일
+        # 포함)를 위에 덮어써 더 정확한 정보가 우선하도록 한다.
+        base = fixed_holidays(year, month)
         key = self._cache_key(year, month)
         cache = self._load_cache()
         if key in cache:
-            return cache[key]
+            return {**base, **cache[key]}
         if not self._service_key:
-            return {}
+            return base
         try:
             items = self._fetcher(self._service_key, year, month)
         except Exception:
-            return cache.get(key, {})
+            return {**base, **cache.get(key, {})}
         holidays = parse_items(items, year, month)
         cache[key] = holidays
         self._save_cache(cache)
-        return holidays
+        return {**base, **holidays}

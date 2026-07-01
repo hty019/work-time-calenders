@@ -5,8 +5,12 @@ import tkinter as tk
 from typing import Callable
 
 import config
+from widget import theme
 from widget.calendar_model import DayCell
 from widget.calendar_view import render_grid
+
+_CLOSE_TEXT = "✕"
+_CLOCK_OUT_TEXT = "퇴근"
 
 
 class WidgetWindow:
@@ -20,33 +24,27 @@ class WidgetWindow:
         self._root = tk.Tk()
         self._root.overrideredirect(True)
         self._root.attributes("-topmost", True)
+        self._root.attributes("-alpha", theme.WINDOW_ALPHA)
+        self._root.configure(bg=theme.BG_BASE)
         pos = config.get_window_pos()
         if pos:
             self._root.geometry(f"+{pos[0]}+{pos[1]}")
 
-        header_frame = tk.Frame(self._root)
-        header_frame.pack(fill="x", padx=8, pady=(8, 4))
+        header_frame = tk.Frame(self._root, bg=theme.BG_BASE)
+        header_frame.pack(fill="x", padx=10, pady=(10, 6))
 
         self._header = tk.Label(
-            header_frame, text="", font=("Helvetica", 12, "bold"), anchor="w"
+            header_frame, text="", font=theme.FONT_HEADER, anchor="w",
+            fg=theme.FG_DATE, bg=theme.BG_BASE,
         )
         self._header.pack(side="left", fill="x", expand=True)
 
-        tk.Button(
-            header_frame,
-            text="✕",
-            command=self._on_close,
-            font=("Helvetica", 10),
-            relief="flat",
-            padx=4,
-        ).pack(side="right")
+        self._make_close_button(header_frame).pack(side="right")
 
-        self._cal_frame = tk.Frame(self._root)
-        self._cal_frame.pack(padx=8, pady=4)
+        self._cal_frame = tk.Frame(self._root, bg=theme.BG_BASE)
+        self._cal_frame.pack(padx=10, pady=2)
 
-        tk.Button(self._root, text="퇴근", command=self._on_clock_out).pack(
-            pady=(4, 8)
-        )
+        self._make_clock_out_button().pack(fill="x", padx=10, pady=(6, 10))
 
         self._bind_drag()
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -55,6 +53,28 @@ class WidgetWindow:
     @property
     def root(self) -> tk.Tk:
         return self._root
+
+    def _make_close_button(self, parent: tk.Widget) -> tk.Label:
+        """우상단 닫기 버튼 (라벨 기반, 색상 제어 자유)."""
+        btn = tk.Label(
+            parent, text=_CLOSE_TEXT, font=theme.FONT_WEEKDAY,
+            fg=theme.FG_MUTED, bg=theme.BG_BASE, cursor="hand2", padx=4,
+        )
+        btn.bind("<Button-1>", lambda _e: self._on_close())
+        btn.bind("<Enter>", lambda _e: btn.configure(fg=theme.FG_HOLIDAY))
+        btn.bind("<Leave>", lambda _e: btn.configure(fg=theme.FG_MUTED))
+        return btn
+
+    def _make_clock_out_button(self) -> tk.Label:
+        """하단 '퇴근' 버튼 (라벨 기반, 띄운 표면 스타일)."""
+        btn = tk.Label(
+            self._root, text=_CLOCK_OUT_TEXT, font=theme.FONT_BUTTON,
+            fg=theme.FG_DATE, bg=theme.BG_ELEVATED, cursor="hand2", pady=6,
+        )
+        btn.bind("<Button-1>", lambda _e: self._on_clock_out())
+        btn.bind("<Enter>", lambda _e: btn.configure(bg=theme.BG_HOVER))
+        btn.bind("<Leave>", lambda _e: btn.configure(bg=theme.BG_ELEVATED))
+        return btn
 
     def _bind_drag(self) -> None:
         self._drag = {"x": 0, "y": 0}

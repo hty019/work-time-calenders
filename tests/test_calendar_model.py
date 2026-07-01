@@ -1,11 +1,23 @@
 from core.storage import Attendance
-from widget.calendar_model import build_month_grid, format_hms
+from widget.calendar_model import (
+    build_month_grid,
+    format_hms,
+    required_month_hours,
+)
 
 
 def test_format_hms():
     assert format_hms(None) == "-"
     assert format_hms(27000) == "7h 30m"
     assert format_hms(8 * 3600) == "8h 0m"
+
+
+def test_required_month_hours():
+    # 말일 / 7 * 40 (버림)
+    assert required_month_hours(2026, 7) == 177   # 31일
+    assert required_month_hours(2026, 6) == 171   # 30일
+    assert required_month_hours(2026, 2) == 160   # 28일
+    assert required_month_hours(2024, 2) == 165   # 29일(윤년)
 
 
 def test_grid_has_full_weeks():
