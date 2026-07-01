@@ -5,6 +5,7 @@ import tkinter as tk
 from typing import Callable
 
 import config
+from core.attendance import WorkStatus
 from widget import theme
 from widget.calendar_model import DayCell
 from widget.calendar_view import render_grid
@@ -12,6 +13,14 @@ from widget.calendar_view import render_grid
 _CLOSE_TEXT = "✕"
 _CLOCK_OUT_TEXT = "퇴근"
 _CANCEL_TEXT = "취소"
+_STATUS_DOT = "●"
+
+# 상태별 배지 색상 — 값(표시 문구)은 WorkStatus 에서 가져온다.
+_STATUS_COLORS: dict[WorkStatus, str] = {
+    WorkStatus.WORKING: theme.FG_WORKING,
+    WorkStatus.CLOCKED_OUT: theme.FG_MUTED,
+    WorkStatus.NOT_CLOCKED_IN: theme.FG_INCOMPLETE,
+}
 
 
 class WidgetWindow:
@@ -35,6 +44,12 @@ class WidgetWindow:
 
         header_frame = tk.Frame(self._root, bg=theme.BG_BASE)
         header_frame.pack(fill="x", padx=10, pady=(10, 6))
+
+        self._status = tk.Label(
+            header_frame, text="", font=theme.FONT_HEADER, anchor="w",
+            fg=theme.FG_MUTED, bg=theme.BG_BASE,
+        )
+        self._status.pack(side="left", padx=(0, 8))
 
         self._header = tk.Label(
             header_frame, text="", font=theme.FONT_HEADER, anchor="w",
@@ -85,6 +100,13 @@ class WidgetWindow:
         btn.bind("<Leave>", lambda _e: btn.configure(bg=theme.BG_ELEVATED))
         return btn
 
+    def _render_status(self, status: WorkStatus) -> None:
+        """헤더 좌측에 색상 점+문구로 현재 근무 상태를 표시한다."""
+        self._status.config(
+            text=f"{_STATUS_DOT} {status.value}",
+            fg=_STATUS_COLORS[status],
+        )
+
     def _render_footer(self, is_clocked_out: bool) -> None:
         """퇴근 상태면 [취소][퇴근], 진행 중이면 [퇴근] 만 표시한다."""
         for child in self._footer.winfo_children():
@@ -130,13 +152,14 @@ class WidgetWindow:
 
     def render(
         self, header_text: str, grid: list[list[DayCell]],
-        is_clocked_out: bool,
+        status: WorkStatus,
     ) -> None:
         self._header.config(text=header_text)
+        self._render_status(status)
         self._today_time_label = render_grid(
             self._cal_frame, grid, self._on_edit_day
         )
-        self._render_footer(is_clocked_out)
+        self._render_footer(status == WorkStatus.CLOCKED_OUT)
 
     def update_live(
         self, header_text: str, today_time_text: str | None

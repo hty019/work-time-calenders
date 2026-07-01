@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from core.storage import Storage
-from core.attendance import AttendanceService
+from core.attendance import AttendanceService, WorkStatus
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -122,6 +122,34 @@ def test_reclock_out_updates_time(tmp_path):
     second = svc.record_clock_out()
     assert second.clock_out == datetime(2026, 6, 30, 19, 0, tzinfo=KST).isoformat()
     assert second.work_seconds == 9 * 3600  # 10h - 60m
+
+
+def test_today_status_not_clocked_in(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    assert svc.today_status() is WorkStatus.NOT_CLOCKED_IN
+
+
+def test_today_status_working_after_clock_in(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    assert svc.today_status() is WorkStatus.WORKING
+
+
+def test_today_status_clocked_out(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
+    svc.record_clock_out()
+    assert svc.today_status() is WorkStatus.CLOCKED_OUT
+
+
+def test_today_status_working_again_after_cancel(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
+    svc.record_clock_out()
+    svc.cancel_clock_out()
+    assert svc.today_status() is WorkStatus.WORKING
 
 
 def test_today_in_progress_seconds_none_when_not_active(tmp_path):

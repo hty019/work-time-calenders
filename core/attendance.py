@@ -1,11 +1,20 @@
 """출퇴근 기록 및 근무시간 비즈니스 로직."""
 from __future__ import annotations
 
+from enum import Enum
 from typing import Callable
 
 from core import timeutil
 from core.storage import Attendance, Storage
 from core.worktime import compute_work_seconds
+
+
+class WorkStatus(Enum):
+    """오늘의 근무 상태. 값은 위젯에 그대로 노출되는 표시 문구."""
+
+    NOT_CLOCKED_IN = "미출근"
+    WORKING = "근무중"
+    CLOCKED_OUT = "퇴근"
 
 
 class AttendanceService:
@@ -68,6 +77,20 @@ class AttendanceService:
     def month_total_seconds(self, year: int, month: int) -> int:
         rows = self._storage.list_month(year, month)
         return sum(r.work_seconds for r in rows if r.work_seconds is not None)
+
+    def today_status(self) -> WorkStatus:
+        """오늘 기록으로부터 근무 상태를 판정한다.
+
+        기록 없음→미출근, 퇴근 시각 있음→퇴근, 그 외→근무중.
+        """
+        now = self._clock()
+        date = timeutil.today_str(now)
+        rec = self._storage.get(date)
+        if rec is None:
+            return WorkStatus.NOT_CLOCKED_IN
+        if rec.clock_out is not None:
+            return WorkStatus.CLOCKED_OUT
+        return WorkStatus.WORKING
 
     def today_in_progress_seconds(self) -> int | None:
         """오늘 출근했으나 아직 퇴근하지 않았다면 지금까지의 근무 초.

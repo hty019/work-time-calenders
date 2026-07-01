@@ -60,9 +60,7 @@ class App:
         header = self._build_header(
             records, year, month, today, holidays, today_seconds
         )
-        today_rec = records.get(today)
-        is_clocked_out = today_rec is not None and today_rec.clock_out is not None
-        self._window.render(header, grid, is_clocked_out)
+        self._window.render(header, grid, self._service.today_status())
 
     def _tick(self) -> None:
         """1분마다 헤더와 오늘 셀의 진행 중 근무시간만 갱신한다."""
