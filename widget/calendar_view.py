@@ -63,7 +63,9 @@ def _render_cell(
         cursor="hand2",
     )
     frame.grid(row=row, column=col, padx=1, pady=1)
-    frame.grid_propagate(False)
+    # 라벨이 pack 으로 배치되므로 pack_propagate 로 셀 크기를 고정한다.
+    # (grid_propagate 는 grid 자식에만 적용돼 여기선 효과가 없다)
+    frame.pack_propagate(False)
 
     date_label = tk.Label(
         frame, text=str(cell.day), fg=date_fg, bg=cell_bg,
