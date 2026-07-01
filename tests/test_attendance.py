@@ -90,6 +90,40 @@ def test_today_in_progress_seconds_while_clocked_in(tmp_path):
     assert svc.today_in_progress_seconds() == 2 * 3600
 
 
+def test_cancel_clock_out_reverts_to_in_progress(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
+    svc.record_clock_out()
+    # 취소 → 미퇴근으로 복귀, 출근 시각은 보존
+    rec = svc.cancel_clock_out()
+    assert rec.clock_out is None
+    assert rec.work_seconds is None
+    assert rec.clock_in == datetime(2026, 6, 30, 9, 0, tzinfo=KST).isoformat()
+    # 취소 후 다시 진행 중 근무초가 집계된다
+    svc._clock = lambda: datetime(2026, 6, 30, 19, 0, tzinfo=KST)
+    assert svc.today_in_progress_seconds() is not None
+
+
+def test_cancel_clock_out_noop_without_clock_out(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()  # 미퇴근 상태
+    assert svc.cancel_clock_out() is None
+
+
+def test_reclock_out_updates_time(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
+    first = svc.record_clock_out()
+    assert first.work_seconds == 8 * 3600  # 9h - 60m
+    # 퇴근 상태에서 다시 퇴근 → 더 늦은 시각으로 갱신, 누적 재계산
+    svc._clock = lambda: datetime(2026, 6, 30, 19, 0, tzinfo=KST)
+    second = svc.record_clock_out()
+    assert second.clock_out == datetime(2026, 6, 30, 19, 0, tzinfo=KST).isoformat()
+    assert second.work_seconds == 9 * 3600  # 10h - 60m
+
+
 def test_today_in_progress_seconds_none_when_not_active(tmp_path):
     # 미출근
     svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))

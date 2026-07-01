@@ -26,6 +26,7 @@ class App:
         )
         self._window = WidgetWindow(
             on_clock_out=self._handle_clock_out,
+            on_cancel_clock_out=self._handle_cancel_clock_out,
             on_edit_day=self._handle_edit_day,
         )
 
@@ -59,7 +60,9 @@ class App:
         header = self._build_header(
             records, year, month, today, holidays, today_seconds
         )
-        self._window.render(header, grid)
+        today_rec = records.get(today)
+        is_clocked_out = today_rec is not None and today_rec.clock_out is not None
+        self._window.render(header, grid, is_clocked_out)
 
     def _tick(self) -> None:
         """1분마다 헤더와 오늘 셀의 진행 중 근무시간만 갱신한다."""
@@ -83,6 +86,10 @@ class App:
             self._service.record_clock_out()
         except ValueError:
             pass
+        self._refresh()
+
+    def _handle_cancel_clock_out(self) -> None:
+        self._service.cancel_clock_out()
         self._refresh()
 
     def _handle_edit_day(self, date: str) -> None:

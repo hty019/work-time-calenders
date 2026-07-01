@@ -11,15 +11,18 @@ from widget.calendar_view import render_grid
 
 _CLOSE_TEXT = "✕"
 _CLOCK_OUT_TEXT = "퇴근"
+_CANCEL_TEXT = "취소"
 
 
 class WidgetWindow:
     def __init__(
         self,
         on_clock_out: Callable[[], None],
+        on_cancel_clock_out: Callable[[], None],
         on_edit_day: Callable[[str], None],
     ) -> None:
         self._on_clock_out = on_clock_out
+        self._on_cancel_clock_out = on_cancel_clock_out
         self._on_edit_day = on_edit_day
         self._root = tk.Tk()
         self._root.overrideredirect(True)
@@ -45,7 +48,9 @@ class WidgetWindow:
         self._cal_frame.pack(padx=10, pady=2)
         self._today_time_label: tk.Label | None = None
 
-        self._make_clock_out_button().pack(fill="x", padx=10, pady=(6, 10))
+        # 하단 버튼 영역: 상태에 따라 [퇴근] 또는 [취소][퇴근] 으로 다시 그린다.
+        self._footer = tk.Frame(self._root, bg=theme.BG_BASE)
+        self._footer.pack(fill="x", padx=10, pady=(6, 10))
 
         self._bind_drag()
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -66,16 +71,40 @@ class WidgetWindow:
         btn.bind("<Leave>", lambda _e: btn.configure(fg=theme.FG_MUTED))
         return btn
 
-    def _make_clock_out_button(self) -> tk.Label:
-        """하단 '퇴근' 버튼 (라벨 기반, 띄운 표면 스타일)."""
+    def _make_button(
+        self, parent: tk.Widget, text: str,
+        on_click: Callable[[], None], fg: str,
+    ) -> tk.Label:
+        """하단 액션 버튼 (라벨 기반, 띄운 표면 스타일)."""
         btn = tk.Label(
-            self._root, text=_CLOCK_OUT_TEXT, font=theme.FONT_BUTTON,
-            fg=theme.FG_DATE, bg=theme.BG_ELEVATED, cursor="hand2", pady=6,
+            parent, text=text, font=theme.FONT_BUTTON,
+            fg=fg, bg=theme.BG_ELEVATED, cursor="hand2", pady=6,
         )
-        btn.bind("<Button-1>", lambda _e: self._on_clock_out())
+        btn.bind("<Button-1>", lambda _e: on_click())
         btn.bind("<Enter>", lambda _e: btn.configure(bg=theme.BG_HOVER))
         btn.bind("<Leave>", lambda _e: btn.configure(bg=theme.BG_ELEVATED))
         return btn
+
+    def _render_footer(self, is_clocked_out: bool) -> None:
+        """퇴근 상태면 [취소][퇴근], 진행 중이면 [퇴근] 만 표시한다."""
+        for child in self._footer.winfo_children():
+            child.destroy()
+        if is_clocked_out:
+            cancel = self._make_button(
+                self._footer, _CANCEL_TEXT,
+                self._on_cancel_clock_out, theme.FG_MUTED,
+            )
+            clock = self._make_button(
+                self._footer, _CLOCK_OUT_TEXT,
+                self._on_clock_out, theme.FG_DATE,
+            )
+            cancel.pack(side="left", fill="x", expand=True, padx=(0, 3))
+            clock.pack(side="left", fill="x", expand=True, padx=(3, 0))
+        else:
+            self._make_button(
+                self._footer, _CLOCK_OUT_TEXT,
+                self._on_clock_out, theme.FG_DATE,
+            ).pack(fill="x")
 
     def _bind_drag(self) -> None:
         self._drag = {"x": 0, "y": 0}
@@ -99,11 +128,15 @@ class WidgetWindow:
         config.save_window_pos(self._root.winfo_x(), self._root.winfo_y())
         self._root.destroy()
 
-    def render(self, header_text: str, grid: list[list[DayCell]]) -> None:
+    def render(
+        self, header_text: str, grid: list[list[DayCell]],
+        is_clocked_out: bool,
+    ) -> None:
         self._header.config(text=header_text)
         self._today_time_label = render_grid(
             self._cal_frame, grid, self._on_edit_day
         )
+        self._render_footer(is_clocked_out)
 
     def update_live(
         self, header_text: str, today_time_text: str | None

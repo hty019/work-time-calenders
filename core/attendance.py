@@ -35,6 +35,20 @@ class AttendanceService:
         self._storage.upsert(rec)
         return rec
 
+    def cancel_clock_out(self) -> Attendance | None:
+        """오늘의 퇴근 기록을 제거해 다시 진행 중(미퇴근) 상태로 되돌린다.
+
+        퇴근 기록이 없으면 아무것도 하지 않고 None을 반환한다.
+        """
+        now = self._clock()
+        date = timeutil.today_str(now)
+        existing = self._storage.get(date)
+        if existing is None or existing.clock_out is None:
+            return None
+        rec = Attendance(date, existing.clock_in, None, None)
+        self._storage.upsert(rec)
+        return rec
+
     def edit(
         self, work_date: str, clock_in_iso: str, clock_out_iso: str | None
     ) -> Attendance:
