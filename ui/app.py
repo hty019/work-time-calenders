@@ -50,6 +50,15 @@ class AppController:
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._tick)
 
+        from ui.widget_window import WidgetWindow, WidgetCallbacks
+        self._widget = WidgetWindow(WidgetCallbacks(
+            on_clock_out=self._handle_clock_out,
+            on_cancel_clock_out=self._handle_cancel_clock_out,
+            on_switch_mode=lambda: self._show_mode(config.MODE_FULL),
+            on_close=self._app.quit,
+        ))
+        self._mode = config.get_last_mode()
+
     # --- 갱신 -----------------------------------------------------------
     def _refresh(self) -> None:
         now = timeutil.now()
@@ -73,6 +82,17 @@ class AppController:
         self._window.render(
             year, month, self._service.today_status(), grid, summary
         )
+        self._render_widget(summary, self._service.today_status())
+
+    def _render_widget(self, summary, status) -> None:
+        from core.calendar_model import format_hms
+        in_prog = self._service.today_in_progress_seconds()
+        header = f"오늘 {format_hms(in_prog)}" if in_prog is not None else "오늘 -"
+        if summary.expected_clock_out is None:
+            expected = "예상 퇴근 -"
+        else:
+            expected = f"예상 퇴근 {summary.expected_clock_out.strftime('%H:%M')}"
+        self._widget.render(status, header, expected)
 
     def _ms_until_next_minute(self) -> int:
         now = timeutil.now()
@@ -108,8 +128,18 @@ class AppController:
         self._refresh()
 
     def _handle_switch_mode(self) -> None:
-        # Task 12 에서 위젯 모드 전환 구현. 지금은 상태만 저장.
-        config.set_last_mode(config.MODE_WIDGET)
+        self._show_mode(config.MODE_WIDGET)
+
+    def _show_mode(self, mode: str) -> None:
+        self._mode = mode
+        config.set_last_mode(mode)
+        if mode == config.MODE_WIDGET:
+            self._window.hide()
+            self._widget.show()
+        else:
+            self._widget.hide()
+            self._window.show()
+        self._refresh()
 
     def _handle_edit_day(self, date: str) -> None:
         rec = self._storage.get(date)
@@ -138,7 +168,7 @@ class AppController:
     def run(self) -> None:
         self._service.record_clock_in()  # 부팅 = 자동 출근 (기존 동작 유지)
         self._refresh()
-        self._window.show()
+        self._show_mode(config.get_last_mode())
         self._timer.start(self._ms_until_next_minute())
         self._app.exec()
 
