@@ -1,6 +1,6 @@
 import pytest
 
-from widget.edit_dialog import build_iso
+from core.timefmt import build_iso
 
 
 def test_build_iso_ok():

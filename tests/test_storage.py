@@ -42,3 +42,25 @@ def test_list_month_filters_by_month(tmp_path):
     rows = s.list_month(2026, 6)
     dates = sorted(r.work_date for r in rows)
     assert dates == ["2026-06-01", "2026-06-30"]
+
+
+def test_plan_set_get_clear(tmp_path):
+    from core.storage import Storage
+    st = Storage(str(tmp_path / "a.db"))
+    assert st.get_plan("2026-07-07") is None
+    st.set_plan("2026-07-07", 240)
+    assert st.get_plan("2026-07-07") == 240
+    st.set_plan("2026-07-07", 360)  # 덮어쓰기
+    assert st.get_plan("2026-07-07") == 360
+    st.clear_plan("2026-07-07")
+    assert st.get_plan("2026-07-07") is None
+
+
+def test_plan_list_month(tmp_path):
+    from core.storage import Storage
+    st = Storage(str(tmp_path / "b.db"))
+    st.set_plan("2026-07-01", 480)
+    st.set_plan("2026-07-15", 240)
+    st.set_plan("2026-08-01", 480)  # 다른 달
+    got = st.list_plan_month(2026, 7)
+    assert got == {"2026-07-01": 480, "2026-07-15": 240}

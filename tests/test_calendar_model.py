@@ -1,6 +1,7 @@
 from core.storage import Attendance
-from widget.calendar_model import (
+from core.calendar_model import (
     build_month_grid,
+    format_hm,
     format_hms,
     required_month_hours,
 )
@@ -91,3 +92,24 @@ def test_grid_marks_today_holiday_and_work():
     assert cells["2026-06-30"].work_seconds == 8 * 3600
     assert cells["2026-06-06"].holiday_name == "현충일"
     assert cells["2026-06-02"].is_incomplete is True
+
+
+def test_format_hm():
+    assert format_hm(0) == "0h 0m"
+    assert format_hm(480) == "8h 0m"
+    assert format_hm(150) == "2h 30m"
+
+
+def test_grid_includes_planned_minutes():
+    # effective_planned 콜백이 각 셀 planned_minutes 로 반영되는지
+    records = {}
+    holidays = {}
+    planned = {"2026-07-01": 480, "2026-07-04": 0}
+    grid = build_month_grid(
+        2026, 7, "2026-07-01", records, holidays,
+        effective_planned=lambda d: planned.get(d, 240),
+    )
+    cells = {c.date: c for week in grid for c in week if c.date}
+    assert cells["2026-07-01"].planned_minutes == 480
+    assert cells["2026-07-04"].planned_minutes == 0
+    assert cells["2026-07-02"].planned_minutes == 240  # 콜백 기본

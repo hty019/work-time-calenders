@@ -36,3 +36,19 @@ def compute_work_seconds(clock_in: datetime, clock_out: datetime) -> int:
     if raw < EIGHT_HOURS_SECONDS + 2 * BREAK_SECONDS:  # 2차 휴게 [8h30m, 9h)
         return EIGHT_HOURS_SECONDS
     return raw - 2 * BREAK_SECONDS                      # 9h ~
+
+
+def raw_seconds_for_net(net_seconds: int) -> int:
+    """목표 순근무 초에 도달하는 최소 체류 초. compute_work_seconds 의 역함수.
+
+    net ≤ 4h        : 휴게 없음 → raw = net
+    4h < net ≤ 8h   : 1차 휴게 30분 포함 → raw = net + 30m
+    net > 8h        : 2차 휴게까지 60분 포함 → raw = net + 60m
+    """
+    if net_seconds <= 0:
+        return 0
+    if net_seconds <= FOUR_HOURS_SECONDS:
+        return net_seconds
+    if net_seconds <= EIGHT_HOURS_SECONDS:
+        return net_seconds + BREAK_SECONDS
+    return net_seconds + 2 * BREAK_SECONDS
