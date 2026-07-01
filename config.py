@@ -10,6 +10,10 @@ DATA_DIR = os.environ.get(
 
 _SERVICE_KEY_ENV = "DATA_GO_KR_SERVICE_KEY"
 
+DEFAULT_DAILY_MINUTES = 480  # 평일 기본 계획 순근무(분) = 8h
+MODE_FULL = "full"
+MODE_WIDGET = "widget"
+
 
 def db_path() -> str:
     return os.path.join(DATA_DIR, "attendance.db")
@@ -57,4 +61,30 @@ def get_window_pos() -> tuple[int, int] | None:
 def save_window_pos(x: int, y: int) -> None:
     cfg = load_config()
     cfg["window_pos"] = [x, y]
+    save_config(cfg)
+
+
+def get_default_daily_minutes() -> int:
+    value = load_config().get("default_daily_minutes")
+    if isinstance(value, int) and value >= 0:
+        return value
+    return DEFAULT_DAILY_MINUTES
+
+
+def set_default_daily_minutes(minutes: int) -> None:
+    cfg = load_config()
+    cfg["default_daily_minutes"] = int(minutes)
+    save_config(cfg)
+
+
+def get_last_mode() -> str:
+    mode = load_config().get("last_mode")
+    return mode if mode in (MODE_FULL, MODE_WIDGET) else MODE_FULL
+
+
+def set_last_mode(mode: str) -> None:
+    if mode not in (MODE_FULL, MODE_WIDGET):
+        raise ValueError(f"알 수 없는 모드: {mode!r}")
+    cfg = load_config()
+    cfg["last_mode"] = mode
     save_config(cfg)

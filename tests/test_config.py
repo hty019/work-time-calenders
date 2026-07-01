@@ -37,3 +37,17 @@ def test_window_pos_roundtrip(tmp_path, monkeypatch):
     assert cfg.get_window_pos() is None
     cfg.save_window_pos(100, 200)
     assert cfg.get_window_pos() == (100, 200)
+
+
+def test_default_daily_minutes_roundtrip(tmp_path, monkeypatch):
+    cfg = load_config_module(tmp_path, monkeypatch)
+    assert cfg.get_default_daily_minutes() == cfg.DEFAULT_DAILY_MINUTES
+    cfg.set_default_daily_minutes(240)
+    assert cfg.get_default_daily_minutes() == 240
+
+
+def test_last_mode_roundtrip(tmp_path, monkeypatch):
+    cfg = load_config_module(tmp_path, monkeypatch)
+    assert cfg.get_last_mode() == cfg.MODE_FULL
+    cfg.set_last_mode(cfg.MODE_WIDGET)
+    assert cfg.get_last_mode() == cfg.MODE_WIDGET
