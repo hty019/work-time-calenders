@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QFormLayout,
 )
 
-from widget.edit_dialog import build_iso
+from core.timefmt import build_iso
 
 MAX_PLAN_MINUTES = 24 * 60
 

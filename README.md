@@ -11,6 +11,8 @@ python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
 ```
 
+의존성: PySide6, requests, holidays
+
 ## 공휴일 API 키 설정 (선택)
 
 공공데이터포털(data.go.kr) "특일정보" 서비스 키를 발급받아 설정:
@@ -27,9 +29,13 @@ echo '{"service_key": "발급받은_키"}' > ~/.work-widget/config.json
 
 ## 실행
 
+PySide6가 설치된 가상환경에서 실행한다:
+
 ```bash
 ./venv/bin/python main.py
 ```
+
+- 전체화면 모드와 위젯 모드는 `F` 키로 전환할 수 있다.
 
 ## 자동 시작 등록
 
@@ -45,6 +51,7 @@ launchctl load ~/Library/LaunchAgents/com.taeyeon.workwidget.plist
 - 부팅(실행) 시 그날 첫 실행 시각이 출근으로 기록됨(이미 있으면 유지).
 - '퇴근' 버튼으로 근무시간 확정. 점심 차감: 9시간 미만 -30분, 9시간 이상 -1시간.
 - 날짜 클릭 → 출근/퇴근 시각 수동 수정. 퇴근 비우면 미퇴근 처리.
+- `F` 키로 전체화면 ↔ 위젯 모드 전환.
 
 ## 데이터 위치
 
