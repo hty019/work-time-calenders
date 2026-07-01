@@ -13,11 +13,27 @@ def test_format_hms():
 
 
 def test_required_month_hours():
-    # 말일 / 7 * 40 (버림)
+    # 말일 / 7 * 40 (버림), 공휴일 없음
     assert required_month_hours(2026, 7) == 177   # 31일
     assert required_month_hours(2026, 6) == 171   # 30일
     assert required_month_hours(2026, 2) == 160   # 28일
     assert required_month_hours(2024, 2) == 165   # 29일(윤년)
+
+
+def test_required_month_hours_subtracts_weekday_holidays():
+    # 2026-02: 설날 2/16(월)·17(화)·18(수) 모두 평일 → 3일 × 8h 차감
+    holidays = {
+        "2026-02-16": "설날",
+        "2026-02-17": "설날",
+        "2026-02-18": "설날",
+    }
+    assert required_month_hours(2026, 2, holidays) == 160 - 3 * 8  # 136
+
+
+def test_required_month_hours_ignores_weekend_holidays():
+    # 2026-08-15(광복절)은 토요일 → 차감 없음
+    holidays = {"2026-08-15": "광복절"}
+    assert required_month_hours(2026, 8, holidays) == 177  # 31일, 차감 0
 
 
 def test_grid_has_full_weeks():

@@ -66,13 +66,15 @@ def _render_cell(
     frame.grid_propagate(False)
 
     date_label = tk.Label(
-        frame, text=str(cell.day), fg=date_fg, bg=cell_bg, font=theme.FONT_DATE,
+        frame, text=str(cell.day), fg=date_fg, bg=cell_bg,
+        font=theme.FONT_DATE, cursor="hand2",
     )
     date_label.pack(pady=(3, 0))
 
     sub_text, sub_fg = _subtext(cell)
     time_label = tk.Label(
-        frame, text=sub_text, fg=sub_fg, bg=cell_bg, font=theme.FONT_TIME,
+        frame, text=sub_text, fg=sub_fg, bg=cell_bg,
+        font=theme.FONT_TIME, cursor="hand2",
     )
     time_label.pack()
 

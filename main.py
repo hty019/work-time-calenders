@@ -40,7 +40,7 @@ class App:
         today_rec = records.get(today)
         clock_in_txt = today_rec.clock_in[11:16] if today_rec else "-"
         total = self._service.month_total_seconds(year, month)
-        required = required_month_hours(year, month)
+        required = required_month_hours(year, month, holidays)
         header = (
             f"출근 {clock_in_txt}  |  {month}월 누적 "
             f"{format_hms(total)} / {required}h"
