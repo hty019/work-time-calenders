@@ -14,7 +14,8 @@ from widget.calendar_model import (
 from widget.edit_dialog import open_edit_dialog
 from widget.window import WidgetWindow
 
-_LIVE_REFRESH_INTERVAL_MS = 60_000  # 진행 중 근무시간 실시간 갱신 주기 (1분)
+_MINUTE_SECONDS = 60
+_SYNC_BUFFER_MS = 100  # 분 경계를 살짝 지난 뒤 갱신해 초가 00으로 넘어간 것을 보장
 
 
 class App:
@@ -62,8 +63,14 @@ class App:
         )
         self._window.render(header, grid, self._service.today_status())
 
+    def _ms_until_next_minute(self) -> int:
+        """다음 분 경계(:00)까지 남은 밀리초. 벽시계 분 갱신과 동기화한다."""
+        now = timeutil.now()
+        remaining = _MINUTE_SECONDS - now.second - now.microsecond / 1_000_000
+        return int(remaining * 1000) + _SYNC_BUFFER_MS
+
     def _tick(self) -> None:
-        """1분마다 헤더와 오늘 셀의 진행 중 근무시간만 갱신한다."""
+        """매 분 경계에 헤더와 오늘 셀의 진행 중 근무시간만 갱신한다."""
         now = timeutil.now()
         year, month = now.year, now.month
         today = timeutil.today_str(now)
@@ -77,7 +84,7 @@ class App:
         )
         today_text = format_hms(today_seconds) if today_seconds is not None else None
         self._window.update_live(header, today_text)
-        self._window.root.after(_LIVE_REFRESH_INTERVAL_MS, self._tick)
+        self._window.root.after(self._ms_until_next_minute(), self._tick)
 
     def _handle_clock_out(self) -> None:
         try:
@@ -107,7 +114,7 @@ class App:
     def run(self) -> None:
         self._service.record_clock_in()  # 부팅 = 출근
         self._refresh()
-        self._window.root.after(_LIVE_REFRESH_INTERVAL_MS, self._tick)
+        self._window.root.after(self._ms_until_next_minute(), self._tick)
         self._window.run()
 
 
