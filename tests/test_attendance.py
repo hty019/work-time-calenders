@@ -85,9 +85,9 @@ def test_month_total_excludes_incomplete(tmp_path):
 def test_today_in_progress_seconds_while_clocked_in(tmp_path):
     svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
     svc.record_clock_in()
-    # 4시간 경과(raw 4h < 9h → 점심 30분 차감)
-    svc._clock = lambda: datetime(2026, 6, 30, 13, 0, tzinfo=KST)
-    assert svc.today_in_progress_seconds() == 4 * 3600 - 30 * 60
+    # 2시간 경과 → 첫 4시간 이내라 그대로 누적
+    svc._clock = lambda: datetime(2026, 6, 30, 11, 0, tzinfo=KST)
+    assert svc.today_in_progress_seconds() == 2 * 3600
 
 
 def test_today_in_progress_seconds_none_when_not_active(tmp_path):

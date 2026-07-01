@@ -1,24 +1,38 @@
-"""근무 시간 계산 (점심 자동 차감)."""
+"""근무 시간 계산 (휴게시간 임계-정지 차감).
+
+일괄 차감이 아니라, 누적 근무가 임계에 도달하면 그 지점에서 30분 동안
+카운트를 멈추는 방식이다. 실제 경과시간(raw)에 대한 누적 근무시간은 다음과
+같이 연속·단조 증가한다.
+
+    raw 0 ~ 4h        : raw 그대로 정상 누적
+    raw 4h ~ 4h30m    : 4h 고정 (1차 휴게)
+    raw 4h30m ~ 8h30m : raw - 30m
+    raw 8h30m ~ 9h    : 8h 고정 (2차 휴게)  ← 누적 8h 도달 시점에 시작
+    raw 9h ~          : raw - 60m
+
+정규 근무의 최종값은 기존과 동일하다 (9h→8h, 8h→7h30m).
+휴게는 최대 2회(총 60분)로 고정한다.
+"""
 from __future__ import annotations
 
 from datetime import datetime
 
-LUNCH_THRESHOLD_SECONDS = 9 * 3600
-LUNCH_DEDUCT_SHORT_SECONDS = 30 * 60
-LUNCH_DEDUCT_LONG_SECONDS = 60 * 60
+FOUR_HOURS_SECONDS = 4 * 3600
+EIGHT_HOURS_SECONDS = 8 * 3600
+BREAK_SECONDS = 30 * 60
 
 
 def compute_work_seconds(clock_in: datetime, clock_out: datetime) -> int:
-    """출근~퇴근 raw 구간에서 점심시간을 차감한 근무 초.
-
-    raw < 9시간 → 30분 차감, raw >= 9시간 → 60분 차감, 음수는 0으로 보정.
-    """
+    """출근~퇴근 raw 구간에서 휴게시간을 차감한 근무 초."""
     raw = int((clock_out - clock_in).total_seconds())
     if raw <= 0:
         return 0
-    deduct = (
-        LUNCH_DEDUCT_LONG_SECONDS
-        if raw >= LUNCH_THRESHOLD_SECONDS
-        else LUNCH_DEDUCT_SHORT_SECONDS
-    )
-    return max(0, raw - deduct)
+    if raw < FOUR_HOURS_SECONDS:                       # 0 ~ 4h
+        return raw
+    if raw < FOUR_HOURS_SECONDS + BREAK_SECONDS:       # 1차 휴게 [4h, 4h30m)
+        return FOUR_HOURS_SECONDS
+    if raw < EIGHT_HOURS_SECONDS + BREAK_SECONDS:      # 4h30m ~ 8h30m
+        return raw - BREAK_SECONDS
+    if raw < EIGHT_HOURS_SECONDS + 2 * BREAK_SECONDS:  # 2차 휴게 [8h30m, 9h)
+        return EIGHT_HOURS_SECONDS
+    return raw - 2 * BREAK_SECONDS                      # 9h ~
