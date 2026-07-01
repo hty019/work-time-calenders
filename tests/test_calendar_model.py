@@ -43,6 +43,37 @@ def test_grid_has_full_weeks():
     assert grid[0][0].day == 1
 
 
+def test_grid_reflects_today_in_progress_seconds():
+    # 오늘 미퇴근 상태 + 진행 중 근무초를 셀에 실시간 반영
+    records = {
+        "2026-06-30": Attendance(
+            "2026-06-30", "2026-06-30T09:00:00+09:00", None, None,
+        ),
+    }
+    grid = build_month_grid(
+        2026, 6, "2026-06-30", records, {}, today_seconds=3 * 3600,
+    )
+    cells = {c.date: c for week in grid for c in week if c.day != 0}
+    today = cells["2026-06-30"]
+    assert today.work_seconds == 3 * 3600
+    assert today.is_incomplete is False  # 미퇴근 대신 진행 시간 표시
+
+
+def test_grid_past_incomplete_stays_incomplete():
+    # 과거의 미퇴근 날짜는 today_seconds 와 무관하게 '미퇴근' 유지
+    records = {
+        "2026-06-02": Attendance(
+            "2026-06-02", "2026-06-02T09:00:00+09:00", None, None,
+        ),
+    }
+    grid = build_month_grid(
+        2026, 6, "2026-06-30", records, {}, today_seconds=3 * 3600,
+    )
+    cells = {c.date: c for week in grid for c in week if c.day != 0}
+    assert cells["2026-06-02"].is_incomplete is True
+    assert cells["2026-06-02"].work_seconds is None
+
+
 def test_grid_marks_today_holiday_and_work():
     records = {
         "2026-06-30": Attendance(

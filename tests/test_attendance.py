@@ -80,3 +80,22 @@ def test_month_total_excludes_incomplete(tmp_path):
     svc.edit("2026-06-01", "2026-06-01T09:00:00+09:00", "2026-06-01T18:00:00+09:00")
     svc.edit("2026-06-02", "2026-06-02T09:00:00+09:00", "")  # 미퇴근
     assert svc.month_total_seconds(2026, 6) == 8 * 3600
+
+
+def test_today_in_progress_seconds_while_clocked_in(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    # 4시간 경과(raw 4h < 9h → 점심 30분 차감)
+    svc._clock = lambda: datetime(2026, 6, 30, 13, 0, tzinfo=KST)
+    assert svc.today_in_progress_seconds() == 4 * 3600 - 30 * 60
+
+
+def test_today_in_progress_seconds_none_when_not_active(tmp_path):
+    # 미출근
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    assert svc.today_in_progress_seconds() is None
+    # 퇴근 완료 후에도 None
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
+    svc.record_clock_out()
+    assert svc.today_in_progress_seconds() is None

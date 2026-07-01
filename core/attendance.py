@@ -54,3 +54,17 @@ class AttendanceService:
     def month_total_seconds(self, year: int, month: int) -> int:
         rows = self._storage.list_month(year, month)
         return sum(r.work_seconds for r in rows if r.work_seconds is not None)
+
+    def today_in_progress_seconds(self) -> int | None:
+        """오늘 출근했으나 아직 퇴근하지 않았다면 지금까지의 근무 초.
+
+        퇴근 완료·미출근 등 진행 중이 아닌 경우 None을 반환한다.
+        점심 차감 등 계산 로직은 퇴근 확정값과 동일하게 적용된다.
+        """
+        now = self._clock()
+        date = timeutil.today_str(now)
+        rec = self._storage.get(date)
+        if rec is None or rec.clock_out is not None:
+            return None
+        clock_in = timeutil.from_iso(rec.clock_in)
+        return compute_work_seconds(clock_in, now)

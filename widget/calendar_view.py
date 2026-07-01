@@ -16,7 +16,11 @@ def render_grid(
     parent: tk.Widget,
     grid: list[list[DayCell]],
     on_day_click: Callable[[str], None],
-) -> None:
+) -> tk.Label | None:
+    """달력 그리드를 그리고, 오늘 셀의 근무시간 라벨을 반환한다.
+
+    반환된 라벨은 전체 재렌더 없이 실시간 갱신하는 데 사용된다.
+    """
     for child in parent.winfo_children():
         child.destroy()
 
@@ -27,9 +31,13 @@ def render_grid(
             font=theme.FONT_WEEKDAY, width=4,
         ).grid(row=0, column=col, padx=1, pady=(0, 2))
 
+    today_time_label: tk.Label | None = None
     for r, week in enumerate(grid, start=1):
         for c, cell in enumerate(week):
-            _render_cell(parent, cell, r, c, on_day_click)
+            time_label = _render_cell(parent, cell, r, c, on_day_click)
+            if cell.is_today:
+                today_time_label = time_label
+    return today_time_label
 
 
 def _render_cell(
@@ -38,13 +46,13 @@ def _render_cell(
     row: int,
     col: int,
     on_day_click: Callable[[str], None],
-) -> None:
+) -> tk.Label | None:
     if cell.day == 0:
         tk.Frame(
             parent, bg=theme.BG_BASE,
             width=theme.CELL_WIDTH, height=theme.CELL_HEIGHT,
         ).grid(row=row, column=col, padx=1, pady=1)
-        return
+        return None
 
     is_weekend = col >= _SAT_COL
     is_holiday = cell.holiday_name is not None or is_weekend
@@ -85,6 +93,7 @@ def _render_cell(
         w.bind("<Button-1>", lambda _e, d=cell.date: on_day_click(d))
     if not cell.is_today:
         _bind_hover(frame, widgets, cell_bg)
+    return time_label
 
 
 def _subtext(cell: DayCell) -> tuple[str, str]:

@@ -43,6 +43,7 @@ class WidgetWindow:
 
         self._cal_frame = tk.Frame(self._root, bg=theme.BG_BASE)
         self._cal_frame.pack(padx=10, pady=2)
+        self._today_time_label: tk.Label | None = None
 
         self._make_clock_out_button().pack(fill="x", padx=10, pady=(6, 10))
 
@@ -100,7 +101,20 @@ class WidgetWindow:
 
     def render(self, header_text: str, grid: list[list[DayCell]]) -> None:
         self._header.config(text=header_text)
-        render_grid(self._cal_frame, grid, self._on_edit_day)
+        self._today_time_label = render_grid(
+            self._cal_frame, grid, self._on_edit_day
+        )
+
+    def update_live(
+        self, header_text: str, today_time_text: str | None
+    ) -> None:
+        """전체 재렌더 없이 헤더와 오늘 셀 근무시간만 갱신한다.
+
+        today_time_text 가 None 이면(진행 중 아님) 오늘 셀은 건드리지 않는다.
+        """
+        self._header.config(text=header_text)
+        if today_time_text is not None and self._today_time_label is not None:
+            self._today_time_label.config(text=today_time_text)
 
     def run(self) -> None:
         self._root.mainloop()

@@ -71,6 +71,7 @@ def build_month_grid(
     today: str,
     records: dict[str, Attendance],
     holidays: dict[str, str],
+    today_seconds: int | None = None,
 ) -> list[list[DayCell]]:
     cal = calendar.Calendar(firstweekday=0)  # 0 = Monday
     grid: list[list[DayCell]] = []
@@ -84,6 +85,10 @@ def build_month_grid(
             rec = records.get(date)
             work_seconds = rec.work_seconds if rec else None
             is_incomplete = rec is not None and rec.clock_out is None
+            # 오늘 진행 중이면 실시간 근무초를 셀에 반영한다.
+            if date == today and is_incomplete and today_seconds is not None:
+                work_seconds = today_seconds
+                is_incomplete = False
             row.append(
                 DayCell(
                     day=day,
