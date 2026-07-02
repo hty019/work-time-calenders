@@ -22,6 +22,7 @@ class MonthSummary:
     progress_ratio: float | None
     expected_clock_out: datetime | None
     remaining_seconds: int | None
+    expected_exceeds_range: bool = False  # 예상 퇴근이 (가)계획 종료를 초과
 
 
 def build_month_summary(
@@ -49,6 +50,7 @@ def build_month_summary(
     expected, remaining = _today_expectation(
         storage, plan_service, holidays, now
     )
+    exceeds = _exceeds_recognition_end(storage, timeutil.today_str(now), expected)
     return MonthSummary(
         year=year,
         month=month,
@@ -58,6 +60,7 @@ def build_month_summary(
         progress_ratio=progress_ratio,
         expected_clock_out=expected,
         remaining_seconds=remaining,
+        expected_exceeds_range=exceeds,
     )
 
 
@@ -75,3 +78,18 @@ def _today_expectation(storage, plan_service, holidays, now):
     expected = clock_in + timedelta(seconds=raw)
     remaining = int((expected - now).total_seconds())
     return expected, remaining
+
+
+def _exceeds_recognition_end(
+    storage, today: str, expected: datetime | None
+) -> bool:
+    """예상 퇴근 시각이 오늘 (가)계획 종료 시각을 넘는지 판정."""
+    if expected is None:
+        return False
+    recog = storage.get_recognition(today)
+    if recog is None:
+        return False
+    _, end_min = recog
+    if timeutil.today_str(expected) != today:
+        return True  # 자정을 넘기면 어떤 범위든 초과
+    return expected.hour * _MINUTES_PER_HOUR + expected.minute > end_min

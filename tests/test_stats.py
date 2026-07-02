@@ -7,11 +7,15 @@ KST = ZoneInfo("Asia/Seoul")
 
 
 class FakeStorage:
-    def __init__(self, rec=None):
+    def __init__(self, rec=None, recog=None):
         self._rec = rec
+        self._recog = recog
 
     def get(self, date):
         return self._rec
+
+    def get_recognition(self, date):
+        return self._recog
 
 
 class FakeAttendance:
@@ -87,6 +91,40 @@ def test_expected_clock_out_from_clock_in_and_plan():
     assert s.expected_clock_out.minute == 0
     # 남은시간 = 18:00 - 12:00 = 6h
     assert s.remaining_seconds == 6 * 3600
+
+
+def test_expected_exceeds_recognition_end():
+    # (가)계획 08:00~18:00, 출근 09:30, 계획 480분 → 예상 18:30 > 18:00 → 경고
+    rec = Rec("2026-07-01T09:30:00+09:00", None)
+    now = datetime(2026, 7, 1, 12, 0, tzinfo=KST)
+    s = build_month_summary(
+        FakeStorage(rec, recog=(480, 1080)), FakeAttendance(in_progress=9000),
+        FakePlan(9600, 480), 2026, 7, {}, now,
+    )
+    assert s.expected_clock_out.hour == 18
+    assert s.expected_clock_out.minute == 30
+    assert s.expected_exceeds_range is True
+
+
+def test_expected_within_recognition_end():
+    # (가)계획 08:00~19:00, 출근 09:00 → 예상 18:00 ≤ 19:00 → 경고 없음
+    rec = Rec("2026-07-01T09:00:00+09:00", None)
+    now = datetime(2026, 7, 1, 12, 0, tzinfo=KST)
+    s = build_month_summary(
+        FakeStorage(rec, recog=(480, 1140)), FakeAttendance(in_progress=10800),
+        FakePlan(9600, 480), 2026, 7, {}, now,
+    )
+    assert s.expected_exceeds_range is False
+
+
+def test_expected_no_recognition_range_no_warning():
+    rec = Rec("2026-07-01T09:00:00+09:00", None)
+    now = datetime(2026, 7, 1, 12, 0, tzinfo=KST)
+    s = build_month_summary(
+        FakeStorage(rec), FakeAttendance(in_progress=10800),
+        FakePlan(9600, 480), 2026, 7, {}, now,
+    )
+    assert s.expected_exceeds_range is False
 
 
 def test_expected_none_without_clock_in():

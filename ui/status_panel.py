@@ -13,6 +13,12 @@ from core.stats import MonthSummary
 from ui import theme
 
 _SECONDS_PER_MINUTE = 60
+_EXPECTED_FONT_PX = 20
+
+
+def _expected_style(warn: bool) -> str:
+    color = theme.FG_RANGE_WARN if warn else theme.FG_PLANNED
+    return f"color:{color}; font-size:{_EXPECTED_FONT_PX}px; font-weight:bold;"
 
 
 def _fmt_seconds(seconds: int) -> str:
@@ -46,9 +52,7 @@ class StatusPanel(QWidget):
         self._expected_title = QLabel("오늘 예상 퇴근")
         self._expected_title.setStyleSheet(f"color:{theme.FG_MUTED};")
         self._expected = QLabel()
-        self._expected.setStyleSheet(
-            f"color:{theme.FG_PLANNED}; font-size:20px; font-weight:bold;"
-        )
+        self._expected.setStyleSheet(_expected_style(warn=False))
 
         for w in (self._title, self._required, self._planned, self._actual,
                   self._progress, self._expected_title, self._expected):
@@ -98,11 +102,15 @@ class StatusPanel(QWidget):
             self._progress.setFormat(f"{pct}%")
         if summary.expected_clock_out is None:
             self._expected.setText("-")
+            self._expected.setStyleSheet(_expected_style(warn=False))
         else:
             hhmm = summary.expected_clock_out.strftime("%H:%M")
             remain = summary.remaining_seconds or 0
             suffix = (
                 f" ({_fmt_seconds(remain)} 남음)" if remain > 0 else " (초과)"
             )
-            self._expected.setText(f"{hhmm}{suffix}")
+            warn = summary.expected_exceeds_range
+            warn_text = "\n⚠ (가)계획 종료 초과" if warn else ""
+            self._expected.setText(f"{hhmm}{suffix}{warn_text}")
+            self._expected.setStyleSheet(_expected_style(warn=warn))
         self._render_buttons(status)

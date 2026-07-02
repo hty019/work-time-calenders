@@ -100,6 +100,8 @@ class AppController:
             expected = "예상 퇴근 -"
         else:
             expected = f"예상 퇴근 {summary.expected_clock_out.strftime('%H:%M')}"
+            if summary.expected_exceeds_range:
+                expected += " ⚠"
         self._widget.render(status, header, expected)
 
     def _ms_until_next_minute(self) -> int:
