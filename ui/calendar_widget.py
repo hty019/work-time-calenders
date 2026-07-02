@@ -23,16 +23,37 @@ def _is_weekend(date: str | None) -> bool:
 
 
 class _WeekdayHeader(QLabel):
-    """클릭하면 해당 요일 인덱스(월=0..일=6)로 콜백하는 요일 헤더."""
+    """클릭하면 해당 요일 인덱스(월=0..일=6)로 콜백하는 요일 헤더.
+
+    호버 시 둥근 칩(chip) 배경으로 클릭 가능한 영역을 드러낸다.
+    """
 
     def __init__(
-        self, text: str, weekday: int, on_click: Callable[[int], None]
+        self,
+        text: str,
+        weekday: int,
+        fg: str,
+        on_click: Callable[[int], None],
     ) -> None:
         super().__init__(text)
         self._weekday = weekday
         self._on_click = on_click
         self.setAlignment(Qt.AlignCenter)
         self.setCursor(Qt.PointingHandCursor)
+        # ID 셀렉터로 이 라벨에만 적용. 텍스트 색은 유지해 주말 구분 보존.
+        self.setObjectName("weekdayHeader")
+        self.setStyleSheet(f"""
+        #weekdayHeader {{
+            color: {fg};
+            font-weight: bold;
+            padding: 4px 0;
+            border-radius: 6px;
+            background: transparent;
+        }}
+        #weekdayHeader:hover {{
+            background-color: {theme.BG_HOVER};
+        }}
+        """)
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt override)
         self._on_click(self._weekday)
@@ -219,8 +240,7 @@ class CalendarWidget(QWidget):
         self._clear()
         for col, name in enumerate(_WEEKDAYS):
             fg = theme.FG_HOLIDAY if col >= _SAT_COL else theme.FG_MUTED
-            head = _WeekdayHeader(name, col, self._on_weekday_click)
-            head.setStyleSheet(f"color:{fg}; font-weight:bold;")
+            head = _WeekdayHeader(name, col, fg, self._on_weekday_click)
             self._layout.addWidget(head, 0, col)
         for r, week in enumerate(grid, start=1):
             for c, cell in enumerate(week):
