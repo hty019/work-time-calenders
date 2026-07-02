@@ -79,7 +79,10 @@ class _DayCellWidget(QFrame):
 
         is_full_day_vacation = cell.vacation_minutes >= FULL_DAY_MINUTES
 
-        if cell.is_clocked_out:
+        if is_full_day_vacation:
+            # 1day 휴가일: 출퇴근·근로 기록이 있어도 숨기고 휴가만 크게 표시
+            layout.addWidget(self._vacation_label(cell, emphasized=True))
+        elif cell.is_clocked_out:
             # 퇴근 완료: 계획 대신 출근/퇴근 시각·(휴가)·구분선·인정시간 표시
             inout = QLabel(
                 f"출근 {cell.clock_in_hm}\n퇴근 {cell.clock_out_hm}"
@@ -110,17 +113,6 @@ class _DayCellWidget(QFrame):
                 f"font-weight:bold;"
             )
             layout.addWidget(work)
-        elif is_full_day_vacation:
-            # 1day 휴가만 있는 날: 계획을 숨기고 휴가만 크게 강조
-            work_text, work_fg = self._work_line(cell)
-            if work_text:
-                work = QLabel(work_text)
-                work.setAlignment(Qt.AlignCenter)
-                work.setStyleSheet(
-                    f"color:{work_fg}; font-size:{theme.CELL_WORK_FONT_PX}px;"
-                )
-                layout.addWidget(work)
-            layout.addWidget(self._vacation_label(cell, emphasized=True))
         else:
             work_text, work_fg = self._work_line(cell)
             if work_text:
