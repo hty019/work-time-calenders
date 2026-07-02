@@ -1,6 +1,7 @@
 """월 달력 그리드 Qt 위젯."""
 from __future__ import annotations
 
+import datetime
 from typing import Callable
 
 from PySide6.QtCore import Qt
@@ -11,6 +12,13 @@ from ui import theme
 
 _WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
 _SAT_COL = 5
+_SATURDAY = 5  # date.weekday(): 월=0 ~ 일=6
+
+
+def _is_weekend(date: str | None) -> bool:
+    if date is None:
+        return False
+    return datetime.date.fromisoformat(date).weekday() >= _SATURDAY
 
 
 class _WeekdayHeader(QLabel):
@@ -35,8 +43,13 @@ class _DayCellWidget(QFrame):
         self._date = cell.date
         self._on_click = on_click
         self.setMinimumSize(theme.CELL_MIN_WIDTH, theme.CELL_MIN_HEIGHT)
-        is_today = cell.is_today
-        bg = theme.BG_TODAY if is_today else theme.BG_ELEVATED
+        # 배경 우선순위: 오늘 > 주말(연한 갈색) > 기본
+        if cell.is_today:
+            bg = theme.BG_TODAY
+        elif _is_weekend(cell.date):
+            bg = theme.BG_WEEKEND
+        else:
+            bg = theme.BG_ELEVATED
         self.setStyleSheet(
             f"background-color:{bg}; border-radius:6px;"
         )
