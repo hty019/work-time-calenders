@@ -24,3 +24,10 @@ def to_iso(dt: datetime) -> str:
 
 def from_iso(s: str) -> datetime:
     return datetime.fromisoformat(s)
+
+
+def hhmm(s: str | None) -> str:
+    """ISO 시각 문자열에서 'HH:MM' 추출. None/빈 값은 빈 문자열."""
+    if not s:
+        return ""
+    return from_iso(s).strftime("%H:%M")

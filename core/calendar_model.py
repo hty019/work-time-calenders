@@ -7,6 +7,7 @@ import math
 from dataclasses import dataclass
 from typing import Callable
 
+from core import timeutil
 from core.storage import Attendance
 
 _WEEKLY_WORK_HOURS = 40  # 주 40시간 근로 기준
@@ -25,6 +26,8 @@ class DayCell:
     is_incomplete: bool
     planned_minutes: int = 0
     is_clocked_out: bool = False
+    clock_in_hm: str = ""
+    clock_out_hm: str = ""
 
 
 def format_hms(seconds: int | None) -> str:
@@ -110,6 +113,8 @@ def build_month_grid(
                     is_incomplete=is_incomplete,
                     planned_minutes=planned,
                     is_clocked_out=is_clocked_out,
+                    clock_in_hm=timeutil.hhmm(rec.clock_in) if rec else "",
+                    clock_out_hm=timeutil.hhmm(rec.clock_out) if rec else "",
                 )
             )
         grid.append(row)

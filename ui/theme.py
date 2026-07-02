@@ -26,6 +26,10 @@ CELL_WORK_FONT_PX = 11        # 일반 근로시간/미퇴근 표시
 CELL_PLAN_FONT_PX = 10        # 계획 시간 표시
 CELL_ACTUAL_DONE_FONT_PX = 14  # 퇴근 완료일 실 근로시간 강조(조금 크게)
 
+# 좌상단 날짜가 차지하는 높이(px). 하단 대칭 여백에 사용해
+# 계획/근로 시간 블록이 셀 전체 기준 가운데로 보이도록 보정한다.
+CELL_DATE_ROW_PX = 20
+
 WINDOW_MIN_WIDTH = 900
 WINDOW_MIN_HEIGHT = 640
 STATUS_PANEL_WIDTH = 260

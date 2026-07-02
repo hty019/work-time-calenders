@@ -30,21 +30,44 @@ class _DayCellWidget(QFrame):
         layout.setContentsMargins(6, 4, 6, 4)
         layout.setSpacing(1)
 
+        # 날짜는 기존과 같이 좌측 상단에 고정
         date_fg = theme.FG_HOLIDAY if cell.holiday_name else theme.FG_DATE
         date_label = QLabel(str(cell.day))
+        date_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         date_label.setStyleSheet(
             f"color:{date_fg}; font-size:16px; font-weight:bold;"
         )
         layout.addWidget(date_label)
 
+        layout.addStretch(1)  # 날짜 아래 여백 → 이하 콘텐츠를 수직 가운데로
+
         if cell.holiday_name:
             name = QLabel(cell.holiday_name)
+            name.setAlignment(Qt.AlignCenter)
             name.setStyleSheet(f"color:{theme.FG_HOLIDAY}; font-size:10px;")
             layout.addWidget(name)
 
         if cell.is_clocked_out:
-            # 퇴근 완료: 계획을 숨기고 실 근로시간을 연두색 볼드로 강조
+            # 퇴근 완료: 계획 대신 출근/퇴근 시각·구분선·실 근로시간 표시
+            inout = QLabel(
+                f"출근 {cell.clock_in_hm}\n퇴근 {cell.clock_out_hm}"
+            )
+            inout.setAlignment(Qt.AlignCenter)
+            inout.setStyleSheet(
+                f"color:{theme.FG_TIME}; font-size:{theme.CELL_WORK_FONT_PX}px;"
+            )
+            layout.addWidget(inout)
+
+            divider = QLabel("─────")
+            divider.setAlignment(Qt.AlignCenter)
+            divider.setStyleSheet(
+                f"color:{theme.FG_MUTED}; font-size:{theme.CELL_PLAN_FONT_PX}px;"
+            )
+            layout.addWidget(divider)
+
+            # 실 근로시간을 연두색 볼드로 강조
             work = QLabel(format_hms(cell.work_seconds))
+            work.setAlignment(Qt.AlignCenter)
             work.setStyleSheet(
                 f"color:{theme.FG_ACTUAL_DONE}; "
                 f"font-size:{theme.CELL_ACTUAL_DONE_FONT_PX}px; "
@@ -55,6 +78,7 @@ class _DayCellWidget(QFrame):
             work_text, work_fg = self._work_line(cell)
             if work_text:
                 work = QLabel(work_text)
+                work.setAlignment(Qt.AlignCenter)
                 work.setStyleSheet(
                     f"color:{work_fg}; font-size:{theme.CELL_WORK_FONT_PX}px;"
                 )
@@ -62,13 +86,16 @@ class _DayCellWidget(QFrame):
 
             if cell.planned_minutes > 0:
                 plan = QLabel(f"계획 {format_hm(cell.planned_minutes)}")
+                plan.setAlignment(Qt.AlignCenter)
                 plan.setStyleSheet(
                     f"color:{theme.FG_PLANNED}; "
                     f"font-size:{theme.CELL_PLAN_FONT_PX}px;"
                 )
                 layout.addWidget(plan)
 
-        layout.addStretch(1)
+        layout.addStretch(1)  # 아래쪽 여백 → 콘텐츠를 수직 가운데로
+        # 상단 날짜 높이만큼 하단에 대칭 여백을 두어 셀 전체 기준 가운데로 보정
+        layout.addSpacing(theme.CELL_DATE_ROW_PX)
 
     def _work_line(self, cell: DayCell) -> tuple[str, str]:
         if cell.is_incomplete:

@@ -92,6 +92,8 @@ def test_grid_marks_today_holiday_and_work():
     assert cells["2026-06-30"].is_today is True
     assert cells["2026-06-30"].work_seconds == 8 * 3600
     assert cells["2026-06-30"].is_clocked_out is True  # 퇴근 완료
+    assert cells["2026-06-30"].clock_in_hm == "09:00"
+    assert cells["2026-06-30"].clock_out_hm == "18:00"
     assert cells["2026-06-06"].holiday_name == "현충일"
     assert cells["2026-06-02"].is_incomplete is True
     assert cells["2026-06-02"].is_clocked_out is False  # 미퇴근
