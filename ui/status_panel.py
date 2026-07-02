@@ -14,7 +14,9 @@ from ui import theme
 
 _SECONDS_PER_MINUTE = 60
 _MINUTES_PER_HOUR = 60
+_SECONDS_PER_HOUR = 3600
 _EXPECTED_FONT_PX = 20
+_CAPTION_FONT_PX = 11
 _PROGRESS_BAR_HEIGHT_PX = 6  # 얇은 바 스타일 유지
 _PROGRESS_BAR_RADIUS_PX = 3
 
@@ -57,6 +59,19 @@ def _fmt_hours(minutes: int) -> str:
     return f"{minutes // _MINUTES_PER_HOUR}h"
 
 
+def progress_caption(
+    pct: int, level: ProgressLevel, actual_seconds: int, required_minutes: int
+) -> str:
+    """진행률 바 상단 캡션. 법정 이내면 진행도 %, 초과면 +초과시간(h)."""
+    if level is ProgressLevel.NORMAL:
+        return f"근로 시간 진행도: {pct}%"
+    over_hours = (
+        actual_seconds // _SECONDS_PER_HOUR
+        - required_minutes // _MINUTES_PER_HOUR
+    )
+    return f"초과 근로 진행: +{over_hours}h"
+
+
 class StatusPanel(QWidget):
     def __init__(
         self,
@@ -78,6 +93,10 @@ class StatusPanel(QWidget):
         self._max = QLabel()       # 최대 근로 가능시간(주 52h 기준)
         self._planned = QLabel()
         self._actual = QLabel()
+        self._progress_caption = QLabel()  # 진행률 바 상단 상태 텍스트
+        self._progress_caption.setStyleSheet(
+            f"color:{theme.FG_MUTED}; font-size:{_CAPTION_FONT_PX}px;"
+        )
         self._progress = QProgressBar()
         self._progress.setTextVisible(False)
         self._progress.setRange(0, 100)
@@ -88,8 +107,8 @@ class StatusPanel(QWidget):
         self._expected.setStyleSheet(_expected_style(warn=False))
 
         for w in (self._title, self._required, self._max, self._planned,
-                  self._actual, self._progress, self._expected_title,
-                  self._expected):
+                  self._actual, self._progress_caption, self._progress,
+                  self._expected_title, self._expected):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -138,6 +157,11 @@ class StatusPanel(QWidget):
         )
         self._progress.setValue(pct)
         self._progress.setStyleSheet(_progress_style(level))
+        self._progress_caption.setText(
+            progress_caption(
+                pct, level, summary.actual_seconds, summary.required_minutes
+            )
+        )
         if summary.expected_clock_out is None:
             self._expected.setText("-")
             self._expected.setStyleSheet(_expected_style(warn=False))
