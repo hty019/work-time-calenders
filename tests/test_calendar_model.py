@@ -44,10 +44,10 @@ def test_max_month_hours_uses_52_week():
     assert max_month_hours(2026, 6) == 222   # 30일: floor(30/7*52)
 
 
-def test_max_month_hours_subtracts_weekday_holidays():
-    # 법정 기준과 동일하게 평일 공휴일 1일당 8h 차감
-    holidays = {"2026-02-16": "설날"}  # 월요일
-    assert max_month_hours(2026, 2, holidays) == 208 - 8  # 28일: 208h
+def test_max_month_hours_ignores_holidays():
+    # 최대 근로 가능시간은 공휴일 차감 없이 말일/7*52 그대로
+    holidays = {"2026-02-16": "설날"}  # 월요일(평일 공휴일)
+    assert max_month_hours(2026, 2, holidays) == 208  # 28일: floor(28/7*52)
 
 
 def test_grid_has_full_weeks():

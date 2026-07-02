@@ -40,7 +40,7 @@ def build_month_summary(
     required_minutes = (
         required_month_hours(year, month, holidays) * _MINUTES_PER_HOUR
     )
-    # 최대 근로 가능시간: 같은 식에서 주 52시간 기준.
+    # 최대 근로 가능시간(말일/7*52, 공휴일 차감 없음).
     max_minutes = max_month_hours(year, month, holidays) * _MINUTES_PER_HOUR
     in_progress = attendance_service.today_in_progress_seconds() or 0
     actual_seconds = attendance_service.month_total_seconds(year, month) + in_progress

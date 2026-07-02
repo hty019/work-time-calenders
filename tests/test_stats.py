@@ -69,9 +69,9 @@ def test_required_minutes_deducts_weekday_holiday():
     )
     assert s_no.required_minutes == 177 * 60
     assert s_hol.required_minutes == (177 - 8) * 60
-    # 최대 근로 가능시간: 같은 식에서 주 52시간 기준
+    # 최대 근로 가능시간: 주 52시간 기준, 공휴일 차감 없음
     assert s_no.max_minutes == 230 * 60
-    assert s_hol.max_minutes == (230 - 8) * 60
+    assert s_hol.max_minutes == 230 * 60
 
 
 def test_progress_ratio_none_when_planned_zero():

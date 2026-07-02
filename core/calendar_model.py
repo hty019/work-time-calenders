@@ -91,9 +91,11 @@ def max_month_hours(
 ) -> int:
     """한 달간 근로 가능한 최대 시간(시간). 주 52시간(연장 포함) 기준.
 
-    법정 기준과 같은 식에서 주당 시간만 52로 바꾼 값이다.
+    계산식: 말일 / 7 * 52 (소수점 버림). 공휴일 차감은 하지 않는다.
+    holidays 인자는 호출부 일관성을 위해 받지만 사용하지 않는다.
     """
-    return _month_hours(year, month, holidays, _WEEKLY_MAX_HOURS)
+    last_day = calendar.monthrange(year, month)[1]
+    return math.floor(last_day / _DAYS_PER_WEEK * _WEEKLY_MAX_HOURS)
 
 
 def build_month_grid(
