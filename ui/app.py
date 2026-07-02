@@ -11,16 +11,18 @@ from core import timeutil
 from core.attendance import AttendanceService
 from core.calendar_model import build_month_grid, format_hms
 from core.holidays import HolidayClient
-from core.plan import PlanService
+from core.plan import PlanService, weekday_dates
 from core.stats import build_month_summary
 from core.storage import Storage
 from ui import theme
 from ui.day_dialog import open_day_dialog
 from ui.main_window import MainWindow, MainWindowCallbacks
+from ui.weekday_dialog import open_weekday_plan_dialog
 from ui.widget_window import WidgetWindow, WidgetCallbacks
 
 _MINUTE_SECONDS = 60
 _SYNC_BUFFER_MS = 100
+_WEEKDAY_NAMES = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]
 
 
 class AppController:
@@ -42,6 +44,7 @@ class AppController:
             on_clock_out=self._handle_clock_out,
             on_cancel_clock_out=self._handle_cancel_clock_out,
             on_edit_day=self._handle_edit_day,
+            on_edit_weekday=self._handle_edit_weekday,
             on_prev_month=self._handle_prev_month,
             on_next_month=self._handle_next_month,
             on_switch_mode=self._handle_switch_mode,
@@ -150,6 +153,20 @@ class AppController:
             config.get_default_daily_minutes(),
             self._handle_save_times,
             self._handle_save_plan,
+        )
+        self._refresh()
+
+    def _handle_edit_weekday(self, weekday: int) -> None:
+        year, month = self._view_year, self._view_month
+        date_count = len(weekday_dates(year, month, weekday))
+        open_weekday_plan_dialog(
+            self._window,
+            _WEEKDAY_NAMES[weekday],
+            date_count,
+            config.get_default_daily_minutes(),
+            lambda minutes: self._plans.set_weekday_plan(
+                year, month, weekday, minutes
+            ),
         )
         self._refresh()
 

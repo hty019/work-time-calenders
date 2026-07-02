@@ -10,6 +10,17 @@ import config
 SATURDAY = 5  # date.weekday(): 월=0 ~ 일=6, 토=5 · 일=6
 
 
+def weekday_dates(year: int, month: int, weekday: int) -> list[str]:
+    """해당 월에서 주어진 요일(월=0..일=6)의 모든 날짜(YYYY-MM-DD) 목록."""
+    last_day = calendar.monthrange(year, month)[1]
+    dates = []
+    for day in range(1, last_day + 1):
+        d = datetime.date(year, month, day)
+        if d.weekday() == weekday:
+            dates.append(d.isoformat())
+    return dates
+
+
 class PlanService:
     def __init__(
         self,
@@ -27,6 +38,22 @@ class PlanService:
 
     def clear_plan(self, date: str) -> None:
         self._storage.clear_plan(date)
+
+    def set_weekday_plan(
+        self, year: int, month: int, weekday: int, minutes: int | None
+    ) -> int:
+        """해당 월의 지정 요일 모든 날짜에 계획(분)을 일괄 설정한다.
+
+        minutes 가 None 이면 오버라이드를 해제(기본값 복귀)한다.
+        실제 처리한 날짜 수를 반환한다.
+        """
+        dates = weekday_dates(year, month, weekday)
+        for date in dates:
+            if minutes is None:
+                self._storage.clear_plan(date)
+            else:
+                self._storage.set_plan(date, minutes)
+        return len(dates)
 
     def effective_minutes(self, date: str, holidays: dict[str, str]) -> int:
         """오버라이드가 있으면 그 값, 없으면 주말·공휴일 0, 평일 기본값."""

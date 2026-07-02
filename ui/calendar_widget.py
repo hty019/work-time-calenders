@@ -13,6 +13,22 @@ _WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
 _SAT_COL = 5
 
 
+class _WeekdayHeader(QLabel):
+    """클릭하면 해당 요일 인덱스(월=0..일=6)로 콜백하는 요일 헤더."""
+
+    def __init__(
+        self, text: str, weekday: int, on_click: Callable[[int], None]
+    ) -> None:
+        super().__init__(text)
+        self._weekday = weekday
+        self._on_click = on_click
+        self.setAlignment(Qt.AlignCenter)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        self._on_click(self._weekday)
+
+
 class _DayCellWidget(QFrame):
     def __init__(self, cell: DayCell, on_click: Callable[[str], None]) -> None:
         super().__init__()
@@ -110,9 +126,14 @@ class _DayCellWidget(QFrame):
 
 
 class CalendarWidget(QWidget):
-    def __init__(self, on_day_click: Callable[[str], None]) -> None:
+    def __init__(
+        self,
+        on_day_click: Callable[[str], None],
+        on_weekday_click: Callable[[int], None],
+    ) -> None:
         super().__init__()
         self._on_day_click = on_day_click
+        self._on_weekday_click = on_weekday_click
         self._layout = QGridLayout(self)
         self._layout.setSpacing(4)
 
@@ -127,8 +148,7 @@ class CalendarWidget(QWidget):
         self._clear()
         for col, name in enumerate(_WEEKDAYS):
             fg = theme.FG_HOLIDAY if col >= _SAT_COL else theme.FG_MUTED
-            head = QLabel(name)
-            head.setAlignment(Qt.AlignCenter)
+            head = _WeekdayHeader(name, col, self._on_weekday_click)
             head.setStyleSheet(f"color:{fg}; font-weight:bold;")
             self._layout.addWidget(head, 0, col)
         for r, week in enumerate(grid, start=1):

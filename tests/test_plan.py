@@ -1,4 +1,4 @@
-from core.plan import PlanService
+from core.plan import PlanService, weekday_dates
 
 
 class FakeStorage:
@@ -63,3 +63,27 @@ def test_month_planned_applies_override_and_holiday():
     total = svc.month_planned_minutes(2026, 7, holidays)
     # 기준 23*480 에서 (480-240) 및 480 차감
     assert total == 23 * 480 - 240 - 480
+
+
+def test_weekday_dates_lists_all_in_month():
+    # 2026-07 의 수요일(월=0..일=6 에서 2): 1,8,15,22,29
+    assert weekday_dates(2026, 7, 2) == [
+        "2026-07-01", "2026-07-08", "2026-07-15", "2026-07-22", "2026-07-29",
+    ]
+
+
+def test_set_weekday_plan_applies_to_all():
+    svc = _svc()
+    count = svc.set_weekday_plan(2026, 7, 2, 300)  # 수요일 전체 300분
+    assert count == 5
+    for d in weekday_dates(2026, 7, 2):
+        assert svc.effective_minutes(d, {}) == 300
+
+
+def test_set_weekday_plan_none_clears_override():
+    svc = _svc()
+    svc.set_weekday_plan(2026, 7, 2, 300)
+    cleared = svc.set_weekday_plan(2026, 7, 2, None)  # 오버라이드 해제
+    assert cleared == 5
+    # 해제 후 평일 기본값 480 복귀
+    assert svc.effective_minutes("2026-07-01", {}) == 480
