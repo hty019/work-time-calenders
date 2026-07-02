@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QVBoxLayout, QFrame
 
 from core.calendar_model import DayCell, format_hms, format_hm
+from core.vacation import FULL_DAY_MINUTES
 from ui import theme
 
 _WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
@@ -76,8 +77,10 @@ class _DayCellWidget(QFrame):
             name.setStyleSheet(f"color:{theme.FG_HOLIDAY}; font-size:10px;")
             layout.addWidget(name)
 
+        is_full_day_vacation = cell.vacation_minutes >= FULL_DAY_MINUTES
+
         if cell.is_clocked_out:
-            # 퇴근 완료: 계획 대신 출근/퇴근 시각·구분선·실 근로시간 표시
+            # 퇴근 완료: 계획 대신 출근/퇴근 시각·(휴가)·구분선·인정시간 표시
             inout = QLabel(
                 f"출근 {cell.clock_in_hm}\n퇴근 {cell.clock_out_hm}"
             )
@@ -86,6 +89,9 @@ class _DayCellWidget(QFrame):
                 f"color:{theme.FG_TIME}; font-size:{theme.CELL_WORK_FONT_PX}px;"
             )
             layout.addWidget(inout)
+
+            if cell.vacation_minutes > 0:
+                layout.addWidget(self._vacation_label(cell))
 
             divider = QLabel("─────")
             divider.setAlignment(Qt.AlignCenter)
@@ -104,6 +110,17 @@ class _DayCellWidget(QFrame):
                 f"font-weight:bold;"
             )
             layout.addWidget(work)
+        elif is_full_day_vacation:
+            # 1day 휴가만 있는 날: 계획을 숨기고 휴가만 크게 강조
+            work_text, work_fg = self._work_line(cell)
+            if work_text:
+                work = QLabel(work_text)
+                work.setAlignment(Qt.AlignCenter)
+                work.setStyleSheet(
+                    f"color:{work_fg}; font-size:{theme.CELL_WORK_FONT_PX}px;"
+                )
+                layout.addWidget(work)
+            layout.addWidget(self._vacation_label(cell, emphasized=True))
         else:
             work_text, work_fg = self._work_line(cell)
             if work_text:
@@ -123,19 +140,15 @@ class _DayCellWidget(QFrame):
                 )
                 layout.addWidget(plan)
 
-        if cell.vacation_minutes > 0:
-            vac = QLabel(f"휴가 {cell.vacation_minutes // 60}h")
-            vac.setAlignment(Qt.AlignCenter)
-            vac.setStyleSheet(
-                f"color:{theme.FG_VACATION}; "
-                f"font-size:{theme.CELL_PLAN_FONT_PX}px;"
-            )
-            layout.addWidget(vac)
+            if cell.vacation_minutes > 0:
+                layout.addWidget(self._vacation_label(cell))
 
-        # (가)계획 범위 표시 — 퇴근 완료 후 범위 내 정상 처리된 날은 숨기고,
-        # 범위를 벗어난 날은 경고를 유지한다.
-        show_recog = cell.recog_hm and (
-            not cell.is_clocked_out or cell.out_of_range
+        # (가)계획 범위 표시 — 퇴근 완료 후 범위 내 정상 처리된 날과
+        # 1day 휴가일은 숨기고, 범위를 벗어난 날은 경고를 유지한다.
+        show_recog = (
+            cell.recog_hm
+            and not is_full_day_vacation
+            and (not cell.is_clocked_out or cell.out_of_range)
         )
         if show_recog:
             recog_fg = (
@@ -152,6 +165,21 @@ class _DayCellWidget(QFrame):
         layout.addStretch(1)  # 아래쪽 여백 → 콘텐츠를 수직 가운데로
         # 상단 날짜 높이만큼 하단에 대칭 여백을 두어 셀 전체 기준 가운데로 보정
         layout.addSpacing(theme.CELL_DATE_ROW_PX)
+
+    @staticmethod
+    def _vacation_label(cell: DayCell, emphasized: bool = False) -> QLabel:
+        """'휴가 Nh' 라벨. emphasized 면 큰 폰트 볼드(휴가만 있는 날)."""
+        vac = QLabel(f"휴가 {cell.vacation_minutes // 60}h")
+        vac.setAlignment(Qt.AlignCenter)
+        size = (
+            theme.CELL_ACTUAL_DONE_FONT_PX if emphasized
+            else theme.CELL_PLAN_FONT_PX
+        )
+        weight = " font-weight:bold;" if emphasized else ""
+        vac.setStyleSheet(
+            f"color:{theme.FG_VACATION}; font-size:{size}px;{weight}"
+        )
+        return vac
 
     def _work_line(self, cell: DayCell) -> tuple[str, str]:
         if cell.is_incomplete:
