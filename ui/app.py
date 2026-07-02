@@ -19,6 +19,7 @@ from core.recognition import (
 )
 from core.stats import build_month_summary
 from core.storage import Storage
+from core.vacation import Vacation, VacationService
 from ui import theme
 from ui.day_dialog import open_day_dialog
 from ui.main_window import MainWindow, MainWindowCallbacks
@@ -39,6 +40,7 @@ class AppController:
         self._service = AttendanceService(self._storage)
         self._plans = PlanService(self._storage)
         self._recog = RecognitionService(self._storage)
+        self._vacations = VacationService(self._storage)
         self._holidays = HolidayClient(
             config.get_service_key(), config.holidays_cache_path()
         )
@@ -84,6 +86,7 @@ class AppController:
             effective_planned=lambda d: self._plans.effective_minutes(d, holidays),
             today_seconds=today_seconds,
             recognition=self._storage.get_recognition,
+            vacation=self._storage.get_vacation,
         )
         summary = build_month_summary(
             self._storage, self._service, self._plans,
@@ -166,6 +169,8 @@ class AppController:
             recog_range=self._recog.get(date),
             baseline_minutes=self._plans.baseline_minutes(date, holidays),
             on_save_recognition=self._handle_save_recognition,
+            vacation=self._vacations.get(date),
+            on_save_vacation=self._handle_save_vacation,
         )
         self._refresh()
 
@@ -218,6 +223,16 @@ class AppController:
             self._recog.clear(work_date)
         else:
             self._recog.set(work_date, rng)
+
+    def _handle_save_vacation(
+        self, work_date: str, vacation: Vacation | None
+    ) -> None:
+        if vacation is None:
+            self._vacations.clear(work_date)
+        else:
+            self._vacations.set(work_date, vacation)
+        # 휴가 변경은 저장된 근무초에 영향 → 즉시 재계산
+        self._service.recompute_work(work_date)
 
     # --- 실행 -----------------------------------------------------------
     def run(self) -> None:

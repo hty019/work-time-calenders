@@ -94,8 +94,9 @@ class _DayCellWidget(QFrame):
             )
             layout.addWidget(divider)
 
-            # 실 근로시간을 연두색 볼드로 강조
-            work = QLabel(format_hms(cell.work_seconds))
+            # 근로 인정시간(근로+휴가)을 연두색 볼드로 강조
+            recognized = (cell.work_seconds or 0) + cell.vacation_minutes * 60
+            work = QLabel(format_hms(recognized))
             work.setAlignment(Qt.AlignCenter)
             work.setStyleSheet(
                 f"color:{theme.FG_ACTUAL_DONE}; "
@@ -121,6 +122,15 @@ class _DayCellWidget(QFrame):
                     f"font-size:{theme.CELL_PLAN_FONT_PX}px;"
                 )
                 layout.addWidget(plan)
+
+        if cell.vacation_minutes > 0:
+            vac = QLabel(f"휴가 {cell.vacation_minutes // 60}h")
+            vac.setAlignment(Qt.AlignCenter)
+            vac.setStyleSheet(
+                f"color:{theme.FG_VACATION}; "
+                f"font-size:{theme.CELL_PLAN_FONT_PX}px;"
+            )
+            layout.addWidget(vac)
 
         # (가)계획 범위 표시 — 퇴근 완료 후 범위 내 정상 처리된 날은 숨기고,
         # 범위를 벗어난 날은 경고를 유지한다.

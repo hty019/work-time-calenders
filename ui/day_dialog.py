@@ -5,7 +5,7 @@ from typing import Callable, Optional
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QMessageBox, QFormLayout,
+    QMessageBox, QFormLayout, QComboBox,
 )
 
 from core.recognition import (
@@ -15,8 +15,18 @@ from core.recognition import (
     validate_range_against_plan,
 )
 from core.timefmt import build_iso
+from core.vacation import Vacation, build_vacation
 
 MAX_PLAN_MINUTES = 24 * 60
+
+# 휴가 콤보 항목: (표시 문구, 분). 없음은 None.
+VACATION_CHOICES: list[tuple[str, Optional[int]]] = [
+    ("없음", None),
+    ("2h", 120),
+    ("4h", 240),
+    ("6h", 360),
+    ("8h (1day)", 480),
+]
 
 
 def _hhmm_from_iso(iso: Optional[str]) -> str:
@@ -51,6 +61,10 @@ def open_day_dialog(
     on_save_recognition: Optional[
         Callable[[str, Optional[RecognitionRange]], None]
     ] = None,
+    vacation: Optional[Vacation] = None,
+    on_save_vacation: Optional[
+        Callable[[str, Optional[Vacation]], None]
+    ] = None,
 ) -> None:
     dlg = QDialog(parent)
     dlg.setWindowTitle(f"{work_date} 편집")
@@ -71,11 +85,27 @@ def open_day_dialog(
         "" if recog_range is None else minutes_to_hhmm(recog_range.end_min)
     )
     recog_end_edit.setPlaceholderText("HH:MM (비우면 미설정)")
+    vacation_combo = QComboBox()
+    for label, _minutes in VACATION_CHOICES:
+        vacation_combo.addItem(label)
+    if vacation is not None:
+        for i, (_label, minutes) in enumerate(VACATION_CHOICES):
+            if minutes == vacation.minutes:
+                vacation_combo.setCurrentIndex(i)
+                break
+    vacation_start_edit = QLineEdit(
+        ""
+        if vacation is None or vacation.start_min is None
+        else minutes_to_hhmm(vacation.start_min)
+    )
+    vacation_start_edit.setPlaceholderText("HH:MM (시간제 휴가만)")
     form.addRow("출근", in_edit)
     form.addRow("퇴근", out_edit)
     form.addRow("실 계획(분)", plan_edit)
     form.addRow("(가)계획 시작", recog_start_edit)
     form.addRow("(가)계획 종료", recog_end_edit)
+    form.addRow("휴가", vacation_combo)
+    form.addRow("휴가 시작", vacation_start_edit)
     layout.addLayout(form)
 
     buttons = QHBoxLayout()
@@ -114,12 +144,26 @@ def open_day_dialog(
                 QMessageBox.warning(dlg, "입력 오류", err)
                 return
 
-        # 3) 검증 통과 → 계획·인정 범위 저장
+        # 3) 휴가 파싱·검증 (유형 + 시간제면 시작 시각)
+        vac_minutes = VACATION_CHOICES[vacation_combo.currentIndex()][1]
+        new_vacation: Optional[Vacation] = None
+        if vac_minutes is not None:
+            try:
+                start_text = vacation_start_edit.text().strip()
+                start_min = hhmm_to_minutes(start_text) if start_text else None
+                new_vacation = build_vacation(vac_minutes, start_min=start_min)
+            except ValueError as exc:
+                QMessageBox.warning(dlg, "입력 오류", str(exc))
+                return
+
+        # 4) 검증 통과 → 계획·인정 범위·휴가 저장
         on_save_plan(work_date, minutes)
         if on_save_recognition is not None:
             on_save_recognition(work_date, rng)
+        if on_save_vacation is not None:
+            on_save_vacation(work_date, new_vacation)
 
-        # 4) 출퇴근 저장 (출근 입력 시에만)
+        # 5) 출퇴근 저장 (출근 입력 시에만)
         in_text = in_edit.text().strip()
         if in_text:
             try:
