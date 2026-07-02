@@ -34,10 +34,12 @@ class _WeekdayHeader(QLabel):
         weekday: int,
         fg: str,
         on_click: Callable[[int], None],
+        on_hover: Callable[[int | None], None],
     ) -> None:
         super().__init__(text)
         self._weekday = weekday
         self._on_click = on_click
+        self._on_hover = on_hover
         self.setAlignment(Qt.AlignCenter)
         self.setCursor(Qt.PointingHandCursor)
         # ID 셀렉터로 이 라벨에만 적용. 텍스트 색은 유지해 주말 구분 보존.
@@ -57,6 +59,14 @@ class _WeekdayHeader(QLabel):
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt override)
         self._on_click(self._weekday)
+
+    def enterEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        super().enterEvent(event)
+        self._on_hover(self._weekday)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        super().leaveEvent(event)
+        self._on_hover(None)
 
 
 class _DayCellWidget(QFrame):
@@ -229,6 +239,32 @@ class CalendarWidget(QWidget):
         self._layout = QGridLayout(self)
         self._layout.setSpacing(4)
 
+        # 요일 호버 시 해당 열 전체(헤더~마지막 주)를 감싸는 테두리 오버레이.
+        # 마우스 이벤트를 통과시켜 아래 셀들의 클릭·호버를 방해하지 않는다.
+        self._column_overlay = QFrame(self)
+        self._column_overlay.setObjectName("columnOverlay")
+        self._column_overlay.setStyleSheet(f"""
+        #columnOverlay {{
+            border: 2px solid {theme.BORDER_HOVER};
+            border-radius: 8px;
+            background: transparent;
+        }}
+        """)
+        self._column_overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self._column_overlay.hide()
+
+    def _handle_weekday_hover(self, col: int | None) -> None:
+        if col is None:
+            self._column_overlay.hide()
+            return
+        # 열의 헤더(0행)부터 마지막 행까지의 합집합 영역을 계산
+        top = self._layout.cellRect(0, col)
+        bottom = self._layout.cellRect(self._layout.rowCount() - 1, col)
+        rect = top.united(bottom).adjusted(-2, -2, 2, 2)
+        self._column_overlay.setGeometry(rect)
+        self._column_overlay.raise_()
+        self._column_overlay.show()
+
     def _clear(self) -> None:
         while self._layout.count():
             item = self._layout.takeAt(0)
@@ -238,9 +274,13 @@ class CalendarWidget(QWidget):
 
     def render_grid(self, grid: list[list[DayCell]]) -> None:
         self._clear()
+        self._column_overlay.hide()  # 재렌더 시 이전 호버 흔적 제거
         for col, name in enumerate(_WEEKDAYS):
             fg = theme.FG_HOLIDAY if col >= _SAT_COL else theme.FG_MUTED
-            head = _WeekdayHeader(name, col, fg, self._on_weekday_click)
+            head = _WeekdayHeader(
+                name, col, fg, self._on_weekday_click,
+                self._handle_weekday_hover,
+            )
             self._layout.addWidget(head, 0, col)
         for r, week in enumerate(grid, start=1):
             for c, cell in enumerate(week):
