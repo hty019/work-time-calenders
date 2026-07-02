@@ -67,6 +67,7 @@ class MonthSummary:
     expected_clock_out: datetime | None
     remaining_seconds: int | None
     expected_exceeds_range: bool = False  # 예상 퇴근이 (가)계획 종료를 초과
+    today_work_seconds: int | None = None  # 오늘 근로 인정초(진행 중=실시간)
 
 
 def build_month_summary(
@@ -86,7 +87,8 @@ def build_month_summary(
     # 최대 근로 가능시간(말일/7*52, 공휴일 차감 없음).
     max_minutes = max_month_hours(year, month, holidays) * _MINUTES_PER_HOUR
     recog_planned_minutes = _recog_planned_minutes(storage, year, month)
-    in_progress = attendance_service.today_in_progress_seconds() or 0
+    in_progress_raw = attendance_service.today_in_progress_seconds()
+    in_progress = in_progress_raw or 0
     # 휴가는 근로 인정시간으로 월 누적에 합산한다.
     vacation_seconds = sum(
         row[0] * _MINUTE_SECONDS
@@ -107,6 +109,13 @@ def build_month_summary(
         storage, plan_service, holidays, now
     )
     exceeds = _exceeds_recognition_end(storage, timeutil.today_str(now), expected)
+    # 오늘 근로 인정초: 진행 중이면 실시간, 퇴근했으면 확정치.
+    rec_today = storage.get(timeutil.today_str(now))
+    today_work_seconds = (
+        in_progress_raw
+        if in_progress_raw is not None
+        else (rec_today.work_seconds if rec_today else None)
+    )
     return MonthSummary(
         year=year,
         month=month,
@@ -119,6 +128,7 @@ def build_month_summary(
         expected_clock_out=expected,
         remaining_seconds=remaining,
         expected_exceeds_range=exceeds,
+        today_work_seconds=today_work_seconds,
     )
 
 

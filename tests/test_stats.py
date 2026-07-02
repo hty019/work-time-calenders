@@ -58,9 +58,10 @@ class FakePlan:
 
 
 class Rec:
-    def __init__(self, clock_in, clock_out=None):
+    def __init__(self, clock_in, clock_out=None, work_seconds=None):
         self.clock_in = clock_in
         self.clock_out = clock_out
+        self.work_seconds = work_seconds
 
 
 def test_actual_includes_in_progress():
@@ -160,6 +161,36 @@ def test_expected_none_when_vacation_covers_plan():
         FakePlan(9600, 240), 2026, 7, {}, now,
     )
     assert s.expected_clock_out is None
+
+
+def test_today_work_seconds_from_in_progress():
+    # 진행 중이면 실시간 근무초
+    s = build_month_summary(
+        FakeStorage(Rec("2026-07-01T09:00:00+09:00")),
+        FakeAttendance(in_progress=10800),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s.today_work_seconds == 10800
+
+
+def test_today_work_seconds_from_clocked_out_record():
+    # 퇴근 완료면 저장된 확정 근무초
+    rec = Rec(
+        "2026-07-01T09:00:00+09:00", "2026-07-01T18:00:00+09:00", 8 * 3600
+    )
+    s = build_month_summary(
+        FakeStorage(rec), FakeAttendance(in_progress=None),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 19, tzinfo=KST),
+    )
+    assert s.today_work_seconds == 8 * 3600
+
+
+def test_today_work_seconds_none_without_record():
+    s = build_month_summary(
+        FakeStorage(), FakeAttendance(),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s.today_work_seconds is None
 
 
 def test_progress_ratio_none_when_planned_zero():

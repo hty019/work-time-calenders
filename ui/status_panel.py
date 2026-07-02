@@ -17,6 +17,7 @@ _MINUTES_PER_HOUR = 60
 _SECONDS_PER_HOUR = 3600
 _EXPECTED_FONT_PX = 20
 _CAPTION_FONT_PX = 11
+_SUB_FONT_PX = 12
 _PROGRESS_BAR_HEIGHT_PX = 6  # 얇은 바 스타일 유지
 _PROGRESS_BAR_RADIUS_PX = 3
 
@@ -27,9 +28,17 @@ _PROGRESS_COLORS = {
     ProgressLevel.EXCEEDED: theme.BG_PROGRESS_MAX,
 }
 
+# 예상 퇴근 영역 상태 → 본문 색상
+_EXPECTED_COLORS = {
+    "pending": theme.FG_PLANNED,   # 예상 퇴근 대기 (연파랑)
+    "warn": theme.FG_RANGE_WARN,   # (가)계획 종료 초과 (노랑)
+    "done": theme.FG_DONE_TODAY,   # 퇴근 완료 → 금일 근로 시간 (녹색)
+    "overdue": theme.FG_OVERDUE,   # 미퇴근 + 계획 퇴근 초과 (주황)
+}
 
-def _expected_style(warn: bool) -> str:
-    color = theme.FG_RANGE_WARN if warn else theme.FG_PLANNED
+
+def _expected_style(state: str) -> str:
+    color = _EXPECTED_COLORS[state]
     return f"color:{color}; font-size:{_EXPECTED_FONT_PX}px; font-weight:bold;"
 
 
@@ -57,6 +66,44 @@ def _fmt_seconds(seconds: int) -> str:
 def _fmt_hours(minutes: int) -> str:
     """법정 기준·최대 가능용: 분은 버리고 'Nh' 만 표시."""
     return f"{minutes // _MINUTES_PER_HOUR}h"
+
+
+def expected_display(
+    status: WorkStatus,
+    expected_hhmm: str | None,
+    remaining_seconds: int | None,
+    today_work_seconds: int | None,
+    exceeds_range: bool,
+) -> tuple[str, str, str | None, str]:
+    """예상 퇴근 영역의 (제목, 본문, 하단 보조, 상태) 산출.
+
+    상태: pending(대기)·warn((가)계획 초과)·done(퇴근 완료, 녹색)·
+    overdue(미퇴근 + 계획 퇴근 초과, 주황).
+    """
+    work_text = _fmt_seconds(today_work_seconds or 0)
+    if expected_hhmm is None:
+        if status is WorkStatus.CLOCKED_OUT and today_work_seconds is not None:
+            return "금일 근로 시간", work_text, None, "done"
+        return "오늘 예상 퇴근", "-", None, "pending"
+    sub = f"계획 퇴근 ~{expected_hhmm}"
+    if status is WorkStatus.CLOCKED_OUT:
+        return "금일 근로 시간", work_text, sub, "done"
+    if (remaining_seconds or 0) <= 0:
+        # 퇴근 미기록 상태로 계획 퇴근 시간을 넘김
+        return (
+            "금일 근로 시간",
+            f"{work_text}\n⚠ 계획 수정 필요",
+            sub,
+            "overdue",
+        )
+    remain_text = _fmt_seconds(remaining_seconds or 0)
+    warn_text = "\n⚠ (가)계획 종료 초과" if exceeds_range else ""
+    return (
+        "오늘 예상 퇴근",
+        f"{expected_hhmm} ({remain_text} 남음){warn_text}",
+        None,
+        "warn" if exceeds_range else "pending",
+    )
 
 
 def progress_caption(
@@ -105,11 +152,17 @@ class StatusPanel(QWidget):
         self._expected_title = QLabel("오늘 예상 퇴근")
         self._expected_title.setStyleSheet(f"color:{theme.FG_MUTED};")
         self._expected = QLabel()
-        self._expected.setStyleSheet(_expected_style(warn=False))
+        self._expected.setStyleSheet(_expected_style("pending"))
+        self._expected_sub = QLabel()  # 회색 계획 퇴근 안내
+        self._expected_sub.setStyleSheet(
+            f"color:{theme.FG_MUTED}; font-size:{_SUB_FONT_PX}px;"
+        )
+        self._expected_sub.setVisible(False)
 
         for w in (self._title, self._required, self._max, self._planned,
                   self._recog_planned, self._actual, self._progress_caption,
-                  self._progress, self._expected_title, self._expected):
+                  self._progress, self._expected_title, self._expected,
+                  self._expected_sub):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -166,17 +219,21 @@ class StatusPanel(QWidget):
                 pct, level, summary.actual_seconds, summary.required_minutes
             )
         )
-        if summary.expected_clock_out is None:
-            self._expected.setText("-")
-            self._expected.setStyleSheet(_expected_style(warn=False))
-        else:
-            hhmm = summary.expected_clock_out.strftime("%H:%M")
-            remain = summary.remaining_seconds or 0
-            suffix = (
-                f" ({_fmt_seconds(remain)} 남음)" if remain > 0 else " (초과)"
-            )
-            warn = summary.expected_exceeds_range
-            warn_text = "\n⚠ (가)계획 종료 초과" if warn else ""
-            self._expected.setText(f"{hhmm}{suffix}{warn_text}")
-            self._expected.setStyleSheet(_expected_style(warn=warn))
+        expected_hhmm = (
+            summary.expected_clock_out.strftime("%H:%M")
+            if summary.expected_clock_out is not None
+            else None
+        )
+        title, text, sub, state = expected_display(
+            status,
+            expected_hhmm,
+            summary.remaining_seconds,
+            summary.today_work_seconds,
+            summary.expected_exceeds_range,
+        )
+        self._expected_title.setText(title)
+        self._expected.setText(text)
+        self._expected.setStyleSheet(_expected_style(state))
+        self._expected_sub.setText(sub or "")
+        self._expected_sub.setVisible(bool(sub))
         self._render_buttons(status)

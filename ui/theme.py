@@ -23,6 +23,8 @@ FG_WORKING = "#4ade80"
 FG_ACTUAL_DONE = "#4ade80"    # 퇴근 완료일 실 근로시간 강조 (연두)
 FG_RANGE_WARN = "#ffd166"     # 인정 범위 이탈 경고 (노랑)
 FG_VACATION = "#c084fc"       # 휴가 표시 (연보라)
+FG_DONE_TODAY = "#4ade80"     # 금일 근로 시간 달성 (녹색)
+FG_OVERDUE = "#fb923c"        # 계획 퇴근 초과·미퇴근 경고 (주황)
 
 FONT_FAMILY = "Helvetica"
 CELL_MIN_WIDTH = 96
