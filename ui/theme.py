@@ -39,6 +39,8 @@ CELL_ACTUAL_DONE_FONT_PX = 14  # 퇴근 완료일 실 근로시간 강조(조금
 # 계획/근로 시간 블록이 셀 전체 기준 가운데로 보이도록 보정한다.
 CELL_DATE_ROW_PX = 20
 
+WEEKDAY_HEADER_PAD_PX = 10   # 요일 헤더 상하 패딩 (헤더 높이 확보)
+
 WINDOW_MIN_WIDTH = 900
 WINDOW_MIN_HEIGHT = 640
 STATUS_PANEL_WIDTH = 260

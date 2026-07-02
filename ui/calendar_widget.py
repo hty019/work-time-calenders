@@ -48,7 +48,7 @@ class _WeekdayHeader(QLabel):
         #weekdayHeader {{
             color: {fg};
             font-weight: bold;
-            padding: 4px 0;
+            padding: {theme.WEEKDAY_HEADER_PAD_PX}px 0;
             border-radius: 6px;
             background: transparent;
         }}
