@@ -5,7 +5,7 @@ from __future__ import annotations
 BG_BASE = "#2b2d31"
 BG_ELEVATED = "#3a3d42"
 BG_WEEKEND = "#4a4038"       # 주말 셀 배경 (연한 갈색)
-BG_TODAY = "#3b82f6"
+BORDER_TODAY = "#60a5fa"     # 오늘 셀 테두리 (밝은 파랑)
 BG_HOVER = "#43464c"
 BG_PROGRESS = "#4ade80"       # 진행률 바 채움 (법정 기준 이내, 녹색)
 BG_PROGRESS_OVER = "#facc15"  # 법정 기준 초과 ~ +20h (노랑)
