@@ -12,6 +12,7 @@ from core.recognition import minutes_to_hhmm
 from core.storage import Attendance
 
 _WEEKLY_WORK_HOURS = 40  # 주 40시간 근로 기준
+_WEEKLY_MAX_HOURS = 52   # 주 52시간 최대 근로(연장 포함) 기준
 _DAILY_WORK_HOURS = 8    # 1일 근로시간 (평일 공휴일 1일당 차감)
 _DAYS_PER_WEEK = 7
 _SATURDAY = 5            # date.weekday(): 월=0 ~ 일=6, 토=5
@@ -63,20 +64,36 @@ def _weekday_holiday_count(
     return count
 
 
-def required_month_hours(
-    year: int, month: int, holidays: dict[str, str] | None = None
+def _month_hours(
+    year: int, month: int, holidays: dict[str, str] | None, weekly_hours: int
 ) -> int:
-    """한 달간 채워야 하는 총 근로시간(시간).
-
-    계산식: 말일 / 7 * 40 (소수점 버림). 예) 31일 → 177h.
-    주말이 아닌 평일 공휴일이 있으면 1일당 8시간씩 차감한다.
-    """
+    """말일 / 7 * 주당시간 (소수점 버림)에서 평일 공휴일 1일당 8시간 차감."""
     last_day = calendar.monthrange(year, month)[1]
-    base = math.floor(last_day / _DAYS_PER_WEEK * _WEEKLY_WORK_HOURS)
+    base = math.floor(last_day / _DAYS_PER_WEEK * weekly_hours)
     holiday_hours = _DAILY_WORK_HOURS * _weekday_holiday_count(
         year, month, holidays or {}
     )
     return base - holiday_hours
+
+
+def required_month_hours(
+    year: int, month: int, holidays: dict[str, str] | None = None
+) -> int:
+    """한 달간 채워야 하는 법정 기준 근로시간(시간). 주 40시간 기준.
+
+    계산식: 말일 / 7 * 40 (소수점 버림). 예) 31일 → 177h.
+    """
+    return _month_hours(year, month, holidays, _WEEKLY_WORK_HOURS)
+
+
+def max_month_hours(
+    year: int, month: int, holidays: dict[str, str] | None = None
+) -> int:
+    """한 달간 근로 가능한 최대 시간(시간). 주 52시간(연장 포함) 기준.
+
+    법정 기준과 같은 식에서 주당 시간만 52로 바꾼 값이다.
+    """
+    return _month_hours(year, month, holidays, _WEEKLY_MAX_HOURS)
 
 
 def build_month_grid(

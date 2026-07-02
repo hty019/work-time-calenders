@@ -44,6 +44,7 @@ class StatusPanel(QWidget):
         self._title = QLabel("STATUS")
         self._title.setStyleSheet(f"color:{theme.FG_MUTED}; font-weight:bold;")
         self._required = QLabel()  # 법정 요구 근로시간(평일 공휴일 차감 반영)
+        self._max = QLabel()       # 최대 근로 가능시간(주 52h 기준)
         self._planned = QLabel()
         self._actual = QLabel()
         self._progress = QProgressBar()
@@ -54,8 +55,9 @@ class StatusPanel(QWidget):
         self._expected = QLabel()
         self._expected.setStyleSheet(_expected_style(warn=False))
 
-        for w in (self._title, self._required, self._planned, self._actual,
-                  self._progress, self._expected_title, self._expected):
+        for w in (self._title, self._required, self._max, self._planned,
+                  self._actual, self._progress, self._expected_title,
+                  self._expected):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -86,6 +88,9 @@ class StatusPanel(QWidget):
     def update_summary(self, summary: MonthSummary, status: WorkStatus) -> None:
         self._required.setText(
             f"법정 기준   {format_hm(summary.required_minutes)}"
+        )
+        self._max.setText(
+            f"최대 가능   {format_hm(summary.max_minutes)}"
         )
         self._planned.setText(
             f"월 계획   {format_hm(summary.planned_minutes)}"

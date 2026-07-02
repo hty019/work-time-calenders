@@ -3,6 +3,7 @@ from core.calendar_model import (
     build_month_grid,
     format_hm,
     format_hms,
+    max_month_hours,
     required_month_hours,
 )
 
@@ -35,6 +36,18 @@ def test_required_month_hours_ignores_weekend_holidays():
     # 2026-08-15(광복절)은 토요일 → 차감 없음
     holidays = {"2026-08-15": "광복절"}
     assert required_month_hours(2026, 8, holidays) == 177  # 31일, 차감 0
+
+
+def test_max_month_hours_uses_52_week():
+    # 말일 / 7 * 52 (버림), 공휴일 없음
+    assert max_month_hours(2026, 7) == 230   # 31일: floor(31/7*52)
+    assert max_month_hours(2026, 6) == 222   # 30일: floor(30/7*52)
+
+
+def test_max_month_hours_subtracts_weekday_holidays():
+    # 법정 기준과 동일하게 평일 공휴일 1일당 8h 차감
+    holidays = {"2026-02-16": "설날"}  # 월요일
+    assert max_month_hours(2026, 2, holidays) == 208 - 8  # 28일: 208h
 
 
 def test_grid_has_full_weeks():
