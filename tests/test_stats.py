@@ -76,17 +76,17 @@ def test_progress_ratio_none_when_planned_zero():
 
 
 def test_expected_clock_out_from_clock_in_and_plan():
-    # 출근 09:00, 계획 480분(8h) → 체류 8h30m → 예상 17:30
+    # 출근 09:00, 계획 480분(8h) → 체류 9h(2차 휴게 60분 포함) → 예상 18:00
     rec = Rec("2026-07-01T09:00:00+09:00", None)
     now = datetime(2026, 7, 1, 12, 0, tzinfo=KST)
     s = build_month_summary(
         FakeStorage(rec), FakeAttendance(in_progress=10800),
         FakePlan(9600, 480), 2026, 7, {}, now,
     )
-    assert s.expected_clock_out.hour == 17
-    assert s.expected_clock_out.minute == 30
-    # 남은시간 = 17:30 - 12:00 = 5h30m
-    assert s.remaining_seconds == 5 * 3600 + 30 * 60
+    assert s.expected_clock_out.hour == 18
+    assert s.expected_clock_out.minute == 0
+    # 남은시간 = 18:00 - 12:00 = 6h
+    assert s.remaining_seconds == 6 * 3600
 
 
 def test_expected_none_without_clock_in():

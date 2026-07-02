@@ -47,6 +47,14 @@ def test_second_break_freezes_at_eight_hours():
     assert compute_work_seconds(_t(9), _t(18, 1)) == 8 * 3600 + 60
 
 
+def test_third_break_freezes_at_twelve_hours():
+    # 누적 12h 도달 = raw 13h → 13h~13h30m 동안 12시간 00분 고정
+    assert compute_work_seconds(_t(9), _t(22, 0)) == 12 * 3600      # raw 13h
+    assert compute_work_seconds(_t(9), _t(22, 29)) == 12 * 3600     # raw 13h29m
+    # raw 13h31m 부터 12시간 01분으로 재개 (총 90분 차감)
+    assert compute_work_seconds(_t(9), _t(22, 31)) == 12 * 3600 + 60
+
+
 def test_short_span_counts_fully():
     # 09:00 ~ 09:10 = 10분 → 첫 4시간 이내라 그대로 누적
     assert compute_work_seconds(_t(9, 0), _t(9, 10)) == 10 * 60
@@ -74,14 +82,29 @@ def test_raw_for_net_between_4h_and_8h_adds_30m():
     assert raw_seconds_for_net(7 * 3600 + 30 * 60) == 8 * 3600
 
 
-def test_raw_for_net_exactly_8h_adds_30m():
-    # 순근무 8h → 체류 8h30m
-    assert raw_seconds_for_net(8 * 3600) == 8 * 3600 + 30 * 60
+def test_raw_for_net_exactly_8h_adds_60m():
+    # 순근무 8h → 체류 9h (2차 휴게까지 60분 포함)
+    assert raw_seconds_for_net(8 * 3600) == 8 * 3600 + 60 * 60
+
+
+def test_raw_for_net_just_under_8h_adds_30m():
+    # 순근무 7h59m → 체류 8h29m (아직 1차 휴게만)
+    assert raw_seconds_for_net(8 * 3600 - 60) == 8 * 3600 - 60 + 30 * 60
 
 
 def test_raw_for_net_over_8h_adds_60m():
     # 순근무 10h → 체류 11h (2차 휴게까지 60분)
     assert raw_seconds_for_net(10 * 3600) == 11 * 3600
+
+
+def test_raw_for_net_just_under_12h_adds_60m():
+    # 순근무 11h59m → 체류 12h59m (아직 2차 휴게 60분)
+    assert raw_seconds_for_net(12 * 3600 - 60) == 12 * 3600 - 60 + 60 * 60
+
+
+def test_raw_for_net_exactly_12h_adds_90m():
+    # 순근무 12h → 체류 13h30m (3차 휴게까지 90분 포함)
+    assert raw_seconds_for_net(12 * 3600) == 12 * 3600 + 90 * 60
 
 
 def test_raw_for_net_zero_or_negative():
@@ -95,7 +118,7 @@ def test_raw_for_net_roundtrips_with_compute():
     from zoneinfo import ZoneInfo
     kst = ZoneInfo("Asia/Seoul")
     base = datetime(2026, 6, 30, 9, 0, tzinfo=kst)
-    for net in (2 * 3600, 5 * 3600, 7 * 3600, 9 * 3600, 11 * 3600):
+    for net in (2 * 3600, 5 * 3600, 7 * 3600, 9 * 3600, 11 * 3600, 13 * 3600):
         raw = raw_seconds_for_net(net)
         out = base.fromtimestamp(base.timestamp() + raw, tz=kst)
         assert compute_work_seconds(base, out) == net
