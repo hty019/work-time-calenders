@@ -83,3 +83,22 @@ def test_recognition_list_month(tmp_path):
     st.set_recognition("2026-08-01", 540, 900)  # 다른 달
     got = st.list_recognition_month(2026, 7)
     assert got == {"2026-07-01": (540, 900)}
+
+
+def test_vacation_set_get_clear(tmp_path):
+    st = make_storage(tmp_path)
+    assert st.get_vacation("2026-07-07") is None
+    st.set_vacation("2026-07-07", 120, 900, 1020)  # 2h, 15:00~17:00
+    assert st.get_vacation("2026-07-07") == (120, 900, 1020)
+    st.set_vacation("2026-07-07", 480, None, None)  # 1day 덮어쓰기
+    assert st.get_vacation("2026-07-07") == (480, None, None)
+    st.clear_vacation("2026-07-07")
+    assert st.get_vacation("2026-07-07") is None
+
+
+def test_vacation_list_month(tmp_path):
+    st = make_storage(tmp_path)
+    st.set_vacation("2026-07-01", 120, 900, 1020)
+    st.set_vacation("2026-08-01", 480, None, None)  # 다른 달
+    got = st.list_vacation_month(2026, 7)
+    assert got == {"2026-07-01": (120, 900, 1020)}

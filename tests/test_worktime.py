@@ -66,9 +66,37 @@ def test_non_positive_span_is_zero():
 
 from core.worktime import (
     compute_work_seconds,
+    effective_work_seconds,
     net_seconds_for_raw,
     raw_seconds_for_net,
 )
+
+
+def test_effective_work_subtracts_afternoon_vacation_overlap():
+    # 출근 08:00, 퇴근 15:50, 휴가 15:00~17:00 → 겹침 50m
+    # raw 7h50m − 50m = 7h → 휴게 30m 차감 → 6h30m
+    net = effective_work_seconds(_t(8), _t(15, 50), 900, 1020)
+    assert net == 6 * 3600 + 30 * 60
+
+
+def test_effective_work_subtracts_morning_vacation():
+    # 휴가 09:00~11:00, 근로 08:00~17:00 → raw 9h − 2h = 7h → 6h30m
+    net = effective_work_seconds(_t(8), _t(17), 540, 660)
+    assert net == 6 * 3600 + 30 * 60
+
+
+def test_effective_work_subtracts_middle_vacation():
+    # 휴가 12:00~14:00, 근로 09:00~18:00 → raw 9h − 2h = 7h → 6h30m
+    net = effective_work_seconds(_t(9), _t(18), 720, 840)
+    assert net == 6 * 3600 + 30 * 60
+
+
+def test_effective_work_no_overlap_unchanged():
+    # 휴가 18:00~20:00, 근로 09:00~17:30 → 겹침 없음 → 기존과 동일 8h
+    net = effective_work_seconds(_t(9), _t(17, 30), 1080, 1200)
+    assert net == 8 * 3600
+    # 휴가 구간 없음(None) → compute_work_seconds 와 동일
+    assert effective_work_seconds(_t(9), _t(17, 30)) == 8 * 3600
 
 
 def test_net_for_raw_applies_break_model():

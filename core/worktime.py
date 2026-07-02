@@ -50,6 +50,32 @@ def compute_work_seconds(clock_in: datetime, clock_out: datetime) -> int:
     return net_seconds_for_raw(int((clock_out - clock_in).total_seconds()))
 
 
+def effective_work_seconds(
+    clock_in: datetime,
+    clock_out: datetime,
+    vac_start_min: int | None = None,
+    vac_end_min: int | None = None,
+) -> int:
+    """휴가 구간과 겹치는 체류를 제외한 근무 초 (이중 집계 방지).
+
+    근로 구간에서 휴가 구간(자정 기준 분)과 겹치는 시간을 raw 에서 빼고
+    휴게 임계-정지 모델을 적용한다. 휴가 구간이 없으면 기존 계산과 동일.
+    """
+    raw = int((clock_out - clock_in).total_seconds())
+    if raw <= 0:
+        return 0
+    if vac_start_min is None or vac_end_min is None:
+        return net_seconds_for_raw(raw)
+    in_seconds = (
+        clock_in.hour * 3600 + clock_in.minute * 60 + clock_in.second
+    )
+    out_seconds = in_seconds + raw
+    overlap = max(
+        0, min(out_seconds, vac_end_min * 60) - max(in_seconds, vac_start_min * 60)
+    )
+    return net_seconds_for_raw(raw - overlap)
+
+
 def raw_seconds_for_net(net_seconds: int) -> int:
     """목표 순근무 초에 도달하는 최소 체류 초. compute_work_seconds 의 역함수.
 

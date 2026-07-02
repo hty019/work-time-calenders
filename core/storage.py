@@ -38,6 +38,15 @@ CREATE TABLE IF NOT EXISTS recognition (
 )
 """
 
+_CREATE_VACATION_SQL = """
+CREATE TABLE IF NOT EXISTS vacation (
+    work_date TEXT PRIMARY KEY,
+    minutes   INTEGER NOT NULL,
+    start_min INTEGER,
+    end_min   INTEGER
+)
+"""
+
 
 class Storage:
     def __init__(self, db_path: str) -> None:
@@ -47,6 +56,7 @@ class Storage:
         self._conn.execute(_CREATE_SQL)
         self._conn.execute(_CREATE_PLAN_SQL)
         self._conn.execute(_CREATE_RECOGNITION_SQL)
+        self._conn.execute(_CREATE_VACATION_SQL)
         self._conn.commit()
 
     def get(self, work_date: str) -> Attendance | None:
@@ -155,6 +165,60 @@ class Storage:
         )
         return {
             r["work_date"]: (int(r["start_min"]), int(r["end_min"]))
+            for r in cur.fetchall()
+        }
+
+    def get_vacation(self, work_date: str) -> tuple[int, int | None, int | None] | None:
+        """해당 날짜의 휴가 (분, 시작분, 종료분). 없으면 None."""
+        cur = self._conn.execute(
+            "SELECT minutes, start_min, end_min FROM vacation WHERE work_date = ?",
+            (work_date,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return (
+            int(row["minutes"]),
+            int(row["start_min"]) if row["start_min"] is not None else None,
+            int(row["end_min"]) if row["end_min"] is not None else None,
+        )
+
+    def set_vacation(
+        self,
+        work_date: str,
+        minutes: int,
+        start_min: int | None,
+        end_min: int | None,
+    ) -> None:
+        self._conn.execute(
+            "INSERT INTO vacation (work_date, minutes, start_min, end_min) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(work_date) DO UPDATE SET "
+            "minutes=excluded.minutes, start_min=excluded.start_min, "
+            "end_min=excluded.end_min",
+            (work_date, minutes, start_min, end_min),
+        )
+        self._conn.commit()
+
+    def clear_vacation(self, work_date: str) -> None:
+        self._conn.execute("DELETE FROM vacation WHERE work_date = ?", (work_date,))
+        self._conn.commit()
+
+    def list_vacation_month(
+        self, year: int, month: int
+    ) -> dict[str, tuple[int, int | None, int | None]]:
+        prefix = f"{year:04d}-{month:02d}-"
+        cur = self._conn.execute(
+            "SELECT work_date, minutes, start_min, end_min FROM vacation "
+            "WHERE work_date LIKE ? ORDER BY work_date",
+            (prefix + "%",),
+        )
+        return {
+            r["work_date"]: (
+                int(r["minutes"]),
+                int(r["start_min"]) if r["start_min"] is not None else None,
+                int(r["end_min"]) if r["end_min"] is not None else None,
+            )
             for r in cur.fetchall()
         }
 
