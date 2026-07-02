@@ -14,6 +14,8 @@ from ui import theme
 
 _SECONDS_PER_MINUTE = 60
 _EXPECTED_FONT_PX = 20
+_PROGRESS_BAR_HEIGHT_PX = 6  # 얇은 바 스타일 유지
+_PROGRESS_BAR_RADIUS_PX = 3
 
 _PROGRESS_COLORS = {
     ProgressLevel.NORMAL: theme.BG_PROGRESS,
@@ -29,9 +31,19 @@ def _expected_style(warn: bool) -> str:
 
 
 def _progress_style(level: ProgressLevel) -> str:
-    return (
-        f"QProgressBar::chunk {{ background-color: {_PROGRESS_COLORS[level]}; }}"
-    )
+    """텍스트 없는 얇은 바 형태를 유지하면서 게이지 색상만 단계별로 변경."""
+    return f"""
+    QProgressBar {{
+        background-color: {theme.BG_ELEVATED};
+        border: none;
+        border-radius: {_PROGRESS_BAR_RADIUS_PX}px;
+        max-height: {_PROGRESS_BAR_HEIGHT_PX}px;
+    }}
+    QProgressBar::chunk {{
+        background-color: {_PROGRESS_COLORS[level]};
+        border-radius: {_PROGRESS_BAR_RADIUS_PX}px;
+    }}
+    """
 
 
 def _fmt_seconds(seconds: int) -> str:
@@ -61,8 +73,9 @@ class StatusPanel(QWidget):
         self._planned = QLabel()
         self._actual = QLabel()
         self._progress = QProgressBar()
-        self._progress.setTextVisible(True)
+        self._progress.setTextVisible(False)
         self._progress.setRange(0, 100)
+        self._progress.setStyleSheet(_progress_style(ProgressLevel.NORMAL))
         self._expected_title = QLabel("오늘 예상 퇴근")
         self._expected_title.setStyleSheet(f"color:{theme.FG_MUTED};")
         self._expected = QLabel()
@@ -118,7 +131,6 @@ class StatusPanel(QWidget):
             summary.max_minutes,
         )
         self._progress.setValue(pct)
-        self._progress.setFormat(f"{pct}%")
         self._progress.setStyleSheet(_progress_style(level))
         if summary.expected_clock_out is None:
             self._expected.setText("-")
