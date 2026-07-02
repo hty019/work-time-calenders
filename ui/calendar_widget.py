@@ -44,17 +44,27 @@ class _DayCellWidget(QFrame):
         self._date = cell.date
         self._on_click = on_click
         self.setMinimumSize(theme.CELL_MIN_WIDTH, theme.CELL_MIN_HEIGHT)
-        # 배경은 주말(연한 갈색)/기본, 오늘은 밝은 파랑 테두리로 강조
+        # 배경은 주말(연한 갈색)/기본, 오늘은 밝은 파랑 테두리로 강조.
+        # 호버 시 주황 테두리 — 평상시에도 투명 2px 테두리를 깔아 두어
+        # 호버 순간 콘텐츠가 밀리지 않게 한다.
         bg = theme.BG_WEEKEND if _is_weekend(cell.date) else theme.BG_ELEVATED
-        border = (
-            f"border: 2px solid {theme.BORDER_TODAY};" if cell.is_today else ""
+        base_border = (
+            theme.BORDER_TODAY if cell.is_today else "transparent"
         )
         # ID 셀렉터로 셀 프레임에만 적용 (자식 QLabel 이 QFrame 을 상속해
         # 셀렉터 없는 border 규칙이 라벨까지 번지는 것을 방지)
         self.setObjectName("dayCell")
-        self.setStyleSheet(
-            f"#dayCell {{ background-color:{bg}; border-radius:6px; {border} }}"
-        )
+        self.setStyleSheet(f"""
+        #dayCell {{
+            background-color: {bg};
+            border-radius: 6px;
+            border: 2px solid {base_border};
+        }}
+        #dayCell:hover {{
+            border: 2px solid {theme.BORDER_HOVER};
+            background-color: {theme.BG_HOVER};
+        }}
+        """)
         self.setCursor(Qt.PointingHandCursor)
 
         layout = QVBoxLayout(self)
