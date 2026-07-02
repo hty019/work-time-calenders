@@ -166,13 +166,26 @@ def test_recompute_work_applies_vacation_after_clock_out(tmp_path):
     assert rec.work_seconds == 6 * 3600 + 30 * 60
 
 
-def test_full_day_vacation_does_not_clip_work(tmp_path):
-    # 8h(1day) 휴가는 구간이 없어 근로 차감 없이 그대로 (합산 정책)
+def test_full_day_vacation_ignores_work(tmp_path):
+    # 8h(1day) 휴가일은 출퇴근이 있어도 근로 0 → 인정은 휴가 8h 로 고정
     svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
     svc._storage.set_vacation("2026-06-30", 480, None, None)
     svc.record_clock_in()
+    # 진행 중 집계도 0
+    svc._clock = lambda: datetime(2026, 6, 30, 14, 0, tzinfo=KST)
+    assert svc.today_in_progress_seconds() == 0
+    svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
+    assert svc.record_clock_out().work_seconds == 0
+
+
+def test_recompute_zeroes_work_when_full_day_vacation_added(tmp_path):
+    # 퇴근 확정 후 1day 휴가 입력 → 재계산 시 근로 0 으로 갱신
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
     svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
     assert svc.record_clock_out().work_seconds == 8 * 3600
+    svc._storage.set_vacation("2026-06-30", 480, None, None)
+    assert svc.recompute_work("2026-06-30").work_seconds == 0
 
 
 def test_today_status_not_clocked_in(tmp_path):

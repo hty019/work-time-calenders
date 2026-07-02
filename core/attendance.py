@@ -6,6 +6,7 @@ from typing import Callable
 
 from core import timeutil
 from core.storage import Attendance, Storage
+from core.vacation import FULL_DAY_MINUTES
 from core.worktime import effective_work_seconds
 
 
@@ -32,16 +33,18 @@ class AttendanceService:
         self._storage.upsert(rec)
         return rec
 
-    def _vacation_span(self, date: str) -> tuple[int | None, int | None]:
-        """해당 날짜 시간제 휴가의 (시작분, 종료분). 없거나 1day 면 (None, None)."""
+    def _work_seconds(self, date: str, clock_in, clock_out) -> int:
+        """휴가를 반영한 근무 초 (모든 쓰기 경로 공통).
+
+        1day 휴가일은 출퇴근을 무시하고 근로 0 (인정은 휴가 8h 로 고정).
+        시간제 휴가는 겹치는 구간을 제외한다.
+        """
         row = self._storage.get_vacation(date)
         if row is None:
-            return None, None
-        return row[1], row[2]
-
-    def _work_seconds(self, date: str, clock_in, clock_out) -> int:
-        """휴가 겹침을 제외한 근무 초 (모든 쓰기 경로 공통)."""
-        start_min, end_min = self._vacation_span(date)
+            return effective_work_seconds(clock_in, clock_out)
+        minutes, start_min, end_min = row
+        if minutes >= FULL_DAY_MINUTES:
+            return 0
         return effective_work_seconds(clock_in, clock_out, start_min, end_min)
 
     def record_clock_out(self) -> Attendance:
