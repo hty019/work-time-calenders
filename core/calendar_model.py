@@ -32,6 +32,7 @@ class DayCell:
     clock_out_hm: str = ""
     recog_hm: str = ""          # 인정 범위 표시용 "HH:MM~HH:MM" (미설정 시 "")
     out_of_range: bool = False  # 실제 근로가 인정 범위를 벗어났는지
+    vacation_minutes: int = 0   # 휴가 인정 분 (없으면 0)
 
 
 def format_hms(seconds: int | None) -> str:
@@ -107,6 +108,7 @@ def build_month_grid(
     effective_planned: "Callable[[str], int] | None" = None,
     today_seconds: int | None = None,
     recognition: "Callable[[str], tuple[int, int] | None] | None" = None,
+    vacation: "Callable[[str], tuple | None] | None" = None,
 ) -> list[list[DayCell]]:
     cal = calendar.Calendar(firstweekday=0)  # 0 = Monday
     grid: list[list[DayCell]] = []
@@ -128,6 +130,7 @@ def build_month_grid(
             planned = effective_planned(date) if effective_planned else 0
             recog = recognition(date) if recognition else None
             recog_hm, out_of_range = _recognition_state(recog, rec)
+            vac = vacation(date) if vacation else None
             row.append(
                 DayCell(
                     day=day,
@@ -142,6 +145,7 @@ def build_month_grid(
                     clock_out_hm=timeutil.hhmm(rec.clock_out) if rec else "",
                     recog_hm=recog_hm,
                     out_of_range=out_of_range,
+                    vacation_minutes=vac[0] if vac else 0,
                 )
             )
         grid.append(row)

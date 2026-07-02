@@ -161,6 +161,18 @@ def test_grid_recognition_ignores_missing_record():
     assert cells["2026-06-05"].out_of_range is False
 
 
+def test_grid_includes_vacation_minutes():
+    vacations = {"2026-06-10": (120, 900, 1020), "2026-06-11": (480, None, None)}
+    grid = build_month_grid(
+        2026, 6, "2026-06-30", {}, {},
+        vacation=lambda d: vacations.get(d),
+    )
+    cells = {c.date: c for week in grid for c in week if c.day != 0}
+    assert cells["2026-06-10"].vacation_minutes == 120
+    assert cells["2026-06-11"].vacation_minutes == 480
+    assert cells["2026-06-12"].vacation_minutes == 0
+
+
 def test_grid_includes_planned_minutes():
     # effective_planned 콜백이 각 셀 planned_minutes 로 반영되는지
     records = {}

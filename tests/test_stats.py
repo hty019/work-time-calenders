@@ -7,10 +7,15 @@ KST = ZoneInfo("Asia/Seoul")
 
 
 class FakeStorage:
-    def __init__(self, rec=None, recog=None, recog_month=None):
+    def __init__(
+        self, rec=None, recog=None, recog_month=None,
+        vacation=None, vacation_month=None,
+    ):
         self._rec = rec
         self._recog = recog
         self._recog_month = recog_month or {}
+        self._vacation = vacation
+        self._vacation_month = vacation_month or {}
 
     def get(self, date):
         return self._rec
@@ -20,6 +25,12 @@ class FakeStorage:
 
     def list_recognition_month(self, y, mo):
         return self._recog_month
+
+    def get_vacation(self, date):
+        return self._vacation
+
+    def list_vacation_month(self, y, mo):
+        return self._vacation_month
 
 
 class FakeAttendance:
@@ -98,6 +109,57 @@ def test_recog_planned_zero_when_no_ranges():
         FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
     )
     assert s.recog_planned_minutes == 0
+
+
+def test_actual_includes_vacation_minutes():
+    # 월 누적 = 근로 합계 + Σ휴가(분)
+    vac_month = {
+        "2026-07-01": (120, 900, 1020),
+        "2026-07-06": (480, None, None),
+    }
+    s = build_month_summary(
+        FakeStorage(vacation_month=vac_month),
+        FakeAttendance(month_seconds=10 * 3600),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 8, 12, tzinfo=KST),
+    )
+    assert s.actual_seconds == 10 * 3600 + (120 + 480) * 60
+
+
+def test_expected_reduced_by_afternoon_vacation():
+    # 계획 8h, 오후 휴가 2h(15:00~17:00), 출근 08:00 → 남은 순근무 6h
+    # 체류 6h30m → 예상 14:30 (휴가 구간과 겹침 없음)
+    rec = Rec("2026-07-01T08:00:00+09:00", None)
+    now = datetime(2026, 7, 1, 12, 0, tzinfo=KST)
+    s = build_month_summary(
+        FakeStorage(rec, vacation=(120, 900, 1020)), FakeAttendance(),
+        FakePlan(9600, 480), 2026, 7, {}, now,
+    )
+    assert s.expected_clock_out.hour == 14
+    assert s.expected_clock_out.minute == 30
+
+
+def test_expected_shifted_past_morning_vacation():
+    # 아침 휴가 09:00~11:00, 출근 08:00, 계획 8h → 남은 6h → 체류 6h30m
+    # 예상 구간이 휴가와 2h 겹침 → 16:30 으로 밀림
+    rec = Rec("2026-07-01T08:00:00+09:00", None)
+    now = datetime(2026, 7, 1, 12, 0, tzinfo=KST)
+    s = build_month_summary(
+        FakeStorage(rec, vacation=(120, 540, 660)), FakeAttendance(),
+        FakePlan(9600, 480), 2026, 7, {}, now,
+    )
+    assert s.expected_clock_out.hour == 16
+    assert s.expected_clock_out.minute == 30
+
+
+def test_expected_none_when_vacation_covers_plan():
+    # 계획 240분 = 휴가 240분 → 남은 근로 없음 → 예상 퇴근 없음
+    rec = Rec("2026-07-01T09:00:00+09:00", None)
+    now = datetime(2026, 7, 1, 12, 0, tzinfo=KST)
+    s = build_month_summary(
+        FakeStorage(rec, vacation=(240, 540, 780)), FakeAttendance(),
+        FakePlan(9600, 240), 2026, 7, {}, now,
+    )
+    assert s.expected_clock_out is None
 
 
 def test_progress_ratio_none_when_planned_zero():

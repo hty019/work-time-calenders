@@ -124,6 +124,57 @@ def test_reclock_out_updates_time(tmp_path):
     assert second.work_seconds == 9 * 3600  # 10h - 60m
 
 
+def test_clock_out_subtracts_vacation_overlap(tmp_path):
+    # 출근 08:00, 퇴근 15:50, 휴가 15:00~17:00 → 겹침 50m 제외 → 6h30m
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 8, 0, tzinfo=KST))
+    svc._storage.set_vacation("2026-06-30", 120, 900, 1020)
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 15, 50, tzinfo=KST)
+    rec = svc.record_clock_out()
+    assert rec.work_seconds == 6 * 3600 + 30 * 60
+
+
+def test_edit_subtracts_vacation_overlap(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc._storage.set_vacation("2026-06-29", 120, 540, 660)  # 09:00~11:00
+    rec = svc.edit(
+        "2026-06-29",
+        "2026-06-29T08:00:00+09:00",
+        "2026-06-29T17:00:00+09:00",
+    )
+    # raw 9h − 겹침 2h = 7h → 휴게 30m → 6h30m
+    assert rec.work_seconds == 6 * 3600 + 30 * 60
+
+
+def test_in_progress_subtracts_vacation(tmp_path):
+    # 아침 휴가 09:00~11:00, 출근 08:00, 현재 14:00 → raw 6h − 2h = 4h
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 8, 0, tzinfo=KST))
+    svc._storage.set_vacation("2026-06-30", 120, 540, 660)
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 14, 0, tzinfo=KST)
+    assert svc.today_in_progress_seconds() == 4 * 3600
+
+
+def test_recompute_work_applies_vacation_after_clock_out(tmp_path):
+    # 퇴근 확정 후 휴가를 입력하면 recompute_work 로 저장값이 갱신된다
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 8, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 15, 50, tzinfo=KST)
+    assert svc.record_clock_out().work_seconds == 7 * 3600 + 20 * 60
+    svc._storage.set_vacation("2026-06-30", 120, 900, 1020)
+    rec = svc.recompute_work("2026-06-30")
+    assert rec.work_seconds == 6 * 3600 + 30 * 60
+
+
+def test_full_day_vacation_does_not_clip_work(tmp_path):
+    # 8h(1day) 휴가는 구간이 없어 근로 차감 없이 그대로 (합산 정책)
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc._storage.set_vacation("2026-06-30", 480, None, None)
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
+    assert svc.record_clock_out().work_seconds == 8 * 3600
+
+
 def test_today_status_not_clocked_in(tmp_path):
     svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
     assert svc.today_status() is WorkStatus.NOT_CLOCKED_IN

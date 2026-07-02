@@ -87,7 +87,16 @@ def build_month_summary(
     max_minutes = max_month_hours(year, month, holidays) * _MINUTES_PER_HOUR
     recog_planned_minutes = _recog_planned_minutes(storage, year, month)
     in_progress = attendance_service.today_in_progress_seconds() or 0
-    actual_seconds = attendance_service.month_total_seconds(year, month) + in_progress
+    # 휴가는 근로 인정시간으로 월 누적에 합산한다.
+    vacation_seconds = sum(
+        row[0] * _MINUTE_SECONDS
+        for row in storage.list_vacation_month(year, month).values()
+    )
+    actual_seconds = (
+        attendance_service.month_total_seconds(year, month)
+        + in_progress
+        + vacation_seconds
+    )
 
     planned_seconds = planned_minutes * _MINUTE_SECONDS
     progress_ratio = (
@@ -123,7 +132,11 @@ def _recog_planned_minutes(storage, year: int, month: int) -> int:
 
 
 def _today_expectation(storage, plan_service, holidays, now):
-    """오늘 출근 기록+계획이 있으면 (예상 퇴근시각, 남은초) 반환."""
+    """오늘 출근 기록+계획이 있으면 (예상 퇴근시각, 남은초) 반환.
+
+    오늘 휴가가 있으면 남은 필요 순근무 = 계획 − 휴가분으로 줄이고,
+    시간제 휴가 구간이 예상 체류와 겹치면 겹침만큼 퇴근을 뒤로 민다.
+    """
     today = timeutil.today_str(now)
     rec = storage.get(today)
     if rec is None or not rec.clock_in:
@@ -131,11 +144,42 @@ def _today_expectation(storage, plan_service, holidays, now):
     planned_minutes = plan_service.effective_minutes(today, holidays)
     if planned_minutes <= 0:
         return None, None
+    vacation = storage.get_vacation(today)
+    vacation_minutes = vacation[0] if vacation else 0
+    remaining_minutes = planned_minutes - vacation_minutes
+    if remaining_minutes <= 0:
+        return None, None  # 휴가만으로 계획 충족
     clock_in = timeutil.from_iso(rec.clock_in)
-    raw = raw_seconds_for_net(planned_minutes * _MINUTE_SECONDS)
+    raw = raw_seconds_for_net(remaining_minutes * _MINUTE_SECONDS)
+    if vacation and vacation[1] is not None and vacation[2] is not None:
+        raw = _extend_past_vacation(clock_in, raw, vacation[1], vacation[2])
     expected = clock_in + timedelta(seconds=raw)
     remaining = int((expected - now).total_seconds())
     return expected, remaining
+
+
+def _extend_past_vacation(
+    clock_in: datetime, raw: int, vac_start_min: int, vac_end_min: int
+) -> int:
+    """예상 체류 구간이 휴가 구간과 겹치면 겹침만큼 체류를 늘린다.
+
+    늘어난 구간이 다시 휴가와 더 겹칠 수 있어 수렴할 때까지 반복한다
+    (휴가 1건이므로 겹침이 휴가 길이로 유계 → 항상 수렴).
+    """
+    in_seconds = (
+        clock_in.hour * 3600 + clock_in.minute * 60 + clock_in.second
+    )
+    vac_start = vac_start_min * 60
+    vac_end = vac_end_min * 60
+    total = raw
+    while True:
+        overlap = max(
+            0, min(in_seconds + total, vac_end) - max(in_seconds, vac_start)
+        )
+        extended = raw + overlap
+        if extended == total:
+            return total
+        total = extended
 
 
 def _exceeds_recognition_end(

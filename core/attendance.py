@@ -6,7 +6,7 @@ from typing import Callable
 
 from core import timeutil
 from core.storage import Attendance, Storage
-from core.worktime import compute_work_seconds
+from core.worktime import effective_work_seconds
 
 
 class WorkStatus(Enum):
@@ -32,6 +32,18 @@ class AttendanceService:
         self._storage.upsert(rec)
         return rec
 
+    def _vacation_span(self, date: str) -> tuple[int | None, int | None]:
+        """해당 날짜 시간제 휴가의 (시작분, 종료분). 없거나 1day 면 (None, None)."""
+        row = self._storage.get_vacation(date)
+        if row is None:
+            return None, None
+        return row[1], row[2]
+
+    def _work_seconds(self, date: str, clock_in, clock_out) -> int:
+        """휴가 겹침을 제외한 근무 초 (모든 쓰기 경로 공통)."""
+        start_min, end_min = self._vacation_span(date)
+        return effective_work_seconds(clock_in, clock_out, start_min, end_min)
+
     def record_clock_out(self) -> Attendance:
         now = self._clock()
         date = timeutil.today_str(now)
@@ -39,7 +51,7 @@ class AttendanceService:
         if existing is None:
             raise ValueError(f"출근 기록이 없습니다: {date}")
         clock_in = timeutil.from_iso(existing.clock_in)
-        seconds = compute_work_seconds(clock_in, now)
+        seconds = self._work_seconds(date, clock_in, now)
         rec = Attendance(date, existing.clock_in, timeutil.to_iso(now), seconds)
         self._storage.upsert(rec)
         return rec
@@ -69,10 +81,27 @@ class AttendanceService:
         clock_out = timeutil.from_iso(clock_out_iso)
         if clock_out <= clock_in:
             raise ValueError("퇴근 시각은 출근 시각보다 이후여야 합니다.")
-        seconds = compute_work_seconds(clock_in, clock_out)
+        seconds = self._work_seconds(work_date, clock_in, clock_out)
         rec = Attendance(work_date, clock_in_iso, clock_out_iso, seconds)
         self._storage.upsert(rec)
         return rec
+
+    def recompute_work(self, work_date: str) -> Attendance | None:
+        """휴가 변경 등으로 저장된 근무초를 현재 규칙으로 재계산한다.
+
+        퇴근 확정 기록이 없으면 아무것도 하지 않고 None 을 반환한다.
+        """
+        rec = self._storage.get(work_date)
+        if rec is None or rec.clock_out is None:
+            return None
+        seconds = self._work_seconds(
+            work_date,
+            timeutil.from_iso(rec.clock_in),
+            timeutil.from_iso(rec.clock_out),
+        )
+        updated = Attendance(work_date, rec.clock_in, rec.clock_out, seconds)
+        self._storage.upsert(updated)
+        return updated
 
     def month_total_seconds(self, year: int, month: int) -> int:
         rows = self._storage.list_month(year, month)
@@ -104,4 +133,4 @@ class AttendanceService:
         if rec is None or rec.clock_out is not None:
             return None
         clock_in = timeutil.from_iso(rec.clock_in)
-        return compute_work_seconds(clock_in, now)
+        return self._work_seconds(date, clock_in, now)
