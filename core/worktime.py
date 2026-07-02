@@ -25,9 +25,9 @@ TWELVE_HOURS_SECONDS = 12 * 3600
 BREAK_SECONDS = 30 * 60
 
 
-def compute_work_seconds(clock_in: datetime, clock_out: datetime) -> int:
-    """출근~퇴근 raw 구간에서 휴게시간을 차감한 근무 초."""
-    raw = int((clock_out - clock_in).total_seconds())
+def net_seconds_for_raw(raw_seconds: int) -> int:
+    """체류(raw) 초에서 휴게 임계-정지 모델로 순근무 초를 산출."""
+    raw = raw_seconds
     if raw <= 0:
         return 0
     if raw < FOUR_HOURS_SECONDS:                       # 0 ~ 4h
@@ -43,6 +43,11 @@ def compute_work_seconds(clock_in: datetime, clock_out: datetime) -> int:
     if raw < TWELVE_HOURS_SECONDS + 3 * BREAK_SECONDS:  # 3차 휴게 [13h, 13h30m)
         return TWELVE_HOURS_SECONDS
     return raw - 3 * BREAK_SECONDS                      # 13h30m ~
+
+
+def compute_work_seconds(clock_in: datetime, clock_out: datetime) -> int:
+    """출근~퇴근 raw 구간에서 휴게시간을 차감한 근무 초."""
+    return net_seconds_for_raw(int((clock_out - clock_in).total_seconds()))
 
 
 def raw_seconds_for_net(net_seconds: int) -> int:

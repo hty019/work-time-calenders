@@ -64,7 +64,21 @@ def test_non_positive_span_is_zero():
     assert compute_work_seconds(_t(18), _t(9)) == 0
 
 
-from core.worktime import raw_seconds_for_net, compute_work_seconds
+from core.worktime import (
+    compute_work_seconds,
+    net_seconds_for_raw,
+    raw_seconds_for_net,
+)
+
+
+def test_net_for_raw_applies_break_model():
+    # 체류 시간에서 휴게 임계-정지 모델로 순근무 산출
+    assert net_seconds_for_raw(3 * 3600) == 3 * 3600            # 휴게 없음
+    assert net_seconds_for_raw(4 * 3600 + 15 * 60) == 4 * 3600  # 1차 휴게 중
+    assert net_seconds_for_raw(9 * 3600) == 8 * 3600            # 9h 체류 → 8h
+    assert net_seconds_for_raw(6 * 3600) == 5 * 3600 + 30 * 60  # 6h → 5h30m
+    assert net_seconds_for_raw(0) == 0
+    assert net_seconds_for_raw(-100) == 0
 
 
 def test_raw_for_net_under_4h_no_break():

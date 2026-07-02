@@ -7,15 +7,19 @@ KST = ZoneInfo("Asia/Seoul")
 
 
 class FakeStorage:
-    def __init__(self, rec=None, recog=None):
+    def __init__(self, rec=None, recog=None, recog_month=None):
         self._rec = rec
         self._recog = recog
+        self._recog_month = recog_month or {}
 
     def get(self, date):
         return self._rec
 
     def get_recognition(self, date):
         return self._recog
+
+    def list_recognition_month(self, y, mo):
+        return self._recog_month
 
 
 class FakeAttendance:
@@ -72,6 +76,28 @@ def test_required_minutes_deducts_weekday_holiday():
     # 최대 근로 가능시간: 주 52시간 기준, 공휴일 차감 없음
     assert s_no.max_minutes == 230 * 60
     assert s_hol.max_minutes == 230 * 60
+
+
+def test_recog_planned_sums_net_of_breaks():
+    # (가)계획 합계는 각 범위 폭에서 휴게를 제한 순근무의 합
+    recog_month = {
+        "2026-07-01": (540, 1080),  # 09:00~18:00 체류 9h → 순 8h
+        "2026-07-02": (540, 780),   # 09:00~13:00 체류 4h → 순 4h (휴게 진입 직전)
+        "2026-07-03": (540, 900),   # 09:00~15:00 체류 6h → 순 5h30m
+    }
+    s = build_month_summary(
+        FakeStorage(recog_month=recog_month), FakeAttendance(),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s.recog_planned_minutes == 480 + 240 + 330  # 1050
+
+
+def test_recog_planned_zero_when_no_ranges():
+    s = build_month_summary(
+        FakeStorage(), FakeAttendance(),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s.recog_planned_minutes == 0
 
 
 def test_progress_ratio_none_when_planned_zero():

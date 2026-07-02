@@ -92,6 +92,7 @@ class StatusPanel(QWidget):
         self._required = QLabel()  # 법정 요구 근로시간(평일 공휴일 차감 반영)
         self._max = QLabel()       # 최대 근로 가능시간(주 52h 기준)
         self._planned = QLabel()
+        self._recog_planned = QLabel()  # 월 (가)계획 합계(휴게 차감)
         self._actual = QLabel()
         self._progress_caption = QLabel()  # 진행률 바 상단 상태 텍스트
         self._progress_caption.setStyleSheet(
@@ -107,8 +108,8 @@ class StatusPanel(QWidget):
         self._expected.setStyleSheet(_expected_style(warn=False))
 
         for w in (self._title, self._required, self._max, self._planned,
-                  self._actual, self._progress_caption, self._progress,
-                  self._expected_title, self._expected):
+                  self._recog_planned, self._actual, self._progress_caption,
+                  self._progress, self._expected_title, self._expected):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -144,7 +145,10 @@ class StatusPanel(QWidget):
             f"최대 가능   {_fmt_hours(summary.max_minutes)}"
         )
         self._planned.setText(
-            f"월 계획   {format_hm(summary.planned_minutes)}"
+            f"실 계획   {format_hm(summary.planned_minutes)}"
+        )
+        self._recog_planned.setText(
+            f"(가)계획   {format_hm(summary.recog_planned_minutes)}"
         )
         self._actual.setText(
             f"월 누적   {_fmt_seconds(summary.actual_seconds)}"

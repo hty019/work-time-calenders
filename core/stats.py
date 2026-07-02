@@ -7,7 +7,7 @@ from enum import Enum
 
 from core import timeutil
 from core.calendar_model import max_month_hours, required_month_hours
-from core.worktime import raw_seconds_for_net
+from core.worktime import net_seconds_for_raw, raw_seconds_for_net
 
 _MINUTE_SECONDS = 60
 _MINUTES_PER_HOUR = 60
@@ -61,6 +61,7 @@ class MonthSummary:
     planned_minutes: int
     required_minutes: int
     max_minutes: int  # 최대 근로 가능시간(주 52h 기준)을 분으로 환산
+    recog_planned_minutes: int  # 월 (가)계획 합계(각 범위 폭에서 휴게 차감)
     actual_seconds: int
     progress_ratio: float | None
     expected_clock_out: datetime | None
@@ -84,6 +85,7 @@ def build_month_summary(
     )
     # 최대 근로 가능시간(말일/7*52, 공휴일 차감 없음).
     max_minutes = max_month_hours(year, month, holidays) * _MINUTES_PER_HOUR
+    recog_planned_minutes = _recog_planned_minutes(storage, year, month)
     in_progress = attendance_service.today_in_progress_seconds() or 0
     actual_seconds = attendance_service.month_total_seconds(year, month) + in_progress
 
@@ -102,12 +104,22 @@ def build_month_summary(
         planned_minutes=planned_minutes,
         required_minutes=required_minutes,
         max_minutes=max_minutes,
+        recog_planned_minutes=recog_planned_minutes,
         actual_seconds=actual_seconds,
         progress_ratio=progress_ratio,
         expected_clock_out=expected,
         remaining_seconds=remaining,
         expected_exceeds_range=exceeds,
     )
+
+
+def _recog_planned_minutes(storage, year: int, month: int) -> int:
+    """월 (가)계획 합계(분). 각 범위 폭(체류)에서 휴게를 제한 순근무로 환산."""
+    total = 0
+    for start_min, end_min in storage.list_recognition_month(year, month).values():
+        width_seconds = max(end_min - start_min, 0) * _MINUTE_SECONDS
+        total += net_seconds_for_raw(width_seconds) // _MINUTE_SECONDS
+    return total
 
 
 def _today_expectation(storage, plan_service, holidays, now):
