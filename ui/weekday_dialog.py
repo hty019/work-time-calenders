@@ -38,9 +38,9 @@ def open_weekday_plan_dialog(
     recog_start_edit.setPlaceholderText("HH:MM (비우면 미설정)")
     recog_end_edit = QLineEdit()
     recog_end_edit.setPlaceholderText("HH:MM (비우면 미설정)")
-    form.addRow("계획(분)", plan_edit)
-    form.addRow("인정 시작", recog_start_edit)
-    form.addRow("인정 종료", recog_end_edit)
+    form.addRow("실 계획(분)", plan_edit)
+    form.addRow("(가)계획 시작", recog_start_edit)
+    form.addRow("(가)계획 종료", recog_end_edit)
     layout.addLayout(form)
 
     buttons = QHBoxLayout()

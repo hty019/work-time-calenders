@@ -31,7 +31,7 @@ def parse_recognition_inputs(
     if not start_text and not end_text:
         return None
     if not start_text or not end_text:
-        raise ValueError("인정 범위는 시작·종료 시각을 모두 입력해야 합니다.")
+        raise ValueError("(가)계획은 시작·종료 시각을 모두 입력해야 합니다.")
     return RecognitionRange(
         hhmm_to_minutes(start_text), hhmm_to_minutes(end_text)
     )
@@ -73,9 +73,9 @@ def open_day_dialog(
     recog_end_edit.setPlaceholderText("HH:MM (비우면 미설정)")
     form.addRow("출근", in_edit)
     form.addRow("퇴근", out_edit)
-    form.addRow("계획(분)", plan_edit)
-    form.addRow("인정 시작", recog_start_edit)
-    form.addRow("인정 종료", recog_end_edit)
+    form.addRow("실 계획(분)", plan_edit)
+    form.addRow("(가)계획 시작", recog_start_edit)
+    form.addRow("(가)계획 종료", recog_end_edit)
     layout.addLayout(form)
 
     buttons = QHBoxLayout()

@@ -1,6 +1,6 @@
-"""사전 정의 출근 인정 시간 범위(인정 범위) 도메인 로직.
+"""사전 정의 출근 인정 시간 범위 도메인 로직. UI 표기는 '(가)계획'.
 
-인정 범위는 근로가 인정되는 시각 구간(예 09:00~15:00)이다. 실제 근로가
+인정 범위((가)계획)는 근로가 인정되는 시각 구간(예 09:00~15:00)이다. 실제 근로가
 이 범위를 벗어나면 벗어난 시간은 인정받지 못하므로, 범위를 미리 설정해
 이탈 여부를 표시하고 계획(분)과의 정합성을 검증한다.
 근무시간(work_seconds) 계산 자체는 변경하지 않는다.
@@ -56,14 +56,14 @@ def validate_range_against_plan(
     범위 폭이 필요 체류보다 좁으면 저장을 막아야 한다.
     """
     if rng.width_minutes <= 0:
-        return "인정 범위의 종료 시각은 시작 시각보다 늦어야 합니다."
+        return "(가)계획의 종료 시각은 시작 시각보다 늦어야 합니다."
     needed_minutes = (
         raw_seconds_for_net(planned_minutes * _SECONDS_PER_MINUTE)
         // _SECONDS_PER_MINUTE
     )
     if rng.width_minutes < needed_minutes:
         return (
-            f"인정 범위({rng.width_minutes}분)가 계획을 채우는 데 필요한 "
+            f"(가)계획 범위({rng.width_minutes}분)가 실 계획을 채우는 데 필요한 "
             f"체류시간({needed_minutes}분, 휴게 포함)보다 좁습니다."
         )
     return None

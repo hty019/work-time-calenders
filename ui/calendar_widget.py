@@ -101,7 +101,7 @@ class _DayCellWidget(QFrame):
                 layout.addWidget(work)
 
             if cell.planned_minutes > 0:
-                plan = QLabel(f"계획 {format_hm(cell.planned_minutes)}")
+                plan = QLabel(f"실 계획 {format_hm(cell.planned_minutes)}")
                 plan.setAlignment(Qt.AlignCenter)
                 plan.setStyleSheet(
                     f"color:{theme.FG_PLANNED}; "
@@ -109,12 +109,16 @@ class _DayCellWidget(QFrame):
                 )
                 layout.addWidget(plan)
 
-        if cell.recog_hm:
-            # 인정 범위 표시 — 실제 근로가 범위를 벗어난 날은 경고색
+        # (가)계획 범위 표시 — 퇴근 완료 후 범위 내 정상 처리된 날은 숨기고,
+        # 범위를 벗어난 날은 경고를 유지한다.
+        show_recog = cell.recog_hm and (
+            not cell.is_clocked_out or cell.out_of_range
+        )
+        if show_recog:
             recog_fg = (
                 theme.FG_RANGE_WARN if cell.out_of_range else theme.FG_MUTED
             )
-            prefix = "⚠ 인정" if cell.out_of_range else "인정"
+            prefix = "⚠ (가)계획" if cell.out_of_range else "(가)계획"
             recog = QLabel(f"{prefix} {cell.recog_hm}")
             recog.setAlignment(Qt.AlignCenter)
             recog.setStyleSheet(
