@@ -11,7 +11,8 @@ from core.worktime import raw_seconds_for_net
 
 _MINUTE_SECONDS = 60
 _MINUTES_PER_HOUR = 60
-_OVER_LIMIT_MINUTES = 20 * 60  # 법정 기준 초과 허용폭(20h). 넘으면 위험 단계.
+_HOUR_SECONDS = 3600
+_OVER_LIMIT_HOURS = 20  # 법정 기준 초과 허용폭(20h). 넘으면 위험 단계.
 _PERCENT = 100
 
 
@@ -27,28 +28,30 @@ class ProgressLevel(Enum):
 def progress_state(
     actual_seconds: int, required_minutes: int, max_minutes: int
 ) -> tuple[int, ProgressLevel]:
-    """진행률 바의 (백분율, 단계) 산출.
+    """진행률 바의 (백분율, 단계) 산출. 분 단위는 버리고 시간 기준으로 계산.
 
     법정 기준 이내면 법정 기준을 max 로, 초과하면 최대 가능시간을 max 로
     바꾼다. 단계는 법정 초과(노랑) → +20h 초과(주황) → 최대 초과(빨강).
     """
-    if required_minutes <= 0:
+    required_hours = required_minutes // _MINUTES_PER_HOUR
+    max_hours = max_minutes // _MINUTES_PER_HOUR
+    if required_hours <= 0:
         return 0, ProgressLevel.NORMAL
-    actual_minutes = actual_seconds // _MINUTE_SECONDS
-    if actual_minutes <= required_minutes:
+    actual_hours = actual_seconds // _HOUR_SECONDS
+    if actual_hours <= required_hours:
         return (
-            actual_minutes * _PERCENT // required_minutes,
+            actual_hours * _PERCENT // required_hours,
             ProgressLevel.NORMAL,
         )
-    if actual_minutes > max_minutes:
+    if actual_hours > max_hours:
         level = ProgressLevel.EXCEEDED
-    elif actual_minutes > required_minutes + _OVER_LIMIT_MINUTES:
+    elif actual_hours > required_hours + _OVER_LIMIT_HOURS:
         level = ProgressLevel.CRITICAL
     else:
         level = ProgressLevel.OVER
-    if max_minutes <= 0:
+    if max_hours <= 0:
         return _PERCENT, level
-    return min(actual_minutes * _PERCENT // max_minutes, _PERCENT), level
+    return min(actual_hours * _PERCENT // max_hours, _PERCENT), level
 
 
 @dataclass

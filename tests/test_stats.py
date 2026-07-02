@@ -141,6 +141,18 @@ def test_progress_state_normal_uses_required_as_max():
     assert pct == 100  # 정확히 법정 기준
 
 
+def test_progress_state_truncates_minutes():
+    # 분 단위는 버리고 시간 기준으로 산정: 177h59m → 177h → 아직 법정 이내
+    pct, level = progress_state(
+        177 * 3600 + 59 * 60, 177 * 60, 230 * 60
+    )
+    assert level is ProgressLevel.NORMAL
+    assert pct == 100
+    # 100h30m → 100h 기준 → 56%
+    pct, _ = progress_state(100 * 3600 + 30 * 60, 177 * 60, 230 * 60)
+    assert pct == 56
+
+
 def test_progress_state_over_switches_to_max_basis():
     # 법정 기준 초과 ~ +20h 이내: max=최대 가능, 노랑
     pct, level = progress_state(180 * 3600, 177 * 60, 230 * 60)

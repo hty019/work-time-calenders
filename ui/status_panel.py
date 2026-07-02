@@ -13,6 +13,7 @@ from core.stats import MonthSummary, ProgressLevel, progress_state
 from ui import theme
 
 _SECONDS_PER_MINUTE = 60
+_MINUTES_PER_HOUR = 60
 _EXPECTED_FONT_PX = 20
 _PROGRESS_BAR_HEIGHT_PX = 6  # 얇은 바 스타일 유지
 _PROGRESS_BAR_RADIUS_PX = 3
@@ -49,6 +50,11 @@ def _progress_style(level: ProgressLevel) -> str:
 def _fmt_seconds(seconds: int) -> str:
     minutes = max(seconds, 0) // _SECONDS_PER_MINUTE
     return format_hm(minutes)
+
+
+def _fmt_hours(minutes: int) -> str:
+    """법정 기준·최대 가능용: 분은 버리고 'Nh' 만 표시."""
+    return f"{minutes // _MINUTES_PER_HOUR}h"
 
 
 class StatusPanel(QWidget):
@@ -113,10 +119,10 @@ class StatusPanel(QWidget):
 
     def update_summary(self, summary: MonthSummary, status: WorkStatus) -> None:
         self._required.setText(
-            f"법정 기준   {format_hm(summary.required_minutes)}"
+            f"법정 기준   {_fmt_hours(summary.required_minutes)}"
         )
         self._max.setText(
-            f"최대 가능   {format_hm(summary.max_minutes)}"
+            f"최대 가능   {_fmt_hours(summary.max_minutes)}"
         )
         self._planned.setText(
             f"월 계획   {format_hm(summary.planned_minutes)}"
