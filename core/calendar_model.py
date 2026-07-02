@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from core import timeutil
+from core.recognition import minutes_to_hhmm
 from core.storage import Attendance
 
 _WEEKLY_WORK_HOURS = 40  # 주 40시간 근로 기준
@@ -28,6 +29,8 @@ class DayCell:
     is_clocked_out: bool = False
     clock_in_hm: str = ""
     clock_out_hm: str = ""
+    recog_hm: str = ""          # 인정 범위 표시용 "HH:MM~HH:MM" (미설정 시 "")
+    out_of_range: bool = False  # 실제 근로가 인정 범위를 벗어났는지
 
 
 def format_hms(seconds: int | None) -> str:
@@ -84,6 +87,7 @@ def build_month_grid(
     holidays: dict[str, str],
     effective_planned: "Callable[[str], int] | None" = None,
     today_seconds: int | None = None,
+    recognition: "Callable[[str], tuple[int, int] | None] | None" = None,
 ) -> list[list[DayCell]]:
     cal = calendar.Calendar(firstweekday=0)  # 0 = Monday
     grid: list[list[DayCell]] = []
@@ -103,6 +107,8 @@ def build_month_grid(
                 work_seconds = today_seconds
                 is_incomplete = False
             planned = effective_planned(date) if effective_planned else 0
+            recog = recognition(date) if recognition else None
+            recog_hm, out_of_range = _recognition_state(recog, rec)
             row.append(
                 DayCell(
                     day=day,
@@ -115,7 +121,35 @@ def build_month_grid(
                     is_clocked_out=is_clocked_out,
                     clock_in_hm=timeutil.hhmm(rec.clock_in) if rec else "",
                     clock_out_hm=timeutil.hhmm(rec.clock_out) if rec else "",
+                    recog_hm=recog_hm,
+                    out_of_range=out_of_range,
                 )
             )
         grid.append(row)
     return grid
+
+
+def _minutes_of_day(iso: str) -> int:
+    """ISO 시각 → 자정 기준 분."""
+    dt = timeutil.from_iso(iso)
+    return dt.hour * 60 + dt.minute
+
+
+def _recognition_state(
+    recog: tuple[int, int] | None, rec: Attendance | None
+) -> tuple[str, bool]:
+    """인정 범위 표시 문자열과 실제 근로의 범위 이탈 여부.
+
+    기록이 없으면 표시만 하고 이탈 아님. 미퇴근이면 출근 시각만 판정한다.
+    """
+    if recog is None:
+        return "", False
+    start_min, end_min = recog
+    recog_hm = f"{minutes_to_hhmm(start_min)}~{minutes_to_hhmm(end_min)}"
+    if rec is None:
+        return recog_hm, False
+    if _minutes_of_day(rec.clock_in) < start_min:
+        return recog_hm, True
+    if rec.clock_out is not None and _minutes_of_day(rec.clock_out) > end_min:
+        return recog_hm, True
+    return recog_hm, False

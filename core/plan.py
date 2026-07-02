@@ -55,15 +55,19 @@ class PlanService:
                 self._storage.set_plan(date, minutes)
         return len(dates)
 
-    def effective_minutes(self, date: str, holidays: dict[str, str]) -> int:
-        """오버라이드가 있으면 그 값, 없으면 주말·공휴일 0, 평일 기본값."""
-        override = self._storage.get_plan(date)
-        if override is not None:
-            return override
+    def baseline_minutes(self, date: str, holidays: dict[str, str]) -> int:
+        """오버라이드를 무시한 기본 계획: 주말·공휴일 0, 평일 기본값."""
         d = datetime.date.fromisoformat(date)
         if d.weekday() >= SATURDAY or date in holidays:
             return 0
         return self._default_getter()
+
+    def effective_minutes(self, date: str, holidays: dict[str, str]) -> int:
+        """오버라이드가 있으면 그 값, 없으면 기본 계획(baseline)."""
+        override = self._storage.get_plan(date)
+        if override is not None:
+            return override
+        return self.baseline_minutes(date, holidays)
 
     def month_planned_minutes(
         self, year: int, month: int, holidays: dict[str, str]

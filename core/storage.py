@@ -30,6 +30,14 @@ CREATE TABLE IF NOT EXISTS plan (
 )
 """
 
+_CREATE_RECOGNITION_SQL = """
+CREATE TABLE IF NOT EXISTS recognition (
+    work_date TEXT PRIMARY KEY,
+    start_min INTEGER NOT NULL,
+    end_min   INTEGER NOT NULL
+)
+"""
+
 
 class Storage:
     def __init__(self, db_path: str) -> None:
@@ -38,6 +46,7 @@ class Storage:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute(_CREATE_SQL)
         self._conn.execute(_CREATE_PLAN_SQL)
+        self._conn.execute(_CREATE_RECOGNITION_SQL)
         self._conn.commit()
 
     def get(self, work_date: str) -> Attendance | None:
@@ -105,6 +114,49 @@ class Storage:
             (prefix + "%",),
         )
         return {r["work_date"]: int(r["planned_minutes"]) for r in cur.fetchall()}
+
+    def get_recognition(self, work_date: str) -> tuple[int, int] | None:
+        """해당 날짜의 인정 범위 (시작분, 종료분). 없으면 None."""
+        cur = self._conn.execute(
+            "SELECT start_min, end_min FROM recognition WHERE work_date = ?",
+            (work_date,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return int(row["start_min"]), int(row["end_min"])
+
+    def set_recognition(
+        self, work_date: str, start_min: int, end_min: int
+    ) -> None:
+        self._conn.execute(
+            "INSERT INTO recognition (work_date, start_min, end_min) "
+            "VALUES (?, ?, ?) "
+            "ON CONFLICT(work_date) DO UPDATE SET "
+            "start_min=excluded.start_min, end_min=excluded.end_min",
+            (work_date, start_min, end_min),
+        )
+        self._conn.commit()
+
+    def clear_recognition(self, work_date: str) -> None:
+        self._conn.execute(
+            "DELETE FROM recognition WHERE work_date = ?", (work_date,)
+        )
+        self._conn.commit()
+
+    def list_recognition_month(
+        self, year: int, month: int
+    ) -> dict[str, tuple[int, int]]:
+        prefix = f"{year:04d}-{month:02d}-"
+        cur = self._conn.execute(
+            "SELECT work_date, start_min, end_min FROM recognition "
+            "WHERE work_date LIKE ? ORDER BY work_date",
+            (prefix + "%",),
+        )
+        return {
+            r["work_date"]: (int(r["start_min"]), int(r["end_min"]))
+            for r in cur.fetchall()
+        }
 
     def close(self) -> None:
         self._conn.close()

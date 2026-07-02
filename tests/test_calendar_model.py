@@ -105,6 +105,49 @@ def test_format_hm():
     assert format_hm(150) == "2h 30m"
 
 
+def test_grid_includes_recognition_range_and_deviation():
+    # 인정 범위 09:00~15:00, 근로 08:00~16:00 → 범위 이탈
+    records = {
+        "2026-06-29": Attendance(
+            "2026-06-29", "2026-06-29T08:00:00+09:00",
+            "2026-06-29T16:00:00+09:00", 7 * 3600 + 30 * 60,
+        ),
+        "2026-06-30": Attendance(
+            "2026-06-30", "2026-06-30T09:00:00+09:00",
+            "2026-06-30T15:00:00+09:00", 5 * 3600 + 30 * 60,
+        ),
+    }
+    ranges = {
+        "2026-06-29": (540, 900),
+        "2026-06-30": (540, 900),
+    }
+    grid = build_month_grid(
+        2026, 6, "2026-06-30", records, {},
+        recognition=lambda d: ranges.get(d),
+    )
+    cells = {c.date: c for week in grid for c in week if c.day != 0}
+    out = cells["2026-06-29"]
+    assert out.recog_hm == "09:00~15:00"
+    assert out.out_of_range is True
+    ok = cells["2026-06-30"]
+    assert ok.recog_hm == "09:00~15:00"
+    assert ok.out_of_range is False
+    # 범위 미설정 날짜는 빈 값
+    assert cells["2026-06-01"].recog_hm == ""
+    assert cells["2026-06-01"].out_of_range is False
+
+
+def test_grid_recognition_ignores_missing_record():
+    # 범위만 있고 기록 없음 → 표시만 하고 이탈 아님
+    grid = build_month_grid(
+        2026, 6, "2026-06-30", {}, {},
+        recognition=lambda d: (540, 900) if d == "2026-06-05" else None,
+    )
+    cells = {c.date: c for week in grid for c in week if c.day != 0}
+    assert cells["2026-06-05"].recog_hm == "09:00~15:00"
+    assert cells["2026-06-05"].out_of_range is False
+
+
 def test_grid_includes_planned_minutes():
     # effective_planned 콜백이 각 셀 planned_minutes 로 반영되는지
     records = {}

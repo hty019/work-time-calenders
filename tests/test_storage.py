@@ -64,3 +64,22 @@ def test_plan_list_month(tmp_path):
     st.set_plan("2026-08-01", 480)  # 다른 달
     got = st.list_plan_month(2026, 7)
     assert got == {"2026-07-01": 480, "2026-07-15": 240}
+
+
+def test_recognition_set_get_clear(tmp_path):
+    st = make_storage(tmp_path)
+    assert st.get_recognition("2026-07-07") is None
+    st.set_recognition("2026-07-07", 540, 900)  # 09:00~15:00
+    assert st.get_recognition("2026-07-07") == (540, 900)
+    st.set_recognition("2026-07-07", 480, 1080)  # 덮어쓰기 08:00~18:00
+    assert st.get_recognition("2026-07-07") == (480, 1080)
+    st.clear_recognition("2026-07-07")
+    assert st.get_recognition("2026-07-07") is None
+
+
+def test_recognition_list_month(tmp_path):
+    st = make_storage(tmp_path)
+    st.set_recognition("2026-07-01", 540, 900)
+    st.set_recognition("2026-08-01", 540, 900)  # 다른 달
+    got = st.list_recognition_month(2026, 7)
+    assert got == {"2026-07-01": (540, 900)}

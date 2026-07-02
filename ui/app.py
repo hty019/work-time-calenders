@@ -12,6 +12,11 @@ from core.attendance import AttendanceService
 from core.calendar_model import build_month_grid, format_hms
 from core.holidays import HolidayClient
 from core.plan import PlanService, weekday_dates
+from core.recognition import (
+    RecognitionRange,
+    RecognitionService,
+    validate_range_against_plan,
+)
 from core.stats import build_month_summary
 from core.storage import Storage
 from ui import theme
@@ -33,6 +38,7 @@ class AppController:
         self._storage = Storage(config.db_path())
         self._service = AttendanceService(self._storage)
         self._plans = PlanService(self._storage)
+        self._recog = RecognitionService(self._storage)
         self._holidays = HolidayClient(
             config.get_service_key(), config.holidays_cache_path()
         )
@@ -77,6 +83,7 @@ class AppController:
             year, month, today, records, holidays,
             effective_planned=lambda d: self._plans.effective_minutes(d, holidays),
             today_seconds=today_seconds,
+            recognition=self._storage.get_recognition,
         )
         summary = build_month_summary(
             self._storage, self._service, self._plans,
@@ -144,6 +151,7 @@ class AppController:
 
     def _handle_edit_day(self, date: str) -> None:
         rec = self._storage.get(date)
+        holidays = self._holidays.get_holidays(self._view_year, self._view_month)
         open_day_dialog(
             self._window,
             date,
@@ -153,20 +161,42 @@ class AppController:
             config.get_default_daily_minutes(),
             self._handle_save_times,
             self._handle_save_plan,
+            recog_range=self._recog.get(date),
+            baseline_minutes=self._plans.baseline_minutes(date, holidays),
+            on_save_recognition=self._handle_save_recognition,
         )
         self._refresh()
 
     def _handle_edit_weekday(self, weekday: int) -> None:
         year, month = self._view_year, self._view_month
-        date_count = len(weekday_dates(year, month, weekday))
+        dates = weekday_dates(year, month, weekday)
+        holidays = self._holidays.get_holidays(year, month)
+
+        def validate(minutes, rng) -> str | None:
+            """날짜별 유효 계획 대비 인정 범위 폭 검증. 첫 위반 날짜를 안내."""
+            if rng is None:
+                return None
+            for date in dates:
+                planned = (
+                    minutes if minutes is not None
+                    else self._plans.baseline_minutes(date, holidays)
+                )
+                err = validate_range_against_plan(planned, rng)
+                if err is not None:
+                    return f"{date}: {err}"
+            return None
+
+        def apply(minutes, rng) -> None:
+            self._plans.set_weekday_plan(year, month, weekday, minutes)
+            self._recog.set_weekday(year, month, weekday, rng)
+
         open_weekday_plan_dialog(
             self._window,
             _WEEKDAY_NAMES[weekday],
-            date_count,
+            len(dates),
             config.get_default_daily_minutes(),
-            lambda minutes: self._plans.set_weekday_plan(
-                year, month, weekday, minutes
-            ),
+            apply,
+            validate,
         )
         self._refresh()
 
@@ -178,6 +208,14 @@ class AppController:
             self._plans.clear_plan(work_date)
         else:
             self._plans.set_plan(work_date, minutes)
+
+    def _handle_save_recognition(
+        self, work_date: str, rng: RecognitionRange | None
+    ) -> None:
+        if rng is None:
+            self._recog.clear(work_date)
+        else:
+            self._recog.set(work_date, rng)
 
     # --- 실행 -----------------------------------------------------------
     def run(self) -> None:

@@ -109,6 +109,19 @@ class _DayCellWidget(QFrame):
                 )
                 layout.addWidget(plan)
 
+        if cell.recog_hm:
+            # 인정 범위 표시 — 실제 근로가 범위를 벗어난 날은 경고색
+            recog_fg = (
+                theme.FG_RANGE_WARN if cell.out_of_range else theme.FG_MUTED
+            )
+            prefix = "⚠ 인정" if cell.out_of_range else "인정"
+            recog = QLabel(f"{prefix} {cell.recog_hm}")
+            recog.setAlignment(Qt.AlignCenter)
+            recog.setStyleSheet(
+                f"color:{recog_fg}; font-size:{theme.CELL_PLAN_FONT_PX}px;"
+            )
+            layout.addWidget(recog)
+
         layout.addStretch(1)  # 아래쪽 여백 → 콘텐츠를 수직 가운데로
         # 상단 날짜 높이만큼 하단에 대칭 여백을 두어 셀 전체 기준 가운데로 보정
         layout.addSpacing(theme.CELL_DATE_ROW_PX)

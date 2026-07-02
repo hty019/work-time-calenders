@@ -16,6 +16,7 @@ FG_MUTED = "#9aa0a6"
 FG_INCOMPLETE = "#ffd166"
 FG_WORKING = "#4ade80"
 FG_ACTUAL_DONE = "#4ade80"    # 퇴근 완료일 실 근로시간 강조 (연두)
+FG_RANGE_WARN = "#ffd166"     # 인정 범위 이탈 경고 (노랑)
 
 FONT_FAMILY = "Helvetica"
 CELL_MIN_WIDTH = 96
