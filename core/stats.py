@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from core import timeutil
+from core.calendar_model import required_month_hours
 from core.worktime import raw_seconds_for_net
 
 _MINUTE_SECONDS = 60
+_MINUTES_PER_HOUR = 60
 
 
 @dataclass
@@ -15,6 +17,7 @@ class MonthSummary:
     year: int
     month: int
     planned_minutes: int
+    required_minutes: int
     actual_seconds: int
     progress_ratio: float | None
     expected_clock_out: datetime | None
@@ -31,6 +34,10 @@ def build_month_summary(
     now: datetime,
 ) -> MonthSummary:
     planned_minutes = plan_service.month_planned_minutes(year, month, holidays)
+    # 법정 요구 근로시간(말일/7*40 − 평일 공휴일*8). 시간 단위를 분으로 환산해 보관.
+    required_minutes = (
+        required_month_hours(year, month, holidays) * _MINUTES_PER_HOUR
+    )
     in_progress = attendance_service.today_in_progress_seconds() or 0
     actual_seconds = attendance_service.month_total_seconds(year, month) + in_progress
 
@@ -46,6 +53,7 @@ def build_month_summary(
         year=year,
         month=month,
         planned_minutes=planned_minutes,
+        required_minutes=required_minutes,
         actual_seconds=actual_seconds,
         progress_ratio=progress_ratio,
         expected_clock_out=expected,

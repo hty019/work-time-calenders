@@ -53,6 +53,20 @@ def test_actual_includes_in_progress():
     assert s.planned_minutes == 9600
 
 
+def test_required_minutes_deducts_weekday_holiday():
+    # 2026-08: 말일 31 → floor(31/7*40)=177h. 8/17(월) 평일 공휴일이면 -8h → 169h.
+    now = datetime(2026, 8, 3, 12, tzinfo=KST)
+    s_no = build_month_summary(
+        FakeStorage(), FakeAttendance(), FakePlan(0, 0), 2026, 8, {}, now,
+    )
+    s_hol = build_month_summary(
+        FakeStorage(), FakeAttendance(), FakePlan(0, 0),
+        2026, 8, {"2026-08-17": "테스트공휴일"}, now,
+    )
+    assert s_no.required_minutes == 177 * 60
+    assert s_hol.required_minutes == (177 - 8) * 60
+
+
 def test_progress_ratio_none_when_planned_zero():
     s = build_month_summary(
         FakeStorage(), FakeAttendance(month_seconds=100),

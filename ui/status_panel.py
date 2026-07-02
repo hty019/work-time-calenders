@@ -37,6 +37,7 @@ class StatusPanel(QWidget):
 
         self._title = QLabel("STATUS")
         self._title.setStyleSheet(f"color:{theme.FG_MUTED}; font-weight:bold;")
+        self._required = QLabel()  # 법정 요구 근로시간(평일 공휴일 차감 반영)
         self._planned = QLabel()
         self._actual = QLabel()
         self._progress = QProgressBar()
@@ -49,8 +50,8 @@ class StatusPanel(QWidget):
             f"color:{theme.FG_PLANNED}; font-size:20px; font-weight:bold;"
         )
 
-        for w in (self._title, self._planned, self._actual, self._progress,
-                  self._expected_title, self._expected):
+        for w in (self._title, self._required, self._planned, self._actual,
+                  self._progress, self._expected_title, self._expected):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -79,6 +80,9 @@ class StatusPanel(QWidget):
             self._buttons.addWidget(clock)
 
     def update_summary(self, summary: MonthSummary, status: WorkStatus) -> None:
+        self._required.setText(
+            f"법정 기준   {format_hm(summary.required_minutes)}"
+        )
         self._planned.setText(
             f"월 계획   {format_hm(summary.planned_minutes)}"
         )
