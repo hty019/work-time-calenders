@@ -7,7 +7,10 @@ BG_ELEVATED = "#3a3d42"
 BG_WEEKEND = "#4a4038"       # 주말 셀 배경 (연한 갈색)
 BG_TODAY = "#3b82f6"
 BG_HOVER = "#43464c"
-BG_PROGRESS = "#4ade80"      # 진행률 바 채움
+BG_PROGRESS = "#4ade80"       # 진행률 바 채움 (법정 기준 이내, 녹색)
+BG_PROGRESS_OVER = "#facc15"  # 법정 기준 초과 ~ +20h (노랑)
+BG_PROGRESS_CRIT = "#fb923c"  # 법정 기준 +20h 초과 (주황)
+BG_PROGRESS_MAX = "#ef4444"   # 최대 근로 가능시간 초과 (빨강)
 
 FG_DATE = "#ffffff"
 FG_TIME = "#b6bcc4"

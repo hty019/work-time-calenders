@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from enum import Enum
 
 from core import timeutil
 from core.calendar_model import max_month_hours, required_month_hours
@@ -10,6 +11,44 @@ from core.worktime import raw_seconds_for_net
 
 _MINUTE_SECONDS = 60
 _MINUTES_PER_HOUR = 60
+_OVER_LIMIT_MINUTES = 20 * 60  # 법정 기준 초과 허용폭(20h). 넘으면 위험 단계.
+_PERCENT = 100
+
+
+class ProgressLevel(Enum):
+    """진행률 바 단계: 법정 이내 / 초과 / +20h 초과 / 최대 초과."""
+
+    NORMAL = "normal"        # 법정 기준 이내 (녹색)
+    OVER = "over"            # 법정 기준 초과 ~ +20h (노랑)
+    CRITICAL = "critical"    # 법정 기준 +20h 초과 ~ 최대 가능 (주황)
+    EXCEEDED = "exceeded"    # 최대 근로 가능시간 초과 (빨강)
+
+
+def progress_state(
+    actual_seconds: int, required_minutes: int, max_minutes: int
+) -> tuple[int, ProgressLevel]:
+    """진행률 바의 (백분율, 단계) 산출.
+
+    법정 기준 이내면 법정 기준을 max 로, 초과하면 최대 가능시간을 max 로
+    바꾼다. 단계는 법정 초과(노랑) → +20h 초과(주황) → 최대 초과(빨강).
+    """
+    if required_minutes <= 0:
+        return 0, ProgressLevel.NORMAL
+    actual_minutes = actual_seconds // _MINUTE_SECONDS
+    if actual_minutes <= required_minutes:
+        return (
+            actual_minutes * _PERCENT // required_minutes,
+            ProgressLevel.NORMAL,
+        )
+    if actual_minutes > max_minutes:
+        level = ProgressLevel.EXCEEDED
+    elif actual_minutes > required_minutes + _OVER_LIMIT_MINUTES:
+        level = ProgressLevel.CRITICAL
+    else:
+        level = ProgressLevel.OVER
+    if max_minutes <= 0:
+        return _PERCENT, level
+    return min(actual_minutes * _PERCENT // max_minutes, _PERCENT), level
 
 
 @dataclass

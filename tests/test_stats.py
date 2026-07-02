@@ -1,7 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from core.stats import build_month_summary
+from core.stats import ProgressLevel, build_month_summary, progress_state
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -128,6 +128,53 @@ def test_expected_no_recognition_range_no_warning():
         FakePlan(9600, 480), 2026, 7, {}, now,
     )
     assert s.expected_exceeds_range is False
+
+
+def test_progress_state_normal_uses_required_as_max():
+    # 법정 기준 이내: max=법정 기준, 녹색
+    pct, level = progress_state(100 * 3600, 177 * 60, 230 * 60)
+    assert level is ProgressLevel.NORMAL
+    assert pct == 56  # 100/177
+
+    pct, level = progress_state(177 * 3600, 177 * 60, 230 * 60)
+    assert level is ProgressLevel.NORMAL
+    assert pct == 100  # 정확히 법정 기준
+
+
+def test_progress_state_over_switches_to_max_basis():
+    # 법정 기준 초과 ~ +20h 이내: max=최대 가능, 노랑
+    pct, level = progress_state(180 * 3600, 177 * 60, 230 * 60)
+    assert level is ProgressLevel.OVER
+    assert pct == 78  # 180/230
+
+    # 정확히 +20h(197h)까지는 노랑
+    pct, level = progress_state(197 * 3600, 177 * 60, 230 * 60)
+    assert level is ProgressLevel.OVER
+
+
+def test_progress_state_critical_after_20h_over():
+    # 법정 기준 +20h 초과 ~ 최대 가능 이내: 주황
+    pct, level = progress_state(198 * 3600, 177 * 60, 230 * 60)
+    assert level is ProgressLevel.CRITICAL
+    assert pct == 86  # 198/230
+
+    # 정확히 최대 가능(230h)까지는 주황
+    pct, level = progress_state(230 * 3600, 177 * 60, 230 * 60)
+    assert level is ProgressLevel.CRITICAL
+    assert pct == 100
+
+
+def test_progress_state_exceeded_over_max():
+    # 최대 근로 가능시간 초과: 빨강, 100% 고정
+    pct, level = progress_state(231 * 3600, 177 * 60, 230 * 60)
+    assert level is ProgressLevel.EXCEEDED
+    assert pct == 100
+
+
+def test_progress_state_zero_required():
+    pct, level = progress_state(3600, 0, 230 * 60)
+    assert pct == 0
+    assert level is ProgressLevel.NORMAL
 
 
 def test_expected_none_without_clock_in():

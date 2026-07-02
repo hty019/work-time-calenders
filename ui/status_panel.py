@@ -9,16 +9,29 @@ from PySide6.QtWidgets import (
 
 from core.attendance import WorkStatus
 from core.calendar_model import format_hm
-from core.stats import MonthSummary
+from core.stats import MonthSummary, ProgressLevel, progress_state
 from ui import theme
 
 _SECONDS_PER_MINUTE = 60
 _EXPECTED_FONT_PX = 20
 
+_PROGRESS_COLORS = {
+    ProgressLevel.NORMAL: theme.BG_PROGRESS,
+    ProgressLevel.OVER: theme.BG_PROGRESS_OVER,
+    ProgressLevel.CRITICAL: theme.BG_PROGRESS_CRIT,
+    ProgressLevel.EXCEEDED: theme.BG_PROGRESS_MAX,
+}
+
 
 def _expected_style(warn: bool) -> str:
     color = theme.FG_RANGE_WARN if warn else theme.FG_PLANNED
     return f"color:{color}; font-size:{_EXPECTED_FONT_PX}px; font-weight:bold;"
+
+
+def _progress_style(level: ProgressLevel) -> str:
+    return (
+        f"QProgressBar::chunk {{ background-color: {_PROGRESS_COLORS[level]}; }}"
+    )
 
 
 def _fmt_seconds(seconds: int) -> str:
@@ -98,13 +111,15 @@ class StatusPanel(QWidget):
         self._actual.setText(
             f"월 누적   {_fmt_seconds(summary.actual_seconds)}"
         )
-        if summary.progress_ratio is None:
-            self._progress.setValue(0)
-            self._progress.setFormat("계획 없음")
-        else:
-            pct = int(summary.progress_ratio * 100)
-            self._progress.setValue(min(pct, 100))
-            self._progress.setFormat(f"{pct}%")
+        # 진행률: 법정 기준 이내 녹색 → 초과 시 최대 가능 기준 주황 → +20h 빨강
+        pct, level = progress_state(
+            summary.actual_seconds,
+            summary.required_minutes,
+            summary.max_minutes,
+        )
+        self._progress.setValue(pct)
+        self._progress.setFormat(f"{pct}%")
+        self._progress.setStyleSheet(_progress_style(level))
         if summary.expected_clock_out is None:
             self._expected.setText("-")
             self._expected.setStyleSheet(_expected_style(warn=False))
