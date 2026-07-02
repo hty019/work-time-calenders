@@ -24,6 +24,7 @@ class DayCell:
     work_seconds: int | None
     is_incomplete: bool
     planned_minutes: int = 0
+    is_clocked_out: bool = False
 
 
 def format_hms(seconds: int | None) -> str:
@@ -93,6 +94,7 @@ def build_month_grid(
             rec = records.get(date)
             work_seconds = rec.work_seconds if rec else None
             is_incomplete = rec is not None and rec.clock_out is None
+            is_clocked_out = rec is not None and rec.clock_out is not None
             # 오늘 진행 중이면 실시간 근무초를 셀에 반영한다.
             if date == today and is_incomplete and today_seconds is not None:
                 work_seconds = today_seconds
@@ -107,6 +109,7 @@ def build_month_grid(
                     work_seconds=work_seconds,
                     is_incomplete=is_incomplete,
                     planned_minutes=planned,
+                    is_clocked_out=is_clocked_out,
                 )
             )
         grid.append(row)

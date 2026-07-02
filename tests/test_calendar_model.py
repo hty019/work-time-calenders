@@ -58,6 +58,7 @@ def test_grid_reflects_today_in_progress_seconds():
     today = cells["2026-06-30"]
     assert today.work_seconds == 3 * 3600
     assert today.is_incomplete is False  # 미퇴근 대신 진행 시간 표시
+    assert today.is_clocked_out is False  # 진행 중은 '퇴근 완료' 아님
 
 
 def test_grid_past_incomplete_stays_incomplete():
@@ -90,8 +91,10 @@ def test_grid_marks_today_holiday_and_work():
     cells = {c.date: c for week in grid for c in week if c.day != 0}
     assert cells["2026-06-30"].is_today is True
     assert cells["2026-06-30"].work_seconds == 8 * 3600
+    assert cells["2026-06-30"].is_clocked_out is True  # 퇴근 완료
     assert cells["2026-06-06"].holiday_name == "현충일"
     assert cells["2026-06-02"].is_incomplete is True
+    assert cells["2026-06-02"].is_clocked_out is False  # 미퇴근
 
 
 def test_format_hm():

@@ -15,10 +15,16 @@ FG_HOLIDAY = "#ff5a5a"
 FG_MUTED = "#9aa0a6"
 FG_INCOMPLETE = "#ffd166"
 FG_WORKING = "#4ade80"
+FG_ACTUAL_DONE = "#4ade80"    # 퇴근 완료일 실 근로시간 강조 (연두)
 
 FONT_FAMILY = "Helvetica"
 CELL_MIN_WIDTH = 96
 CELL_MIN_HEIGHT = 84
+
+# 캘린더 셀 폰트 크기(px)
+CELL_WORK_FONT_PX = 11        # 일반 근로시간/미퇴근 표시
+CELL_PLAN_FONT_PX = 10        # 계획 시간 표시
+CELL_ACTUAL_DONE_FONT_PX = 14  # 퇴근 완료일 실 근로시간 강조(조금 크게)
 
 WINDOW_MIN_WIDTH = 900
 WINDOW_MIN_HEIGHT = 640

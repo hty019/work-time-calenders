@@ -42,16 +42,31 @@ class _DayCellWidget(QFrame):
             name.setStyleSheet(f"color:{theme.FG_HOLIDAY}; font-size:10px;")
             layout.addWidget(name)
 
-        work_text, work_fg = self._work_line(cell)
-        if work_text:
-            work = QLabel(work_text)
-            work.setStyleSheet(f"color:{work_fg}; font-size:11px;")
+        if cell.is_clocked_out:
+            # 퇴근 완료: 계획을 숨기고 실 근로시간을 연두색 볼드로 강조
+            work = QLabel(format_hms(cell.work_seconds))
+            work.setStyleSheet(
+                f"color:{theme.FG_ACTUAL_DONE}; "
+                f"font-size:{theme.CELL_ACTUAL_DONE_FONT_PX}px; "
+                f"font-weight:bold;"
+            )
             layout.addWidget(work)
+        else:
+            work_text, work_fg = self._work_line(cell)
+            if work_text:
+                work = QLabel(work_text)
+                work.setStyleSheet(
+                    f"color:{work_fg}; font-size:{theme.CELL_WORK_FONT_PX}px;"
+                )
+                layout.addWidget(work)
 
-        if cell.planned_minutes > 0:
-            plan = QLabel(f"계획 {format_hm(cell.planned_minutes)}")
-            plan.setStyleSheet(f"color:{theme.FG_PLANNED}; font-size:10px;")
-            layout.addWidget(plan)
+            if cell.planned_minutes > 0:
+                plan = QLabel(f"계획 {format_hm(cell.planned_minutes)}")
+                plan.setStyleSheet(
+                    f"color:{theme.FG_PLANNED}; "
+                    f"font-size:{theme.CELL_PLAN_FONT_PX}px;"
+                )
+                layout.addWidget(plan)
 
         layout.addStretch(1)
 
