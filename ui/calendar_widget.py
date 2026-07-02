@@ -78,7 +78,10 @@ class _DayCellWidget(QFrame):
         # 배경은 주말(연한 갈색)/기본, 오늘은 밝은 파랑 테두리로 강조.
         # 호버 시 주황 테두리 — 평상시에도 투명 2px 테두리를 깔아 두어
         # 호버 순간 콘텐츠가 밀리지 않게 한다.
-        bg = theme.BG_WEEKEND if _is_weekend(cell.date) else theme.BG_ELEVATED
+        is_weekend = _is_weekend(cell.date)
+        bg = theme.BG_WEEKEND if is_weekend else theme.BG_ELEVATED
+        # 주말은 호버 시에도 본래 배경(연갈색)을 유지하고 테두리만 강조
+        hover_bg = bg if is_weekend else theme.BG_HOVER
         base_border = (
             theme.BORDER_TODAY if cell.is_today else "transparent"
         )
@@ -93,7 +96,7 @@ class _DayCellWidget(QFrame):
         }}
         #dayCell:hover {{
             border: 2px solid {theme.BORDER_HOVER};
-            background-color: {theme.BG_HOVER};
+            background-color: {hover_bg};
         }}
         """)
         self.setCursor(Qt.PointingHandCursor)
