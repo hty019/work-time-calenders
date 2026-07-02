@@ -32,7 +32,7 @@ def test_expected_display_done_after_clock_out():
     )
     assert title == "금일 근로 시간"
     assert text == "8h 0m"
-    assert sub == "계획 퇴근 ~18:00"  # (가)계획 종료 시각
+    assert sub == "계획 퇴근 시간: ~18:00"  # (가)계획 종료 시각
     assert state == "done"
 
 
@@ -54,19 +54,20 @@ def test_expected_display_overdue_past_recog_end():
     assert title == "금일 근로 시간"
     assert "8h 30m" in text
     assert "⚠ 계획 수정 필요" in text
-    assert sub == "계획 퇴근 ~18:00"
+    assert sub == "계획 퇴근 시간: ~18:00"
     assert state == "overdue"
 
 
-def test_expected_display_past_expected_but_before_recog_end():
-    # 예상 퇴근은 지났지만 (가)계획 종료 전: 경고 없이 예상 퇴근 (초과) 유지
-    title, text, _, state = expected_display(
+def test_expected_display_green_after_expected_reached_while_working():
+    # 예상 퇴근 시각 달성(미퇴근, (가)계획 종료 전): 녹색 금일 근로 시간 전환
+    title, text, sub, state = expected_display(
         WorkStatus.WORKING, "17:30", -600, 8 * 3600, False,
         recog_end_hm="19:00", recog_end_passed=False,
     )
-    assert title == "오늘 예상 퇴근"
-    assert text == "17:30 (초과)"
-    assert state == "pending"
+    assert title == "금일 근로 시간"
+    assert text == "8h 0m"
+    assert sub == "계획 퇴근 시간: ~19:00"
+    assert state == "done"
 
 
 def test_expected_display_none_without_expectation():

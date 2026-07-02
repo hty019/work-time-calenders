@@ -84,9 +84,7 @@ def expected_display(
     overdue(미퇴근 + (가)계획 퇴근 초과, 주황).
     """
     work_text = _fmt_seconds(today_work_seconds or 0)
-    sub = f"계획 퇴근 ~{recog_end_hm}" if recog_end_hm else None
-    if status is WorkStatus.CLOCKED_OUT and today_work_seconds is not None:
-        return "금일 근로 시간", work_text, sub, "done"
+    sub = f"계획 퇴근 시간: ~{recog_end_hm}" if recog_end_hm else None
     if status is WorkStatus.WORKING and recog_end_hm and recog_end_passed:
         # 퇴근 미기록 상태로 (가)계획 퇴근 시각을 넘김
         return (
@@ -95,14 +93,21 @@ def expected_display(
             sub,
             "overdue",
         )
+    reached = (
+        expected_hhmm is not None and (remaining_seconds or 0) <= 0
+    )
+    if status is WorkStatus.CLOCKED_OUT and today_work_seconds is not None:
+        return "금일 근로 시간", work_text, sub, "done"
+    if status is WorkStatus.WORKING and reached:
+        # 예상 퇴근 시각 달성: 녹색 금일 근로 시간으로 전환
+        return "금일 근로 시간", work_text, sub, "done"
     if expected_hhmm is None:
         return "오늘 예상 퇴근", "-", None, "pending"
-    remain = remaining_seconds or 0
-    suffix = f" ({_fmt_seconds(remain)} 남음)" if remain > 0 else " (초과)"
+    remain_text = _fmt_seconds(remaining_seconds or 0)
     warn_text = "\n⚠ (가)계획 종료 초과" if exceeds_range else ""
     return (
         "오늘 예상 퇴근",
-        f"{expected_hhmm}{suffix}{warn_text}",
+        f"{expected_hhmm} ({remain_text} 남음){warn_text}",
         None,
         "warn" if exceeds_range else "pending",
     )
