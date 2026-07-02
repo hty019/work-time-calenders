@@ -7,6 +7,7 @@ from enum import Enum
 
 from core import timeutil
 from core.calendar_model import max_month_hours, required_month_hours
+from core.recognition import minutes_to_hhmm
 from core.worktime import net_seconds_for_raw, raw_seconds_for_net
 
 _MINUTE_SECONDS = 60
@@ -68,6 +69,8 @@ class MonthSummary:
     remaining_seconds: int | None
     expected_exceeds_range: bool = False  # 예상 퇴근이 (가)계획 종료를 초과
     today_work_seconds: int | None = None  # 오늘 근로 인정초(진행 중=실시간)
+    today_recog_end_hm: str | None = None  # 오늘 (가)계획 종료 "HH:MM"
+    recog_end_passed: bool = False  # 현재 시각이 (가)계획 종료를 지났는지
 
 
 def build_month_summary(
@@ -116,6 +119,15 @@ def build_month_summary(
         if in_progress_raw is not None
         else (rec_today.work_seconds if rec_today else None)
     )
+    # 오늘 (가)계획 종료 시각과 초과 여부 (STATUS '계획 퇴근' 표시용).
+    recog_today = storage.get_recognition(timeutil.today_str(now))
+    today_recog_end_hm = None
+    recog_end_passed = False
+    if recog_today is not None:
+        _, recog_end_min = recog_today
+        today_recog_end_hm = minutes_to_hhmm(recog_end_min)
+        now_minutes = now.hour * _MINUTES_PER_HOUR + now.minute
+        recog_end_passed = now_minutes > recog_end_min
     return MonthSummary(
         year=year,
         month=month,
@@ -129,6 +141,8 @@ def build_month_summary(
         remaining_seconds=remaining,
         expected_exceeds_range=exceeds,
         today_work_seconds=today_work_seconds,
+        today_recog_end_hm=today_recog_end_hm,
+        recog_end_passed=recog_end_passed,
     )
 
 

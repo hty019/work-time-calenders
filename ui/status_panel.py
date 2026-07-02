@@ -74,33 +74,35 @@ def expected_display(
     remaining_seconds: int | None,
     today_work_seconds: int | None,
     exceeds_range: bool,
+    recog_end_hm: str | None,
+    recog_end_passed: bool,
 ) -> tuple[str, str, str | None, str]:
     """예상 퇴근 영역의 (제목, 본문, 하단 보조, 상태) 산출.
 
+    '계획 퇴근'은 (가)계획 종료 시각(recog_end_hm)을 뜻한다.
     상태: pending(대기)·warn((가)계획 초과)·done(퇴근 완료, 녹색)·
-    overdue(미퇴근 + 계획 퇴근 초과, 주황).
+    overdue(미퇴근 + (가)계획 퇴근 초과, 주황).
     """
     work_text = _fmt_seconds(today_work_seconds or 0)
-    if expected_hhmm is None:
-        if status is WorkStatus.CLOCKED_OUT and today_work_seconds is not None:
-            return "금일 근로 시간", work_text, None, "done"
-        return "오늘 예상 퇴근", "-", None, "pending"
-    sub = f"계획 퇴근 ~{expected_hhmm}"
-    if status is WorkStatus.CLOCKED_OUT:
+    sub = f"계획 퇴근 ~{recog_end_hm}" if recog_end_hm else None
+    if status is WorkStatus.CLOCKED_OUT and today_work_seconds is not None:
         return "금일 근로 시간", work_text, sub, "done"
-    if (remaining_seconds or 0) <= 0:
-        # 퇴근 미기록 상태로 계획 퇴근 시간을 넘김
+    if status is WorkStatus.WORKING and recog_end_hm and recog_end_passed:
+        # 퇴근 미기록 상태로 (가)계획 퇴근 시각을 넘김
         return (
             "금일 근로 시간",
             f"{work_text}\n⚠ 계획 수정 필요",
             sub,
             "overdue",
         )
-    remain_text = _fmt_seconds(remaining_seconds or 0)
+    if expected_hhmm is None:
+        return "오늘 예상 퇴근", "-", None, "pending"
+    remain = remaining_seconds or 0
+    suffix = f" ({_fmt_seconds(remain)} 남음)" if remain > 0 else " (초과)"
     warn_text = "\n⚠ (가)계획 종료 초과" if exceeds_range else ""
     return (
         "오늘 예상 퇴근",
-        f"{expected_hhmm} ({remain_text} 남음){warn_text}",
+        f"{expected_hhmm}{suffix}{warn_text}",
         None,
         "warn" if exceeds_range else "pending",
     )
@@ -230,6 +232,8 @@ class StatusPanel(QWidget):
             summary.remaining_seconds,
             summary.today_work_seconds,
             summary.expected_exceeds_range,
+            summary.today_recog_end_hm,
+            summary.recog_end_passed,
         )
         self._expected_title.setText(title)
         self._expected.setText(text)

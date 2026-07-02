@@ -193,6 +193,36 @@ def test_today_work_seconds_none_without_record():
     assert s.today_work_seconds is None
 
 
+def test_today_recog_end_and_passed():
+    # 오늘 (가)계획 09:00~17:00, 현재 19:00 → 종료 시각 노출 + 초과
+    rec = Rec("2026-07-01T09:00:00+09:00")
+    s = build_month_summary(
+        FakeStorage(rec, recog=(540, 1020)), FakeAttendance(in_progress=100),
+        FakePlan(0, 480), 2026, 7, {}, datetime(2026, 7, 1, 19, 0, tzinfo=KST),
+    )
+    assert s.today_recog_end_hm == "17:00"
+    assert s.recog_end_passed is True
+
+
+def test_today_recog_end_not_passed_before_end():
+    rec = Rec("2026-07-01T09:00:00+09:00")
+    s = build_month_summary(
+        FakeStorage(rec, recog=(540, 1020)), FakeAttendance(in_progress=100),
+        FakePlan(0, 480), 2026, 7, {}, datetime(2026, 7, 1, 12, 0, tzinfo=KST),
+    )
+    assert s.today_recog_end_hm == "17:00"
+    assert s.recog_end_passed is False
+
+
+def test_today_recog_end_none_without_range():
+    s = build_month_summary(
+        FakeStorage(), FakeAttendance(),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s.today_recog_end_hm is None
+    assert s.recog_end_passed is False
+
+
 def test_progress_ratio_none_when_planned_zero():
     s = build_month_summary(
         FakeStorage(), FakeAttendance(month_seconds=100),
