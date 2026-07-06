@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
     QMessageBox, QFormLayout, QComboBox, QLabel, QWidget, QTextEdit,
@@ -267,6 +267,11 @@ def open_day_dialog(
         memo_section.setVisible(editing or bool(memo))
         if editing:
             _update_vacation_start_visibility()
+        # 숨김/표시가 레이아웃에 반영된 뒤(이벤트 처리 후) 크기를 맞춰야
+        # 수정→취소 복귀 시 이전 크기의 잔여 여백이 남지 않는다
+        QTimer.singleShot(0, _sync_size)
+
+    def _sync_size() -> None:
         dlg.layout().activate()
         dlg.resize(dlg.sizeHint())
 
