@@ -61,3 +61,10 @@ def test_vacation_display_variants():
     assert vacation_display(build_vacation(120, start_min=900)) == (
         "2h (15:00 ~ 17:00)"
     )
+
+
+def test_memo_display_full_text_or_dash():
+    from ui.day_dialog import memo_display
+    assert memo_display("주간 회의\n배포 준비") == "주간 회의\n배포 준비"
+    assert memo_display("") == "-"
+    assert memo_display(None) == "-"

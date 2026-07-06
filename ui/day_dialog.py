@@ -5,7 +5,7 @@ from typing import Callable, Optional
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QMessageBox, QFormLayout, QComboBox, QLabel, QWidget,
+    QMessageBox, QFormLayout, QComboBox, QLabel, QWidget, QTextEdit,
 )
 
 from core.recognition import (
@@ -83,6 +83,11 @@ def vacation_display(vacation: Optional[Vacation]) -> str:
     )
 
 
+def memo_display(content: Optional[str]) -> str:
+    """보기 모드 메모 텍스트. 없거나 비어 있으면 '-'."""
+    return content if content else "-"
+
+
 def open_day_dialog(
     parent,
     work_date: str,
@@ -101,6 +106,8 @@ def open_day_dialog(
     on_save_vacation: Optional[
         Callable[[str, Optional[Vacation]], None]
     ] = None,
+    memo: Optional[str] = None,
+    on_save_memo: Optional[Callable[[str, str], None]] = None,
 ) -> None:
     dlg = QDialog(parent)
     dlg.setWindowTitle(f"{work_date} 편집")
@@ -131,6 +138,7 @@ def open_day_dialog(
         if vacation is None or vacation.start_min is None
         else minutes_to_hhmm(vacation.start_min)
     )
+    initial_memo = memo or ""
 
     # --- 보기(read-only) 모드: 입력란 없이 텍스트 요약 ---
     view_widget = QWidget()
@@ -143,6 +151,9 @@ def open_day_dialog(
     )
     view_form.addRow("(가)계획", QLabel(recognition_display(recog_range)))
     view_form.addRow("휴가", QLabel(vacation_display(vacation)))
+    memo_view = QLabel(memo_display(memo))
+    memo_view.setWordWrap(True)
+    view_form.addRow("메모", memo_view)
     layout.addWidget(view_widget)
 
     # --- 수정 모드: 입력 폼 ---
@@ -173,6 +184,10 @@ def open_day_dialog(
     form.addRow("(가)계획 종료", recog_end_edit)
     form.addRow("휴가", vacation_combo)
     form.addRow(vacation_start_label, vacation_start_edit)
+    memo_edit = QTextEdit()
+    memo_edit.setPlainText(initial_memo)
+    memo_edit.setPlaceholderText("근무 내용·주요 안건 (비우면 메모 삭제)")
+    form.addRow("메모", memo_edit)
     layout.addWidget(edit_widget)
 
     def _hourly_selected() -> bool:
@@ -223,6 +238,7 @@ def open_day_dialog(
         recog_end_edit.setText(initial_recog_end)
         vacation_combo.setCurrentIndex(initial_vac_index)
         vacation_start_edit.setText(initial_vac_start)
+        memo_edit.setPlainText(initial_memo)
 
     def handle_cancel() -> None:
         _restore_inputs()
@@ -276,12 +292,14 @@ def open_day_dialog(
                 QMessageBox.warning(dlg, "입력 오류", str(exc))
                 return
 
-        # 4) 검증 통과 → 계획·인정 범위·휴가 저장
+        # 4) 검증 통과 → 계획·인정 범위·휴가·메모 저장
         on_save_plan(work_date, minutes)
         if on_save_recognition is not None:
             on_save_recognition(work_date, rng)
         if on_save_vacation is not None:
             on_save_vacation(work_date, new_vacation)
+        if on_save_memo is not None:
+            on_save_memo(work_date, memo_edit.toPlainText())
 
         # 5) 출퇴근 저장 (출근 입력 시에만)
         in_text = in_edit.text().strip()

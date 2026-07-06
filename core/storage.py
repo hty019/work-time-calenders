@@ -54,6 +54,13 @@ CREATE TABLE IF NOT EXISTS annual_leave (
 )
 """
 
+_CREATE_MEMO_SQL = """
+CREATE TABLE IF NOT EXISTS memo (
+    work_date TEXT PRIMARY KEY,
+    content   TEXT NOT NULL
+)
+"""
+
 
 class Storage:
     def __init__(self, db_path: str) -> None:
@@ -65,6 +72,7 @@ class Storage:
         self._conn.execute(_CREATE_RECOGNITION_SQL)
         self._conn.execute(_CREATE_VACATION_SQL)
         self._conn.execute(_CREATE_ANNUAL_LEAVE_SQL)
+        self._conn.execute(_CREATE_MEMO_SQL)
         self._conn.commit()
 
     def get(self, work_date: str) -> Attendance | None:
@@ -229,6 +237,38 @@ class Storage:
             )
             for r in cur.fetchall()
         }
+
+    def get_memo(self, work_date: str) -> str | None:
+        """해당 날짜의 메모. 없으면 None."""
+        cur = self._conn.execute(
+            "SELECT content FROM memo WHERE work_date = ?", (work_date,)
+        )
+        row = cur.fetchone()
+        return row["content"] if row is not None else None
+
+    def set_memo(self, work_date: str, content: str) -> None:
+        """메모 저장. 공백뿐인 내용은 삭제와 동일하게 처리한다."""
+        content = content.strip()
+        if not content:
+            self._conn.execute(
+                "DELETE FROM memo WHERE work_date = ?", (work_date,)
+            )
+        else:
+            self._conn.execute(
+                "INSERT INTO memo (work_date, content) VALUES (?, ?) "
+                "ON CONFLICT(work_date) DO UPDATE SET content=excluded.content",
+                (work_date, content),
+            )
+        self._conn.commit()
+
+    def list_memo_month(self, year: int, month: int) -> dict[str, str]:
+        prefix = f"{year:04d}-{month:02d}-"
+        cur = self._conn.execute(
+            "SELECT work_date, content FROM memo "
+            "WHERE work_date LIKE ? ORDER BY work_date",
+            (prefix + "%",),
+        )
+        return {r["work_date"]: r["content"] for r in cur.fetchall()}
 
     def get_annual_leave(self, year: int) -> int | None:
         """해당 연도 총 연차(분). 미설정이면 None."""

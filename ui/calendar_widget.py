@@ -14,6 +14,7 @@ from ui import theme
 _WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
 _SAT_COL = 5
 _SATURDAY = 5  # date.weekday(): 월=0 ~ 일=6
+_MEMO_ICON = "📝"  # 메모가 있는 날짜 표시
 
 
 def _is_weekend(date: str | None) -> bool:
@@ -105,9 +106,12 @@ class _DayCellWidget(QFrame):
         layout.setContentsMargins(6, 4, 6, 4)
         layout.setSpacing(1)
 
-        # 날짜는 기존과 같이 좌측 상단에 고정
+        # 날짜는 기존과 같이 좌측 상단에 고정 (메모 있으면 아이콘 병기)
         date_fg = theme.FG_HOLIDAY if cell.holiday_name else theme.FG_DATE
-        date_label = QLabel(str(cell.day))
+        date_text = (
+            f"{cell.day} {_MEMO_ICON}" if cell.has_memo else str(cell.day)
+        )
+        date_label = QLabel(date_text)
         date_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         date_label.setStyleSheet(
             f"color:{date_fg}; font-size:16px; font-weight:bold;"

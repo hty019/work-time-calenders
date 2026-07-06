@@ -104,6 +104,33 @@ def test_vacation_list_month(tmp_path):
     assert got == {"2026-07-01": (120, 900, 1020)}
 
 
+def test_memo_set_get_overwrite(tmp_path):
+    st = make_storage(tmp_path)
+    assert st.get_memo("2026-07-07") is None
+    st.set_memo("2026-07-07", "주간 회의\n배포 준비")
+    assert st.get_memo("2026-07-07") == "주간 회의\n배포 준비"
+    st.set_memo("2026-07-07", "회고")  # 덮어쓰기
+    assert st.get_memo("2026-07-07") == "회고"
+
+
+def test_memo_empty_content_deletes(tmp_path):
+    st = make_storage(tmp_path)
+    st.set_memo("2026-07-07", "메모")
+    st.set_memo("2026-07-07", "   ")  # 공백만 → 삭제와 동일
+    assert st.get_memo("2026-07-07") is None
+
+
+def test_memo_list_month(tmp_path):
+    st = make_storage(tmp_path)
+    st.set_memo("2026-07-01", "안건 A")
+    st.set_memo("2026-07-15", "안건 B")
+    st.set_memo("2026-08-01", "다른 달")
+    assert st.list_memo_month(2026, 7) == {
+        "2026-07-01": "안건 A",
+        "2026-07-15": "안건 B",
+    }
+
+
 def test_annual_leave_set_get(tmp_path):
     st = make_storage(tmp_path)
     assert st.get_annual_leave(2026) is None

@@ -89,6 +89,7 @@ class AppController:
             today_seconds=today_seconds,
             recognition=self._storage.get_recognition,
             vacation=self._storage.get_vacation,
+            memo=self._storage.get_memo,
         )
         summary = build_month_summary(
             self._storage, self._service, self._plans,
@@ -174,6 +175,8 @@ class AppController:
             on_save_recognition=self._handle_save_recognition,
             vacation=self._vacations.get(date),
             on_save_vacation=self._handle_save_vacation,
+            memo=self._storage.get_memo(date),
+            on_save_memo=self._storage.set_memo,
         )
         self._refresh()
 

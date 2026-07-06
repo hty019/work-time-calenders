@@ -186,3 +186,20 @@ def test_grid_includes_planned_minutes():
     assert cells["2026-07-01"].planned_minutes == 480
     assert cells["2026-07-04"].planned_minutes == 0
     assert cells["2026-07-02"].planned_minutes == 240  # 콜백 기본
+
+
+def test_grid_marks_memo_days():
+    # memo 콜백이 있는 날짜만 has_memo 로 표시되는지
+    grid = build_month_grid(
+        2026, 7, "2026-07-01", {}, {},
+        memo=lambda d: "주간 회의" if d == "2026-07-15" else None,
+    )
+    cells = {c.date: c for week in grid for c in week if c.date}
+    assert cells["2026-07-15"].has_memo is True
+    assert cells["2026-07-01"].has_memo is False
+
+
+def test_grid_has_memo_false_without_callback():
+    grid = build_month_grid(2026, 7, "2026-07-01", {}, {})
+    cells = {c.date: c for week in grid for c in week if c.date}
+    assert cells["2026-07-01"].has_memo is False
