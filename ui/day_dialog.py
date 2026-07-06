@@ -3,9 +3,11 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
     QMessageBox, QFormLayout, QComboBox, QLabel, QWidget, QTextEdit,
+    QFrame,
 )
 
 from core.recognition import (
@@ -114,6 +116,11 @@ def open_day_dialog(
     dlg.setMinimumSize(theme.DAY_DIALOG_MIN_WIDTH, theme.DAY_DIALOG_MIN_HEIGHT)
     dlg.setStyleSheet(f"font-size: {theme.DAY_DIALOG_FONT_PT}pt;")
     layout = QVBoxLayout(dlg)
+    # 좌측 폼 | 구분선 | 우측 메모 패널
+    content = QHBoxLayout()
+    layout.addLayout(content)
+    left_col = QVBoxLayout()
+    content.addLayout(left_col, stretch=1)
 
     # 초기값 (취소 시 이 값으로 입력란을 되돌린다)
     in_hhmm = _hhmm_from_iso(clock_in_iso)
@@ -151,10 +158,7 @@ def open_day_dialog(
     )
     view_form.addRow("(가)계획", QLabel(recognition_display(recog_range)))
     view_form.addRow("휴가", QLabel(vacation_display(vacation)))
-    memo_view = QLabel(memo_display(memo))
-    memo_view.setWordWrap(True)
-    view_form.addRow("메모", memo_view)
-    layout.addWidget(view_widget)
+    left_col.addWidget(view_widget)
 
     # --- 수정 모드: 입력 폼 ---
     edit_widget = QWidget()
@@ -184,11 +188,37 @@ def open_day_dialog(
     form.addRow("(가)계획 종료", recog_end_edit)
     form.addRow("휴가", vacation_combo)
     form.addRow(vacation_start_label, vacation_start_edit)
+    left_col.addWidget(edit_widget)
+    left_col.addStretch(1)
+
+    # --- 우측 메모 패널 (구분선 + 메모 보기/입력) ---
+    memo_separator = QFrame()
+    memo_separator.setFrameShape(QFrame.VLine)
+    memo_separator.setStyleSheet(f"color:{theme.FG_MUTED};")
+    content.addWidget(memo_separator)
+
+    memo_panel = QWidget()
+    memo_panel.setFixedWidth(theme.DAY_DIALOG_MEMO_WIDTH)
+    memo_col = QVBoxLayout(memo_panel)
+    memo_col.setContentsMargins(0, 0, 0, 0)
+    memo_caption = QLabel("메모")
+    memo_caption.setStyleSheet(f"color:{theme.FG_MUTED};")
+    memo_col.addWidget(memo_caption)
+    # 보기: 읽기 전용, 테두리·스크롤바 없이 텍스트만 (넘치면 휠 스크롤)
+    memo_view = QTextEdit()
+    memo_view.setPlainText(memo_display(memo))
+    memo_view.setReadOnly(True)
+    memo_view.setFrameShape(QFrame.NoFrame)
+    memo_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    memo_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    memo_view.setStyleSheet("background: transparent;")
+    memo_col.addWidget(memo_view)
+    # 수정: 여러 줄 입력
     memo_edit = QTextEdit()
     memo_edit.setPlainText(initial_memo)
     memo_edit.setPlaceholderText("근무 내용·주요 안건 (비우면 메모 삭제)")
-    form.addRow("메모", memo_edit)
-    layout.addWidget(edit_widget)
+    memo_col.addWidget(memo_edit)
+    content.addWidget(memo_panel)
 
     def _hourly_selected() -> bool:
         """시간제 휴가(2h/4h/6h) 선택 여부. 없음·1day 는 시작 시각 불필요."""
@@ -225,6 +255,12 @@ def open_day_dialog(
         edit_btn.setVisible(not editing)
         cancel_btn.setVisible(editing)
         save_btn.setVisible(editing)
+        # 우측 메모 패널: 보기 모드는 메모가 있을 때만, 수정 모드는 항상
+        show_memo_panel = editing or bool(memo)
+        memo_separator.setVisible(show_memo_panel)
+        memo_panel.setVisible(show_memo_panel)
+        memo_view.setVisible(not editing)
+        memo_edit.setVisible(editing)
         if editing:
             _update_vacation_start_visibility()
         dlg.adjustSize()

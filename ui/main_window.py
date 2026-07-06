@@ -89,9 +89,10 @@ class MainWindow(QMainWindow):
         grid: list[list[DayCell]],
         summary: MonthSummary,
         leave: YearLeaveSummary,
+        today_memo: str | None = None,
     ) -> None:
         self._month_label.setText(f"  {year}년 {month}월  ")
         self._status_label.setText(f"{_STATUS_DOT} {status.value}")
         self._status_label.setStyleSheet(f"color:{_STATUS_COLORS[status]};")
         self._calendar.render_grid(grid)
-        self._status.update_summary(summary, status, leave)
+        self._status.update_summary(summary, status, leave, today_memo)

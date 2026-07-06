@@ -106,12 +106,9 @@ class _DayCellWidget(QFrame):
         layout.setContentsMargins(6, 4, 6, 4)
         layout.setSpacing(1)
 
-        # 날짜는 기존과 같이 좌측 상단에 고정 (메모 있으면 아이콘 병기)
+        # 날짜는 기존과 같이 좌측 상단에 고정
         date_fg = theme.FG_HOLIDAY if cell.holiday_name else theme.FG_DATE
-        date_text = (
-            f"{cell.day} {_MEMO_ICON}" if cell.has_memo else str(cell.day)
-        )
-        date_label = QLabel(date_text)
+        date_label = QLabel(str(cell.day))
         date_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         date_label.setStyleSheet(
             f"color:{date_fg}; font-size:16px; font-weight:bold;"
@@ -204,8 +201,18 @@ class _DayCellWidget(QFrame):
             layout.addWidget(recog)
 
         layout.addStretch(1)  # 아래쪽 여백 → 콘텐츠를 수직 가운데로
-        # 상단 날짜 높이만큼 하단에 대칭 여백을 두어 셀 전체 기준 가운데로 보정
-        layout.addSpacing(theme.CELL_DATE_ROW_PX)
+        # 상단 날짜 높이만큼 하단에 대칭 여백을 두어 셀 전체 기준 가운데로 보정.
+        # 메모가 있으면 그 여백 자리에 우측 하단 아이콘을 표시한다.
+        if cell.has_memo:
+            memo_icon = QLabel(_MEMO_ICON)
+            memo_icon.setAlignment(Qt.AlignRight | Qt.AlignBottom)
+            memo_icon.setFixedHeight(theme.CELL_DATE_ROW_PX)
+            memo_icon.setStyleSheet(
+                f"font-size:{theme.CELL_PLAN_FONT_PX}px;"
+            )
+            layout.addWidget(memo_icon)
+        else:
+            layout.addSpacing(theme.CELL_DATE_ROW_PX)
 
     @staticmethod
     def _vacation_label(cell: DayCell, emphasized: bool = False) -> QLabel:

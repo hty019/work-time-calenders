@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from typing import Callable
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QVBoxLayout, QWidget, QLabel, QProgressBar, QPushButton, QHBoxLayout,
+    QTextEdit,
 )
 
 from core.attendance import WorkStatus
@@ -202,18 +204,29 @@ class StatusPanel(QWidget):
         self._stay = QLabel()       # 체류 시간(휴게 포함 경과)
         self._remaining = QLabel()  # 퇴근 예정까지 남은 시간
         self._state = QLabel()      # 상태 라인 (색상·굵기로 경고 표시)
+        # 당일 메모 박스: 테두리 사각형, 넘치면 스크롤(스크롤바 숨김)
+        self._memo_box = QTextEdit()
+        self._memo_box.setReadOnly(True)
+        self._memo_box.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._memo_box.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._memo_box.setMaximumHeight(theme.STATUS_MEMO_MAX_HEIGHT)
+        self._memo_box.setStyleSheet(
+            f"border: 1px solid {theme.FG_MUTED}; border-radius: 6px;"
+            "background: transparent; padding: 6px;"
+        )
+        self._memo_box.setVisible(False)
         self._expected_sub = QLabel()  # 회색 계획 퇴근 안내
         self._expected_sub.setStyleSheet(
             f"color:{theme.FG_MUTED}; font-size:{_SUB_FONT_PX}px;"
         )
         self._expected_sub.setVisible(False)
 
-        # 순서: 출근 → 퇴근 예정 → 계획 퇴근 안내 → 체류 → 남은 → 상태
+        # 순서: 출근 → 퇴근 예정 → 계획 퇴근 안내 → 체류 → 남은 → 상태 → 메모
         for w in (self._title, self._required, self._max, self._planned,
                   self._recog_planned, self._actual, self._leave,
                   self._progress_caption, self._progress,
                   self._clock_in, self._expected, self._expected_sub,
-                  self._stay, self._remaining, self._state):
+                  self._stay, self._remaining, self._state, self._memo_box):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -246,6 +259,7 @@ class StatusPanel(QWidget):
         summary: MonthSummary,
         status: WorkStatus,
         leave: YearLeaveSummary,
+        today_memo: str | None = None,
     ) -> None:
         self._required.setText(
             f"법정 기준   {_fmt_hours(summary.required_minutes)}"
@@ -309,4 +323,7 @@ class StatusPanel(QWidget):
         )
         self._expected_sub.setText(sub or "")
         self._expected_sub.setVisible(bool(sub))
+        if (today_memo or "") != self._memo_box.toPlainText():
+            self._memo_box.setPlainText(today_memo or "")
+        self._memo_box.setVisible(bool(today_memo))
         self._render_buttons(status)

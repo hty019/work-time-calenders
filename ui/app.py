@@ -97,7 +97,10 @@ class AppController:
         )
         status = self._service.today_status()
         leave = self._vacations.year_summary(now.year)
-        self._window.render(year, month, status, grid, summary, leave)
+        self._window.render(
+            year, month, status, grid, summary, leave,
+            today_memo=self._storage.get_memo(today),
+        )
         self._render_widget(summary, status)
 
     def _render_widget(self, summary, status) -> None:
