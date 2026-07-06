@@ -105,6 +105,7 @@ def open_day_dialog(
     dlg = QDialog(parent)
     dlg.setWindowTitle(f"{work_date} 편집")
     dlg.setMinimumSize(theme.DAY_DIALOG_MIN_WIDTH, theme.DAY_DIALOG_MIN_HEIGHT)
+    dlg.setStyleSheet(f"font-size: {theme.DAY_DIALOG_FONT_PT}pt;")
     layout = QVBoxLayout(dlg)
 
     # 초기값 (취소 시 이 값으로 입력란을 되돌린다)

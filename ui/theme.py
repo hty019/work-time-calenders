@@ -50,8 +50,9 @@ VACATION_DIALOG_MIN_WIDTH = 460
 VACATION_DIALOG_MIN_HEIGHT = 380
 
 # 날짜 편집 다이얼로그 최소 크기 (입력란 잘림 방지)
-DAY_DIALOG_MIN_WIDTH = 420
-DAY_DIALOG_MIN_HEIGHT = 340
+DAY_DIALOG_MIN_WIDTH = 300
+DAY_DIALOG_MIN_HEIGHT = 240
+DAY_DIALOG_FONT_PT = 17  # 시스템 기본(13pt)보다 4pt 크게
 
 
 def base_stylesheet() -> str:
