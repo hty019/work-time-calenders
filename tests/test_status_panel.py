@@ -1,6 +1,7 @@
 from core.attendance import WorkStatus
 from core.stats import ProgressLevel
 from core.vacation import YearLeaveSummary
+from ui import theme
 from ui.status_panel import (
     clock_in_line,
     expected_line,
@@ -8,8 +9,28 @@ from ui.status_panel import (
     progress_caption,
     remaining_line,
     state_display,
+    state_rich_text,
     stay_line,
 )
+
+
+def test_state_rich_text_prefix_white_body_colored():
+    # '상태: ' 접두는 흰색 고정, 상태 문구만 상태 색상 적용
+    html = state_rich_text("상태: 조기 퇴근", "early")
+    assert html == (
+        f'<span style="color:{theme.FG_DATE};">상태: </span>'
+        f'<span style="color:{theme.FG_OVERDUE}; font-weight:normal;">'
+        "조기 퇴근</span>"
+    )
+
+
+def test_state_rich_text_bold_state():
+    html = state_rich_text("상태: ⚠ 계획 시간 범위 초과!!", "over")
+    assert html == (
+        f'<span style="color:{theme.FG_DATE};">상태: </span>'
+        f'<span style="color:{theme.FG_RANGE_WARN}; font-weight:bold;">'
+        "⚠ 계획 시간 범위 초과!!</span>"
+    )
 
 
 def test_clock_in_line_shows_time():

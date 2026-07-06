@@ -41,10 +41,15 @@ _STATE_STYLES = {
 }
 
 
-def _state_style(key: str) -> str:
+def state_rich_text(text: str, key: str) -> str:
+    """상태 라인 HTML: '상태: ' 접두는 흰색 고정, 문구만 상태 색상."""
     color, bold = _STATE_STYLES[key]
     weight = "bold" if bold else "normal"
-    return f"color:{color}; font-weight:{weight};"
+    prefix, _, body = text.partition(": ")
+    return (
+        f'<span style="color:{theme.FG_DATE};">{prefix}: </span>'
+        f'<span style="color:{color}; font-weight:{weight};">{body}</span>'
+    )
 
 
 def _progress_style(level: ProgressLevel) -> str:
@@ -296,8 +301,7 @@ class StatusPanel(QWidget):
             reached,
             summary.today_clocked_out_early,
         )
-        self._state.setText(state_text)
-        self._state.setStyleSheet(_state_style(state_key))
+        self._state.setText(state_rich_text(state_text, state_key))
         sub = (
             f"계획 퇴근 시간: ~{summary.today_recog_end_hm}"
             if summary.today_recog_end_hm
