@@ -32,6 +32,7 @@ class MainWindowCallbacks:
     on_clock_out: Callable[[], None]
     on_cancel_clock_out: Callable[[], None]
     on_select_day: Callable[[str], None]
+    on_edit_day: Callable[[str], None]
     on_edit_weekday: Callable[[int], None]
     on_prev_month: Callable[[], None]
     on_next_month: Callable[[], None]
@@ -75,7 +76,9 @@ class MainWindow(QMainWindow):
         central = QWidget()
         layout = QHBoxLayout(central)
         self._calendar = CalendarWidget(
-            self._cb.on_select_day, self._cb.on_edit_weekday
+            self._cb.on_select_day,
+            self._cb.on_edit_weekday,
+            self._cb.on_edit_day,
         )
         self._status = StatusPanel(
             self._cb.on_clock_out,

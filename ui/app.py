@@ -55,6 +55,7 @@ class AppController:
             on_clock_out=self._handle_clock_out,
             on_cancel_clock_out=self._handle_cancel_clock_out,
             on_select_day=self._handle_select_day,
+            on_edit_day=self._handle_edit_day,
             on_edit_weekday=self._handle_edit_weekday,
             on_prev_month=self._handle_prev_month,
             on_next_month=self._handle_next_month,
@@ -176,6 +177,11 @@ class AppController:
         self._selected_date = timeutil.today_str(now)
         self._view_year, self._view_month = now.year, now.month
         self._refresh()
+
+    def _handle_edit_day(self, date: str) -> None:
+        """셀 더블 클릭 = 해당 날짜 선택 후 곧바로 수정 다이얼로그."""
+        self._selected_date = date
+        self._handle_edit_selected()
 
     def _handle_edit_selected(self) -> None:
         """[수정]: 선택 날짜를 수정 다이얼로그(수정 모드)로 연다."""

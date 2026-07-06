@@ -76,11 +76,13 @@ class _DayCellWidget(QFrame):
         self,
         cell: DayCell,
         on_click: Callable[[str], None],
+        on_double_click: Callable[[str], None],
         is_selected: bool = False,
     ) -> None:
         super().__init__()
         self._date = cell.date
         self._on_click = on_click
+        self._on_double_click = on_double_click
         self.setMinimumSize(theme.CELL_MIN_WIDTH, theme.CELL_MIN_HEIGHT)
         # 배경은 주말(연한 갈색)/기본, 오늘은 밝은 파랑 테두리로 강조.
         # 호버 시 주황 테두리 — 평상시에도 투명 2px 테두리를 깔아 두어
@@ -250,16 +252,22 @@ class _DayCellWidget(QFrame):
         if self._date is not None:
             self._on_click(self._date)
 
+    def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        if self._date is not None:
+            self._on_double_click(self._date)
+
 
 class CalendarWidget(QWidget):
     def __init__(
         self,
         on_day_click: Callable[[str], None],
         on_weekday_click: Callable[[int], None],
+        on_day_double_click: Callable[[str], None],
     ) -> None:
         super().__init__()
         self._on_day_click = on_day_click
         self._on_weekday_click = on_weekday_click
+        self._on_day_double_click = on_day_double_click
         self._layout = QGridLayout(self)
         self._layout.setSpacing(4)
 
@@ -328,6 +336,7 @@ class CalendarWidget(QWidget):
                     _DayCellWidget(
                         cell,
                         self._on_day_click,
+                        self._on_day_double_click,
                         is_selected=(cell.date == selected_date),
                     ),
                     r, c,
