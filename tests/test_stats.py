@@ -211,6 +211,37 @@ def test_today_clock_in_hm_none_without_record():
     assert s.today_clock_in_hm is None
 
 
+def test_today_stay_seconds_while_working():
+    # 근무 중: 체류 = 현재 − 출근 (휴게 포함 경과)
+    rec = Rec("2026-07-01T09:00:00+09:00")
+    s = build_month_summary(
+        FakeStorage(rec), FakeAttendance(in_progress=100),
+        FakePlan(0, 0), 2026, 7, {},
+        datetime(2026, 7, 1, 12, 30, tzinfo=KST),
+    )
+    assert s.today_stay_seconds == 3 * 3600 + 30 * 60
+
+
+def test_today_stay_seconds_after_clock_out():
+    # 퇴근 완료: 체류 = 퇴근 − 출근
+    rec = Rec(
+        "2026-07-01T09:00:00+09:00", "2026-07-01T18:00:00+09:00", 8 * 3600
+    )
+    s = build_month_summary(
+        FakeStorage(rec), FakeAttendance(in_progress=None),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 19, tzinfo=KST),
+    )
+    assert s.today_stay_seconds == 9 * 3600
+
+
+def test_today_stay_seconds_none_without_record():
+    s = build_month_summary(
+        FakeStorage(), FakeAttendance(),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s.today_stay_seconds is None
+
+
 def test_today_recog_end_and_passed():
     # 오늘 (가)계획 09:00~17:00, 현재 19:00 → 종료 시각 노출 + 초과
     rec = Rec("2026-07-01T09:00:00+09:00")

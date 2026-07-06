@@ -72,6 +72,7 @@ class MonthSummary:
     today_recog_end_hm: str | None = None  # 오늘 (가)계획 종료 "HH:MM"
     recog_end_passed: bool = False  # 현재 시각이 (가)계획 종료를 지났는지
     today_clock_in_hm: str | None = None  # 오늘 출근 시각 "HH:MM"
+    today_stay_seconds: int | None = None  # 출근 후 체류초(휴게 포함 경과)
 
 
 def build_month_summary(
@@ -125,6 +126,17 @@ def build_month_summary(
         if rec_today and rec_today.clock_in
         else None
     )
+    # 체류: 출근~현재(근무 중) 또는 출근~퇴근(완료). 휴게 포함 경과 시간.
+    today_stay_seconds = None
+    if rec_today and rec_today.clock_in:
+        stay_end = (
+            timeutil.from_iso(rec_today.clock_out)
+            if rec_today.clock_out
+            else now
+        )
+        today_stay_seconds = int(
+            (stay_end - timeutil.from_iso(rec_today.clock_in)).total_seconds()
+        )
     # 오늘 (가)계획 종료 시각과 초과 여부 (STATUS '계획 퇴근' 표시용).
     recog_today = storage.get_recognition(timeutil.today_str(now))
     today_recog_end_hm = None
@@ -150,6 +162,7 @@ def build_month_summary(
         today_recog_end_hm=today_recog_end_hm,
         recog_end_passed=recog_end_passed,
         today_clock_in_hm=today_clock_in_hm,
+        today_stay_seconds=today_stay_seconds,
     )
 
 
