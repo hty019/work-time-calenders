@@ -102,3 +102,25 @@ def test_vacation_list_month(tmp_path):
     st.set_vacation("2026-08-01", 480, None, None)  # 다른 달
     got = st.list_vacation_month(2026, 7)
     assert got == {"2026-07-01": (120, 900, 1020)}
+
+
+def test_annual_leave_set_get(tmp_path):
+    st = make_storage(tmp_path)
+    assert st.get_annual_leave(2026) is None
+    st.set_annual_leave(2026, 15 * 480)
+    assert st.get_annual_leave(2026) == 15 * 480
+    st.set_annual_leave(2026, 16 * 480)  # 덮어쓰기
+    assert st.get_annual_leave(2026) == 16 * 480
+    assert st.get_annual_leave(2025) is None  # 연도별 독립
+
+
+def test_vacation_list_year(tmp_path):
+    st = make_storage(tmp_path)
+    st.set_vacation("2026-01-05", 480, None, None)
+    st.set_vacation("2026-07-01", 120, 900, 1020)
+    st.set_vacation("2025-12-31", 480, None, None)  # 다른 해
+    got = st.list_vacation_year(2026)
+    assert got == {
+        "2026-01-05": (480, None, None),
+        "2026-07-01": (120, 900, 1020),
+    }

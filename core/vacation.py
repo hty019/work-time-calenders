@@ -14,6 +14,25 @@ _DAY_MINUTES = 24 * _MINUTES_PER_HOUR
 
 ALLOWED_MINUTES = (120, 240, 360, 480)  # 2h, 4h, 6h, 8h(1day)
 FULL_DAY_MINUTES = 480
+_QUARTER_DAYS = 4  # 연차는 0.25일(2h) 단위까지 허용
+
+
+def minutes_to_days_str(minutes: int) -> str:
+    """휴가 분 → 일수 문자열 (8h=1일). 예: 7320 → '15.25', 240 → '0.5'."""
+    return format(minutes / FULL_DAY_MINUTES, "g")
+
+
+def days_str_to_minutes(text: str) -> int:
+    """일수 문자열 → 분. 0.25일 단위가 아니거나 음수·비숫자면 ValueError."""
+    try:
+        days = float(text.strip())
+    except ValueError:
+        raise ValueError("연차는 숫자(일)로 입력해야 합니다.") from None
+    if days < 0:
+        raise ValueError("연차는 0 이상이어야 합니다.")
+    if not (days * _QUARTER_DAYS).is_integer():
+        raise ValueError("연차는 0.25일 단위로 입력해야 합니다.")
+    return int(days * FULL_DAY_MINUTES)
 
 
 @dataclass(frozen=True)
@@ -47,6 +66,17 @@ def build_vacation(minutes: int, start_min: int | None = None) -> Vacation:
     return Vacation(minutes, start_min, start_min + minutes)
 
 
+@dataclass(frozen=True)
+class YearLeaveSummary:
+    """연간 연차 현황. 총 연차 미설정 시 total/remaining 은 None."""
+
+    year: int
+    total_minutes: int | None
+    used_minutes: int
+    remaining_minutes: int | None
+    entries: list[tuple[str, Vacation]]  # (날짜, 휴가) 날짜 오름차순
+
+
 class VacationService:
     def __init__(self, storage) -> None:
         self._storage = storage
@@ -64,3 +94,18 @@ class VacationService:
 
     def clear(self, date: str) -> None:
         self._storage.clear_vacation(date)
+
+    def set_annual_total(self, year: int, total_minutes: int) -> None:
+        self._storage.set_annual_leave(year, total_minutes)
+
+    def year_summary(self, year: int) -> YearLeaveSummary:
+        """해당 연도의 총·소진·잔여 연차(분)와 휴가 목록을 집계한다."""
+        rows = self._storage.list_vacation_year(year)
+        entries = [
+            (date, Vacation(row[0], row[1], row[2]))
+            for date, row in sorted(rows.items())
+        ]
+        used = sum(v.minutes for _, v in entries)
+        total = self._storage.get_annual_leave(year)
+        remaining = total - used if total is not None else None
+        return YearLeaveSummary(year, total, used, remaining, entries)

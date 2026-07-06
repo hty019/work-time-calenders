@@ -47,6 +47,13 @@ CREATE TABLE IF NOT EXISTS vacation (
 )
 """
 
+_CREATE_ANNUAL_LEAVE_SQL = """
+CREATE TABLE IF NOT EXISTS annual_leave (
+    year          INTEGER PRIMARY KEY,
+    total_minutes INTEGER NOT NULL
+)
+"""
+
 
 class Storage:
     def __init__(self, db_path: str) -> None:
@@ -57,6 +64,7 @@ class Storage:
         self._conn.execute(_CREATE_PLAN_SQL)
         self._conn.execute(_CREATE_RECOGNITION_SQL)
         self._conn.execute(_CREATE_VACATION_SQL)
+        self._conn.execute(_CREATE_ANNUAL_LEAVE_SQL)
         self._conn.commit()
 
     def get(self, work_date: str) -> Attendance | None:
@@ -208,6 +216,40 @@ class Storage:
         self, year: int, month: int
     ) -> dict[str, tuple[int, int | None, int | None]]:
         prefix = f"{year:04d}-{month:02d}-"
+        cur = self._conn.execute(
+            "SELECT work_date, minutes, start_min, end_min FROM vacation "
+            "WHERE work_date LIKE ? ORDER BY work_date",
+            (prefix + "%",),
+        )
+        return {
+            r["work_date"]: (
+                int(r["minutes"]),
+                int(r["start_min"]) if r["start_min"] is not None else None,
+                int(r["end_min"]) if r["end_min"] is not None else None,
+            )
+            for r in cur.fetchall()
+        }
+
+    def get_annual_leave(self, year: int) -> int | None:
+        """해당 연도 총 연차(분). 미설정이면 None."""
+        cur = self._conn.execute(
+            "SELECT total_minutes FROM annual_leave WHERE year = ?", (year,)
+        )
+        row = cur.fetchone()
+        return int(row["total_minutes"]) if row is not None else None
+
+    def set_annual_leave(self, year: int, total_minutes: int) -> None:
+        self._conn.execute(
+            "INSERT INTO annual_leave (year, total_minutes) VALUES (?, ?) "
+            "ON CONFLICT(year) DO UPDATE SET total_minutes=excluded.total_minutes",
+            (year, total_minutes),
+        )
+        self._conn.commit()
+
+    def list_vacation_year(
+        self, year: int
+    ) -> dict[str, tuple[int, int | None, int | None]]:
+        prefix = f"{year:04d}-"
         cur = self._conn.execute(
             "SELECT work_date, minutes, start_min, end_min FROM vacation "
             "WHERE work_date LIKE ? ORDER BY work_date",
