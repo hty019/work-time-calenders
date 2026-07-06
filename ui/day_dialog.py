@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
     QMessageBox, QFormLayout, QComboBox, QLabel, QWidget, QTextEdit,
-    QFrame,
+    QFrame, QStackedLayout,
 )
 
 from core.recognition import (
@@ -158,7 +158,6 @@ def open_day_dialog(
     )
     view_form.addRow("(가)계획", QLabel(recognition_display(recog_range)))
     view_form.addRow("휴가", QLabel(vacation_display(vacation)))
-    left_col.addWidget(view_widget)
 
     # --- 수정 모드: 입력 폼 ---
     edit_widget = QWidget()
@@ -188,13 +187,19 @@ def open_day_dialog(
     form.addRow("(가)계획 종료", recog_end_edit)
     form.addRow("휴가", vacation_combo)
     form.addRow(vacation_start_label, vacation_start_edit)
-    left_col.addWidget(edit_widget)
+
+    # 보기/수정 폼을 스택으로 겹쳐 두 모드 중 큰 쪽 크기로 고정
+    # (모드 전환 시 다이얼로그 크기가 변하지 않는다)
+    left_stack = QStackedLayout()
+    left_stack.addWidget(view_widget)
+    left_stack.addWidget(edit_widget)
+    left_col.addLayout(left_stack)
     left_col.addStretch(1)
 
     # --- 우측 메모 패널 (구분선 + 메모 보기/입력) ---
     memo_separator = QFrame()
-    memo_separator.setFrameShape(QFrame.VLine)
-    # QFrame 선은 팔레트 색을 쓰므로 회색은 배경색 1px 로 직접 지정
+    # 팔레트 선(흰색) 대신 1px 회색 배경으로 직접 그린다
+    memo_separator.setFrameShape(QFrame.NoFrame)
     memo_separator.setFixedWidth(1)
     memo_separator.setStyleSheet(f"background-color:{theme.FG_MUTED};")
     content.addWidget(memo_separator)
@@ -213,12 +218,14 @@ def open_day_dialog(
     memo_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     memo_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     memo_view.setStyleSheet("background: transparent;")
-    memo_col.addWidget(memo_view)
     # 수정: 여러 줄 입력
     memo_edit = QTextEdit()
     memo_edit.setPlainText(initial_memo)
     memo_edit.setPlaceholderText("근무 내용·주요 안건 (비우면 메모 삭제)")
-    memo_col.addWidget(memo_edit)
+    memo_stack = QStackedLayout()
+    memo_stack.addWidget(memo_view)
+    memo_stack.addWidget(memo_edit)
+    memo_col.addLayout(memo_stack)
     # 좌측 폼과 1:1 비율 → 구분선이 다이얼로그 중앙에 위치
     content.addWidget(memo_panel, stretch=1)
 
@@ -251,8 +258,8 @@ def open_day_dialog(
     layout.addLayout(buttons)
 
     def _set_edit_mode(editing: bool) -> None:
-        view_widget.setVisible(not editing)
-        edit_widget.setVisible(editing)
+        left_stack.setCurrentWidget(edit_widget if editing else view_widget)
+        memo_stack.setCurrentWidget(memo_edit if editing else memo_view)
         close_btn.setVisible(not editing)
         edit_btn.setVisible(not editing)
         cancel_btn.setVisible(editing)
@@ -261,14 +268,8 @@ def open_day_dialog(
         show_memo_panel = editing or bool(memo)
         memo_separator.setVisible(show_memo_panel)
         memo_panel.setVisible(show_memo_panel)
-        memo_view.setVisible(not editing)
-        memo_edit.setVisible(editing)
         if editing:
             _update_vacation_start_visibility()
-        # 모드 전환 후 레이아웃을 재계산해 현재 모드의 적정 크기로 되돌린다
-        # (adjustSize 만으로는 수정→취소 시 늘어난 높이가 유지됨)
-        dlg.layout().activate()
-        dlg.resize(dlg.sizeHint())
 
     def _restore_inputs() -> None:
         """취소 시 입력란을 다이얼로그 오픈 시점 값으로 되돌린다."""
