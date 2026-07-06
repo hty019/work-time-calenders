@@ -49,6 +49,10 @@ STATUS_PANEL_WIDTH = 260
 VACATION_DIALOG_MIN_WIDTH = 460
 VACATION_DIALOG_MIN_HEIGHT = 380
 
+# 날짜 편집 다이얼로그 최소 크기 (입력란 잘림 방지)
+DAY_DIALOG_MIN_WIDTH = 420
+DAY_DIALOG_MIN_HEIGHT = 340
+
 
 def base_stylesheet() -> str:
     """앱 전역 다크 스타일시트."""

@@ -16,6 +16,7 @@ from core.recognition import (
 )
 from core.timefmt import build_iso
 from core.vacation import FULL_DAY_MINUTES, Vacation, build_vacation
+from ui import theme
 
 MAX_PLAN_MINUTES = 24 * 60
 
@@ -103,6 +104,7 @@ def open_day_dialog(
 ) -> None:
     dlg = QDialog(parent)
     dlg.setWindowTitle(f"{work_date} 편집")
+    dlg.setMinimumSize(theme.DAY_DIALOG_MIN_WIDTH, theme.DAY_DIALOG_MIN_HEIGHT)
     layout = QVBoxLayout(dlg)
 
     # 초기값 (취소 시 이 값으로 입력란을 되돌린다)
