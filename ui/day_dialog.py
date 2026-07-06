@@ -21,6 +21,7 @@ from ui import theme
 
 MAX_PLAN_MINUTES = 24 * 60
 _MEMO_CAPTION_GAP_PX = 2  # 메모 캡션과 박스 사이 간격
+_COMBO_ARROW_AREA_PX = 24  # 콤보 드롭다운 버튼 영역 폭
 
 # 휴가 콤보 항목: (표시 문구, 분). 없음은 None.
 VACATION_CHOICES: list[tuple[str, Optional[int]]] = [
@@ -120,6 +121,14 @@ def open_day_dialog(
             padding: {theme.INPUT_PADDING_PX}px;
             border: 1px solid {theme.FG_MUTED};
             border-radius: {theme.INPUT_RADIUS_PX}px;
+            background-color: {theme.BG_ELEVATED};
+        }}
+        /* 드롭다운 서브컨트롤까지 지정해야 콤보 테두리가 온전히 그려진다 */
+        QComboBox::drop-down {{
+            subcontrol-origin: padding;
+            subcontrol-position: center right;
+            width: {_COMBO_ARROW_AREA_PX}px;
+            border: none;
         }}
     """)
     layout = QVBoxLayout(dlg)
