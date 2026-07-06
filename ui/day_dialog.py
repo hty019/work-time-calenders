@@ -7,7 +7,6 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
     QMessageBox, QFormLayout, QComboBox, QLabel, QWidget, QTextEdit,
-    QStackedLayout,
 )
 
 from core.recognition import (
@@ -191,12 +190,10 @@ def open_day_dialog(
     form.addRow("휴가", vacation_combo)
     form.addRow(vacation_start_label, vacation_start_edit)
 
-    # 보기/수정 폼을 스택으로 겹쳐 두 모드 중 큰 쪽 크기로 고정
-    # (모드 전환 시 폼 영역 크기가 변하지 않는다)
-    form_stack = QStackedLayout()
-    form_stack.addWidget(view_widget)
-    form_stack.addWidget(edit_widget)
-    layout.addLayout(form_stack)
+    # 보기/수정 폼은 표시 여부로 전환하고, 전환 시 다이얼로그 크기를
+    # 현재 모드 내용에 딱 맞게 재계산한다 (예약 공간·잔여 여백 없음)
+    layout.addWidget(view_widget)
+    layout.addWidget(edit_widget)
 
     # --- 메모 섹션: 가장 후순위 항목 (STATUS 와 동일한 테두리 박스) ---
     memo_section = QWidget()
@@ -267,7 +264,8 @@ def open_day_dialog(
     layout.addLayout(buttons)
 
     def _set_edit_mode(editing: bool) -> None:
-        form_stack.setCurrentWidget(edit_widget if editing else view_widget)
+        view_widget.setVisible(not editing)
+        edit_widget.setVisible(editing)
         memo_view.setVisible(not editing)
         memo_edit.setVisible(editing)
         close_btn.setVisible(not editing)
