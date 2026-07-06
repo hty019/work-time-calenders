@@ -5,7 +5,7 @@ from typing import Callable, Optional
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QMessageBox, QFormLayout, QComboBox,
+    QMessageBox, QFormLayout, QComboBox, QLabel,
 )
 
 from core.recognition import (
@@ -15,7 +15,7 @@ from core.recognition import (
     validate_range_against_plan,
 )
 from core.timefmt import build_iso
-from core.vacation import Vacation, build_vacation
+from core.vacation import FULL_DAY_MINUTES, Vacation, build_vacation
 
 MAX_PLAN_MINUTES = 24 * 60
 
@@ -99,14 +99,30 @@ def open_day_dialog(
         else minutes_to_hhmm(vacation.start_min)
     )
     vacation_start_edit.setPlaceholderText("HH:MM (시간제 휴가만)")
+    vacation_start_label = QLabel("휴가 시작")
     form.addRow("출근", in_edit)
     form.addRow("퇴근", out_edit)
     form.addRow("실 계획(분)", plan_edit)
     form.addRow("(가)계획 시작", recog_start_edit)
     form.addRow("(가)계획 종료", recog_end_edit)
     form.addRow("휴가", vacation_combo)
-    form.addRow("휴가 시작", vacation_start_edit)
+    form.addRow(vacation_start_label, vacation_start_edit)
     layout.addLayout(form)
+
+    def _hourly_selected() -> bool:
+        """시간제 휴가(2h/4h/6h) 선택 여부. 없음·1day 는 시작 시각 불필요."""
+        minutes = VACATION_CHOICES[vacation_combo.currentIndex()][1]
+        return minutes is not None and minutes < FULL_DAY_MINUTES
+
+    def _update_vacation_start_visibility() -> None:
+        visible = _hourly_selected()
+        vacation_start_label.setVisible(visible)
+        vacation_start_edit.setVisible(visible)
+
+    vacation_combo.currentIndexChanged.connect(
+        lambda _index: _update_vacation_start_visibility()
+    )
+    _update_vacation_start_visibility()
 
     buttons = QHBoxLayout()
     cancel = QPushButton("닫기")
@@ -149,8 +165,13 @@ def open_day_dialog(
         new_vacation: Optional[Vacation] = None
         if vac_minutes is not None:
             try:
-                start_text = vacation_start_edit.text().strip()
-                start_min = hhmm_to_minutes(start_text) if start_text else None
+                # 시작 시각은 시간제일 때만 사용 (숨겨진 입력 값은 무시)
+                start_min = None
+                if _hourly_selected():
+                    start_text = vacation_start_edit.text().strip()
+                    start_min = (
+                        hhmm_to_minutes(start_text) if start_text else None
+                    )
                 new_vacation = build_vacation(vac_minutes, start_min=start_min)
             except ValueError as exc:
                 QMessageBox.warning(dlg, "입력 오류", str(exc))
