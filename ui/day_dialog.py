@@ -295,23 +295,9 @@ def open_day_dialog(
         dlg.layout().activate()
         dlg.resize(dlg.sizeHint())
 
-    def _restore_inputs() -> None:
-        """취소 시 입력란을 다이얼로그 오픈 시점 값으로 되돌린다."""
-        in_edit.setText(in_hhmm)
-        out_edit.setText(out_hhmm)
-        plan_edit.setText(initial_plan_text)
-        recog_start_edit.setText(initial_recog_start)
-        recog_end_edit.setText(initial_recog_end)
-        vacation_combo.setCurrentIndex(initial_vac_index)
-        vacation_start_edit.setText(initial_vac_start)
-        memo_edit.setPlainText(initial_memo)
-
-    def handle_cancel() -> None:
-        _restore_inputs()
-        _set_edit_mode(False)
-
+    # 취소 = 저장하지 않고 닫기 (보기는 STATUS 패널이 담당)
     edit_btn.clicked.connect(lambda: _set_edit_mode(True))
-    cancel_btn.clicked.connect(handle_cancel)
+    cancel_btn.clicked.connect(dlg.reject)
 
     def handle_save() -> None:
         # 1) 계획 파싱 (저장은 검증 통과 후)
