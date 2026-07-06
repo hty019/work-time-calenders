@@ -19,12 +19,7 @@ from core.recognition import (
 )
 from core.stats import build_month_summary
 from core.storage import Storage
-from core.vacation import (
-    Vacation,
-    VacationService,
-    YearLeaveSummary,
-    minutes_to_days_str,
-)
+from core.vacation import Vacation, VacationService, YearLeaveSummary
 from ui import theme
 from ui.day_dialog import open_day_dialog
 from ui.main_window import MainWindow, MainWindowCallbacks
@@ -100,8 +95,8 @@ class AppController:
             year, month, holidays, now,
         )
         status = self._service.today_status()
-        leave_text = _leave_button_text(self._vacations.year_summary(now.year))
-        self._window.render(year, month, status, grid, summary, leave_text)
+        leave = self._vacations.year_summary(now.year)
+        self._window.render(year, month, status, grid, summary, leave)
         self._render_widget(summary, status)
 
     def _render_widget(self, summary, status) -> None:
@@ -273,15 +268,6 @@ class AppController:
         self._show_mode(config.get_last_mode())
         self._timer.start(self._ms_until_next_minute())
         self._app.exec()
-
-
-def _leave_button_text(summary: YearLeaveSummary) -> str:
-    """툴바 휴가 버튼 문구: 잔여/총(일). 총 연차 미설정이면 기본 문구."""
-    if summary.total_minutes is None:
-        return "휴가 관리"
-    remaining = minutes_to_days_str(summary.remaining_minutes)
-    total = minutes_to_days_str(summary.total_minutes)
-    return f"휴가 {remaining}/{total}"
 
 
 def _prev_month(year: int, month: int) -> tuple[int, int]:

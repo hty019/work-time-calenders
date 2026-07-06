@@ -12,11 +12,13 @@ from PySide6.QtGui import QAction
 from core.attendance import WorkStatus
 from core.calendar_model import DayCell
 from core.stats import MonthSummary
+from core.vacation import YearLeaveSummary, minutes_to_days_str
 from ui import theme
 from ui.calendar_widget import CalendarWidget
 from ui.status_panel import StatusPanel
 
 _STATUS_DOT = "●"
+_VACATION_DEFAULT_LABEL = "휴가 관리"
 _STATUS_COLORS = {
     WorkStatus.WORKING: theme.FG_WORKING,
     WorkStatus.CLOCKED_OUT: theme.FG_MUTED,
@@ -51,7 +53,7 @@ class MainWindow(QMainWindow):
         nxt = QAction("▶", self)
         nxt.triggered.connect(lambda: self._cb.on_next_month())
         self._status_label = QLabel("")
-        self._vacation_action = QAction("휴가 관리", self)
+        self._vacation_action = QAction(_VACATION_DEFAULT_LABEL, self)
         self._vacation_action.triggered.connect(
             lambda: self._cb.on_manage_vacation()
         )
@@ -86,11 +88,20 @@ class MainWindow(QMainWindow):
         status: WorkStatus,
         grid: list[list[DayCell]],
         summary: MonthSummary,
-        leave_text: str,
+        leave: YearLeaveSummary,
     ) -> None:
         self._month_label.setText(f"  {year}년 {month}월  ")
         self._status_label.setText(f"{_STATUS_DOT} {status.value}")
         self._status_label.setStyleSheet(f"color:{_STATUS_COLORS[status]};")
-        self._vacation_action.setText(leave_text)
+        self._vacation_action.setText(_leave_button_text(leave))
         self._calendar.render_grid(grid)
-        self._status.update_summary(summary, status)
+        self._status.update_summary(summary, status, leave)
+
+
+def _leave_button_text(leave: YearLeaveSummary) -> str:
+    """툴바 휴가 버튼 문구: 잔여/총(일). 총 연차 미설정이면 기본 문구."""
+    if leave.total_minutes is None:
+        return _VACATION_DEFAULT_LABEL
+    remaining = minutes_to_days_str(leave.remaining_minutes)
+    total = minutes_to_days_str(leave.total_minutes)
+    return f"휴가 {remaining}/{total}"

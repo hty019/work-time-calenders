@@ -1,6 +1,29 @@
 from core.attendance import WorkStatus
 from core.stats import ProgressLevel
-from ui.status_panel import expected_display, progress_caption
+from core.vacation import YearLeaveSummary
+from ui.status_panel import expected_display, leave_line, progress_caption
+
+
+def test_leave_line_shows_remaining_and_total():
+    s = YearLeaveSummary(
+        year=2026,
+        total_minutes=15 * 480,
+        used_minutes=2 * 480 + 120,  # 2.25일 소진
+        remaining_minutes=15 * 480 - (2 * 480 + 120),
+        entries=[],
+    )
+    assert leave_line(s) == "연차   12.75 / 15"
+
+
+def test_leave_line_without_total_shows_dash():
+    s = YearLeaveSummary(
+        year=2026,
+        total_minutes=None,
+        used_minutes=480,
+        remaining_minutes=None,
+        entries=[],
+    )
+    assert leave_line(s) == "연차   -"
 
 
 def test_expected_display_pending_shows_remaining():

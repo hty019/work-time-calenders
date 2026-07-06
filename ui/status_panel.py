@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 from core.attendance import WorkStatus
 from core.calendar_model import format_hm
 from core.stats import MonthSummary, ProgressLevel, progress_state
+from core.vacation import YearLeaveSummary, minutes_to_days_str
 from ui import theme
 
 _SECONDS_PER_MINUTE = 60
@@ -113,6 +114,15 @@ def expected_display(
     )
 
 
+def leave_line(leave: YearLeaveSummary) -> str:
+    """연차 현황 라인: 잔여 / 총(일). 총 연차 미설정이면 '-'."""
+    if leave.total_minutes is None:
+        return "연차   -"
+    remaining = minutes_to_days_str(leave.remaining_minutes)
+    total = minutes_to_days_str(leave.total_minutes)
+    return f"연차   {remaining} / {total}"
+
+
 def progress_caption(
     pct: int, level: ProgressLevel, actual_seconds: int, required_minutes: int
 ) -> str:
@@ -148,6 +158,7 @@ class StatusPanel(QWidget):
         self._planned = QLabel()
         self._recog_planned = QLabel()  # 월 (가)계획 합계(휴게 차감)
         self._actual = QLabel()
+        self._leave = QLabel()  # 연차 잔여/총 현황
         self._progress_caption = QLabel()  # 진행률 바 상단 상태 텍스트
         self._progress_caption.setStyleSheet(
             f"color:{theme.FG_MUTED}; font-size:{_CAPTION_FONT_PX}px;"
@@ -167,9 +178,9 @@ class StatusPanel(QWidget):
         self._expected_sub.setVisible(False)
 
         for w in (self._title, self._required, self._max, self._planned,
-                  self._recog_planned, self._actual, self._progress_caption,
-                  self._progress, self._expected_title, self._expected,
-                  self._expected_sub):
+                  self._recog_planned, self._actual, self._leave,
+                  self._progress_caption, self._progress,
+                  self._expected_title, self._expected, self._expected_sub):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -197,7 +208,12 @@ class StatusPanel(QWidget):
             clock.clicked.connect(lambda: self._on_clock_out())
             self._buttons.addWidget(clock)
 
-    def update_summary(self, summary: MonthSummary, status: WorkStatus) -> None:
+    def update_summary(
+        self,
+        summary: MonthSummary,
+        status: WorkStatus,
+        leave: YearLeaveSummary,
+    ) -> None:
         self._required.setText(
             f"법정 기준   {_fmt_hours(summary.required_minutes)}"
         )
@@ -213,6 +229,7 @@ class StatusPanel(QWidget):
         self._actual.setText(
             f"월 누적   {_fmt_seconds(summary.actual_seconds)}"
         )
+        self._leave.setText(leave_line(leave))
         # 진행률: 법정 기준 이내 녹색 → 초과 시 최대 가능 기준 주황 → +20h 빨강
         pct, level = progress_state(
             summary.actual_seconds,
