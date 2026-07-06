@@ -53,6 +53,7 @@ VACATION_DIALOG_MIN_HEIGHT = 380
 DAY_DIALOG_MIN_WIDTH = 300
 DAY_DIALOG_MIN_HEIGHT = 160  # 내용보다 크면 잔여 여백이 생기므로 낮게 유지
 DAY_DIALOG_FONT_PT = 17  # 시스템 기본(13pt)보다 4pt 크게
+INPUT_PADDING_PX = 6  # 입력란 텍스트-테두리 여유
 DAY_DIALOG_MEMO_HEIGHT = 110  # 메모 박스 높이 (넘치면 휠 스크롤)
 
 # STATUS 패널 메모 박스

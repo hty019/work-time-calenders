@@ -114,7 +114,10 @@ def open_day_dialog(
     dlg = QDialog(parent)
     dlg.setWindowTitle(f"{work_date} 편집")
     dlg.setMinimumSize(theme.DAY_DIALOG_MIN_WIDTH, theme.DAY_DIALOG_MIN_HEIGHT)
-    dlg.setStyleSheet(f"font-size: {theme.DAY_DIALOG_FONT_PT}pt;")
+    dlg.setStyleSheet(f"""
+        QWidget {{ font-size: {theme.DAY_DIALOG_FONT_PT}pt; }}
+        QLineEdit, QComboBox {{ padding: {theme.INPUT_PADDING_PX}px; }}
+    """)
     layout = QVBoxLayout(dlg)
 
     # 초기값 (취소 시 이 값으로 입력란을 되돌린다)
@@ -204,7 +207,7 @@ def open_day_dialog(
     memo_caption = QLabel("메모")
     memo_caption.setStyleSheet(f"color:{theme.FG_MUTED};")
     memo_col.addWidget(memo_caption)
-    memo_style = theme.memo_box_style() + " padding: 0px 6px;"
+    memo_style = theme.memo_box_style()  # 패딩 6px 포함 (STATUS 와 동일)
     # 보기: 읽기 전용, 스크롤바 없이 텍스트만 (넘치면 휠 스크롤)
     memo_view = QTextEdit()
     memo_view.setPlainText(memo_display(memo))
