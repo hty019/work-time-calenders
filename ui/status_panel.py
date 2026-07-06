@@ -210,10 +210,7 @@ class StatusPanel(QWidget):
         self._memo_box.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._memo_box.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._memo_box.setMaximumHeight(theme.STATUS_MEMO_MAX_HEIGHT)
-        self._memo_box.setStyleSheet(
-            f"border: 1px solid {theme.FG_MUTED}; border-radius: 6px;"
-            "background: transparent; padding: 6px;"
-        )
+        self._memo_box.setStyleSheet(theme.memo_box_style())
         self._memo_box.setVisible(False)
         self._expected_sub = QLabel()  # 회색 계획 퇴근 안내
         self._expected_sub.setStyleSheet(

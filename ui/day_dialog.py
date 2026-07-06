@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
     QMessageBox, QFormLayout, QComboBox, QLabel, QWidget, QTextEdit,
-    QFrame, QStackedLayout,
+    QStackedLayout,
 )
 
 from core.recognition import (
@@ -196,37 +196,30 @@ def open_day_dialog(
     left_col.addLayout(left_stack)
     left_col.addStretch(1)
 
-    # --- 우측 메모 패널 (구분선 + 메모 보기/입력) ---
-    memo_separator = QFrame()
-    # 팔레트 선(흰색) 대신 1px 회색 배경으로 직접 그린다
-    memo_separator.setFrameShape(QFrame.NoFrame)
-    memo_separator.setFixedWidth(1)
-    memo_separator.setStyleSheet(f"background-color:{theme.FG_MUTED};")
-    content.addWidget(memo_separator)
-
+    # --- 우측 메모 패널 (STATUS 와 동일한 테두리 박스, 항상 표시) ---
     memo_panel = QWidget()
     memo_col = QVBoxLayout(memo_panel)
     memo_col.setContentsMargins(0, 0, 0, 0)
     memo_caption = QLabel("메모")
     memo_caption.setStyleSheet(f"color:{theme.FG_MUTED};")
     memo_col.addWidget(memo_caption)
-    # 보기: 읽기 전용, 테두리·스크롤바 없이 텍스트만 (넘치면 휠 스크롤)
+    # 보기: 읽기 전용, 스크롤바 없이 텍스트만 (넘치면 휠 스크롤)
     memo_view = QTextEdit()
     memo_view.setPlainText(memo_display(memo))
     memo_view.setReadOnly(True)
-    memo_view.setFrameShape(QFrame.NoFrame)
     memo_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     memo_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-    memo_view.setStyleSheet("background: transparent;")
+    memo_view.setStyleSheet(theme.memo_box_style())
     # 수정: 여러 줄 입력
     memo_edit = QTextEdit()
     memo_edit.setPlainText(initial_memo)
     memo_edit.setPlaceholderText("근무 내용·주요 안건 (비우면 메모 삭제)")
+    memo_edit.setStyleSheet(theme.memo_box_style())
     memo_stack = QStackedLayout()
     memo_stack.addWidget(memo_view)
     memo_stack.addWidget(memo_edit)
     memo_col.addLayout(memo_stack)
-    # 좌측 폼과 1:1 비율 → 구분선이 다이얼로그 중앙에 위치
+    # 좌측 폼과 1:1 비율
     content.addWidget(memo_panel, stretch=1)
 
     def _hourly_selected() -> bool:
@@ -264,10 +257,6 @@ def open_day_dialog(
         edit_btn.setVisible(not editing)
         cancel_btn.setVisible(editing)
         save_btn.setVisible(editing)
-        # 우측 메모 패널: 보기 모드는 메모가 있을 때만, 수정 모드는 항상
-        show_memo_panel = editing or bool(memo)
-        memo_separator.setVisible(show_memo_panel)
-        memo_panel.setVisible(show_memo_panel)
         if editing:
             _update_vacation_start_visibility()
 

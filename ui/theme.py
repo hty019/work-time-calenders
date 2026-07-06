@@ -58,6 +58,14 @@ DAY_DIALOG_FONT_PT = 17  # 시스템 기본(13pt)보다 4pt 크게
 STATUS_MEMO_MAX_HEIGHT = 140  # 넘치면 스크롤 (스크롤바는 숨김)
 
 
+def memo_box_style() -> str:
+    """메모 영역 공통 스타일: 둥근 테두리 사각형 (STATUS·다이얼로그 공용)."""
+    return (
+        f"border: 1px solid {FG_MUTED}; border-radius: 6px;"
+        "background: transparent; padding: 6px;"
+    )
+
+
 def base_stylesheet() -> str:
     """앱 전역 다크 스타일시트."""
     return f"""
