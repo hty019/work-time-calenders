@@ -194,7 +194,9 @@ def open_day_dialog(
     # --- 우측 메모 패널 (구분선 + 메모 보기/입력) ---
     memo_separator = QFrame()
     memo_separator.setFrameShape(QFrame.VLine)
-    memo_separator.setStyleSheet(f"color:{theme.FG_MUTED};")
+    # QFrame 선은 팔레트 색을 쓰므로 회색은 배경색 1px 로 직접 지정
+    memo_separator.setFixedWidth(1)
+    memo_separator.setStyleSheet(f"background-color:{theme.FG_MUTED};")
     content.addWidget(memo_separator)
 
     memo_panel = QWidget()
@@ -263,7 +265,10 @@ def open_day_dialog(
         memo_edit.setVisible(editing)
         if editing:
             _update_vacation_start_visibility()
-        dlg.adjustSize()
+        # 모드 전환 후 레이아웃을 재계산해 현재 모드의 적정 크기로 되돌린다
+        # (adjustSize 만으로는 수정→취소 시 늘어난 높이가 유지됨)
+        dlg.layout().activate()
+        dlg.resize(dlg.sizeHint())
 
     def _restore_inputs() -> None:
         """취소 시 입력란을 다이얼로그 오픈 시점 값으로 되돌린다."""
