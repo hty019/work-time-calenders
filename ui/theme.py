@@ -25,6 +25,7 @@ FG_RANGE_WARN = "#ffd166"     # 인정 범위 이탈 경고 (노랑)
 FG_VACATION = "#c084fc"       # 휴가 표시 (연보라)
 FG_DONE_TODAY = "#4ade80"     # 금일 근로 시간 달성 (녹색)
 FG_OVERDUE = "#fb923c"        # 계획 퇴근 초과·미퇴근 경고 (주황)
+BORDER_GRAY = "#5f6670"       # 입력란·박스 테두리 (회색, FG_MUTED 보다 어두움)
 
 FONT_FAMILY = "Helvetica"
 CELL_MIN_WIDTH = 96
@@ -64,7 +65,7 @@ STATUS_MEMO_MAX_HEIGHT = 140  # 넘치면 스크롤 (스크롤바는 숨김)
 def memo_box_style() -> str:
     """메모 영역 공통 스타일: 둥근 테두리 사각형 (STATUS·다이얼로그 공용)."""
     return (
-        f"border: 1px solid {FG_MUTED}; border-radius: 6px;"
+        f"border: 1px solid {BORDER_GRAY}; border-radius: 6px;"
         "background: transparent; padding: 6px;"
     )
 

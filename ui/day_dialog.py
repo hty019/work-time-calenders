@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
     QMessageBox, QFormLayout, QComboBox, QLabel, QWidget, QTextEdit,
+    QStyleFactory,
 )
 
 from core.recognition import (
@@ -119,7 +120,7 @@ def open_day_dialog(
         QWidget {{ font-size: {theme.DAY_DIALOG_FONT_PT}pt; }}
         QLineEdit, QComboBox {{
             padding: {theme.INPUT_PADDING_PX}px;
-            border: 1px solid {theme.FG_MUTED};
+            border: 1px solid {theme.BORDER_GRAY};
             border-radius: {theme.INPUT_RADIUS_PX}px;
             background-color: {theme.BG_ELEVATED};
         }}
@@ -192,6 +193,8 @@ def open_day_dialog(
     recog_end_edit = QLineEdit(initial_recog_end)
     recog_end_edit.setPlaceholderText("HH:MM (비우면 미설정)")
     vacation_combo = QComboBox()
+    # macOS 네이티브 콤보는 스타일시트 테두리를 잘라 그리므로 Fusion 강제
+    vacation_combo.setStyle(QStyleFactory.create("Fusion"))
     for label, _minutes in VACATION_CHOICES:
         vacation_combo.addItem(label)
     vacation_combo.setCurrentIndex(initial_vac_index)
