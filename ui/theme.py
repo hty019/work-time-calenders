@@ -52,7 +52,7 @@ VACATION_DIALOG_MIN_WIDTH = 460
 VACATION_DIALOG_MIN_HEIGHT = 380
 
 # 날짜 편집 다이얼로그 최소 크기 (입력란 잘림 방지)
-DAY_DIALOG_MIN_WIDTH = 300
+DAY_DIALOG_MIN_WIDTH = 310
 DAY_DIALOG_MIN_HEIGHT = 160  # 내용보다 크면 잔여 여백이 생기므로 낮게 유지
 DAY_DIALOG_FONT_PT = 17  # 시스템 기본(13pt)보다 4pt 크게
 INPUT_PADDING_PX = 4   # 입력란 텍스트-테두리 여유
