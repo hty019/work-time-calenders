@@ -163,6 +163,34 @@ def test_expected_none_when_vacation_covers_plan():
     assert s.expected_clock_out is None
 
 
+def test_expected_basis_minutes_from_plan():
+    # 예상 퇴근 산정 기준 순근무 분 = 계획 (휴가 없음)
+    rec = Rec("2026-07-01T09:00:00+09:00", None)
+    s = build_month_summary(
+        FakeStorage(rec), FakeAttendance(),
+        FakePlan(9600, 480), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s.expected_basis_minutes == 480
+
+
+def test_expected_basis_minutes_reduced_by_vacation():
+    # 휴가 2h 사용 시 기준 = 계획 8h − 2h = 6h
+    rec = Rec("2026-07-01T08:00:00+09:00", None)
+    s = build_month_summary(
+        FakeStorage(rec, vacation=(120, 900, 1020)), FakeAttendance(),
+        FakePlan(9600, 480), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s.expected_basis_minutes == 360
+
+
+def test_expected_basis_minutes_none_without_expectation():
+    s = build_month_summary(
+        FakeStorage(), FakeAttendance(),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s.expected_basis_minutes is None
+
+
 def test_today_work_seconds_from_in_progress():
     # 진행 중이면 실시간 근무초
     s = build_month_summary(

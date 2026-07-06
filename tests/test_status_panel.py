@@ -40,24 +40,27 @@ def test_leave_line_without_total_shows_dash():
     assert leave_line(s) == "연차   -"
 
 
-def test_expected_line_shows_time_only():
-    assert expected_line("18:42") == "퇴근 예정 시간: 18:42"
+def test_expected_line_shows_time_with_basis():
+    # 예상 퇴근 시각 + 산정 기준 순근무 시간
+    assert expected_line("18:42", 480) == (
+        "퇴근 예정 시간: 18:42 (8h 0m 근무 기준)"
+    )
 
 
 def test_expected_line_dash_without_expectation():
-    assert expected_line(None) == "퇴근 예정 시간: -"
+    assert expected_line(None, None) == "퇴근 예정 시간: -"
 
 
 def test_expected_line_appends_range_warning():
-    assert expected_line("18:30", exceeds_range=True) == (
-        "퇴근 예정 시간: 18:30\n⚠ (가)계획 종료 초과"
+    assert expected_line("18:30", 360, exceeds_range=True) == (
+        "퇴근 예정 시간: 18:30 (6h 0m 근무 기준)\n⚠ (가)계획 종료 초과"
     )
 
 
 def test_expected_line_overdue_warning_wins():
     # 미퇴근 + (가)계획 퇴근 초과: 계획 수정 필요 경고 우선
-    assert expected_line("17:30", exceeds_range=True, overdue=True) == (
-        "퇴근 예정 시간: 17:30\n⚠ 계획 수정 필요"
+    assert expected_line("17:30", 480, exceeds_range=True, overdue=True) == (
+        "퇴근 예정 시간: 17:30 (8h 0m 근무 기준)\n⚠ 계획 수정 필요"
     )
 
 

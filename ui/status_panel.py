@@ -62,17 +62,23 @@ def clock_in_line(clock_in_hm: str | None) -> str:
 
 def expected_line(
     expected_hhmm: str | None,
+    basis_minutes: int | None,
     exceeds_range: bool = False,
     overdue: bool = False,
 ) -> str:
-    """퇴근 예정 시각 라인. 경고는 줄바꿈으로 덧붙인다.
+    """퇴근 예정 시각 라인. 산정 기준 순근무 시간을 괄호로 병기한다.
 
-    overdue(미퇴근 + (가)계획 퇴근 초과)가 범위 초과 경고보다 우선.
+    경고는 줄바꿈으로 덧붙이며, overdue(미퇴근 + (가)계획 퇴근 초과)가
+    범위 초과 경고보다 우선.
     """
-    base = f"퇴근 예정 시간: {expected_hhmm or '-'}"
+    if expected_hhmm is None:
+        return "퇴근 예정 시간: -"
+    base = f"퇴근 예정 시간: {expected_hhmm}"
+    if basis_minutes is not None:
+        base += f" ({format_hm(basis_minutes)} 근무 기준)"
     if overdue:
         return f"{base}\n⚠ 계획 수정 필요"
-    if exceeds_range and expected_hhmm is not None:
+    if exceeds_range:
         return f"{base}\n⚠ (가)계획 종료 초과"
     return base
 
@@ -236,7 +242,10 @@ class StatusPanel(QWidget):
         self._clock_in.setText(clock_in_line(summary.today_clock_in_hm))
         self._expected.setText(
             expected_line(
-                expected_hhmm, summary.expected_exceeds_range, overdue
+                expected_hhmm,
+                summary.expected_basis_minutes,
+                summary.expected_exceeds_range,
+                overdue,
             )
         )
         self._stay.setText(stay_line(summary.today_stay_seconds))

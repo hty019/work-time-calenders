@@ -73,6 +73,7 @@ class MonthSummary:
     recog_end_passed: bool = False  # 현재 시각이 (가)계획 종료를 지났는지
     today_clock_in_hm: str | None = None  # 오늘 출근 시각 "HH:MM"
     today_stay_seconds: int | None = None  # 출근 후 체류초(휴게 포함 경과)
+    expected_basis_minutes: int | None = None  # 예상 퇴근 산정 기준 순근무 분
 
 
 def build_month_summary(
@@ -110,7 +111,7 @@ def build_month_summary(
         actual_seconds / planned_seconds if planned_seconds > 0 else None
     )
 
-    expected, remaining = _today_expectation(
+    expected, remaining, expected_basis = _today_expectation(
         storage, plan_service, holidays, now
     )
     exceeds = _exceeds_recognition_end(storage, timeutil.today_str(now), expected)
@@ -163,6 +164,7 @@ def build_month_summary(
         recog_end_passed=recog_end_passed,
         today_clock_in_hm=today_clock_in_hm,
         today_stay_seconds=today_stay_seconds,
+        expected_basis_minutes=expected_basis,
     )
 
 
@@ -176,30 +178,31 @@ def _recog_planned_minutes(storage, year: int, month: int) -> int:
 
 
 def _today_expectation(storage, plan_service, holidays, now):
-    """오늘 출근 기록+계획이 있으면 (예상 퇴근시각, 남은초) 반환.
+    """오늘 출근 기록+계획이 있으면 (예상 퇴근시각, 남은초, 기준 순근무 분) 반환.
 
+    기준 순근무 분은 예상 퇴근 산정에 쓰인 순근무량(계획 − 휴가분)이다.
     오늘 휴가가 있으면 남은 필요 순근무 = 계획 − 휴가분으로 줄이고,
     시간제 휴가 구간이 예상 체류와 겹치면 겹침만큼 퇴근을 뒤로 민다.
     """
     today = timeutil.today_str(now)
     rec = storage.get(today)
     if rec is None or not rec.clock_in:
-        return None, None
+        return None, None, None
     planned_minutes = plan_service.effective_minutes(today, holidays)
     if planned_minutes <= 0:
-        return None, None
+        return None, None, None
     vacation = storage.get_vacation(today)
     vacation_minutes = vacation[0] if vacation else 0
     remaining_minutes = planned_minutes - vacation_minutes
     if remaining_minutes <= 0:
-        return None, None  # 휴가만으로 계획 충족
+        return None, None, None  # 휴가만으로 계획 충족
     clock_in = timeutil.from_iso(rec.clock_in)
     raw = raw_seconds_for_net(remaining_minutes * _MINUTE_SECONDS)
     if vacation and vacation[1] is not None and vacation[2] is not None:
         raw = _extend_past_vacation(clock_in, raw, vacation[1], vacation[2])
     expected = clock_in + timedelta(seconds=raw)
     remaining = int((expected - now).total_seconds())
-    return expected, remaining
+    return expected, remaining, remaining_minutes
 
 
 def _extend_past_vacation(
