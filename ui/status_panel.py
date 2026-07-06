@@ -28,6 +28,22 @@ _PROGRESS_COLORS = {
     ProgressLevel.EXCEEDED: theme.BG_PROGRESS_MAX,
 }
 
+# 상태 라인 상태키 → (색상, 굵게)
+_STATE_STYLES = {
+    "off": (theme.FG_MUTED, False),        # 미출근
+    "done": (theme.FG_MUTED, False),       # 퇴근 완료
+    "normal": (theme.FG_DONE_TODAY, False),  # 정상 근무중 (녹색)
+    "reached": (theme.FG_DONE_TODAY, True),  # 예상 퇴근 달성 (녹색 bold)
+    "warn": (theme.FG_RANGE_WARN, False),    # 범위 초과 예상 (노랑)
+    "over": (theme.FG_RANGE_WARN, True),     # 계획 퇴근 실제 초과 (노랑 bold)
+}
+
+
+def _state_style(key: str) -> str:
+    color, bold = _STATE_STYLES[key]
+    weight = "bold" if bold else "normal"
+    return f"color:{color}; font-weight:{weight};"
+
 
 def _progress_style(level: ProgressLevel) -> str:
     """텍스트 없는 얇은 바 형태를 유지하면서 게이지 색상만 단계별로 변경."""
@@ -61,26 +77,42 @@ def clock_in_line(clock_in_hm: str | None) -> str:
 
 
 def expected_line(
-    expected_hhmm: str | None,
-    basis_minutes: int | None,
-    exceeds_range: bool = False,
-    overdue: bool = False,
+    expected_hhmm: str | None, basis_minutes: int | None
 ) -> str:
     """퇴근 예정 시각 라인. 산정 기준 순근무 시간을 괄호로 병기한다.
 
-    경고는 줄바꿈으로 덧붙이며, overdue(미퇴근 + (가)계획 퇴근 초과)가
-    범위 초과 경고보다 우선.
+    경고 표시는 상태 라인(state_display)이 담당한다.
     """
     if expected_hhmm is None:
         return "퇴근 예정 시간: -"
     base = f"퇴근 예정 시간: {expected_hhmm}"
     if basis_minutes is not None:
         base += f" ({format_hm(basis_minutes)} 근무 기준)"
-    if overdue:
-        return f"{base}\n⚠ 계획 수정 필요"
-    if exceeds_range:
-        return f"{base}\n⚠ (가)계획 종료 초과"
     return base
+
+
+def state_display(
+    status: WorkStatus,
+    recog_end_passed: bool,
+    exceeds_range: bool,
+    reached: bool,
+) -> tuple[str, str]:
+    """상태 라인의 (문구, 상태키) 산출. 상태키는 색상·굵기 매핑용.
+
+    우선순위: 미출근/퇴근 완료 > 계획 퇴근 실제 초과(over) >
+    범위 초과 예상(warn) > 예상 퇴근 달성(reached) > 정상 근무중.
+    """
+    if status is WorkStatus.NOT_CLOCKED_IN:
+        return "상태: 미출근", "off"
+    if status is WorkStatus.CLOCKED_OUT:
+        return "상태: 퇴근 완료", "done"
+    if recog_end_passed:
+        return "상태: ⚠ 계획 시간 범위 초과!!", "over"
+    if exceeds_range:
+        return "상태: ⚠ 계획 범위 초과 예상", "warn"
+    if reached:
+        return "상태: 금일 근무 달성 · 퇴근 가능", "reached"
+    return "상태: 정상 근무중", "normal"
 
 
 def stay_line(stay_seconds: int | None) -> str:
@@ -156,18 +188,19 @@ class StatusPanel(QWidget):
         self._expected.setWordWrap(True)
         self._stay = QLabel()       # 체류 시간(휴게 포함 경과)
         self._remaining = QLabel()  # 퇴근 예정까지 남은 시간
+        self._state = QLabel()      # 상태 라인 (색상·굵기로 경고 표시)
         self._expected_sub = QLabel()  # 회색 계획 퇴근 안내
         self._expected_sub.setStyleSheet(
             f"color:{theme.FG_MUTED}; font-size:{_SUB_FONT_PX}px;"
         )
         self._expected_sub.setVisible(False)
 
-        # 순서: 출근 → 퇴근 예정 → 계획 퇴근 안내 → 체류 → 남은 시간
+        # 순서: 출근 → 퇴근 예정 → 계획 퇴근 안내 → 체류 → 남은 → 상태
         for w in (self._title, self._required, self._max, self._planned,
                   self._recog_planned, self._actual, self._leave,
                   self._progress_caption, self._progress,
                   self._clock_in, self._expected, self._expected_sub,
-                  self._stay, self._remaining):
+                  self._stay, self._remaining, self._state):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -235,22 +268,24 @@ class StatusPanel(QWidget):
             if summary.expected_clock_out is not None
             else None
         )
-        overdue = (
-            status is WorkStatus.WORKING
-            and summary.today_recog_end_hm is not None
-            and summary.recog_end_passed
-        )
         self._clock_in.setText(clock_in_line(summary.today_clock_in_hm))
         self._expected.setText(
-            expected_line(
-                expected_hhmm,
-                summary.expected_basis_minutes,
-                summary.expected_exceeds_range,
-                overdue,
-            )
+            expected_line(expected_hhmm, summary.expected_basis_minutes)
         )
         self._stay.setText(stay_line(summary.today_stay_seconds))
         self._remaining.setText(remaining_line(summary.remaining_seconds))
+        recog_end_passed = (
+            summary.today_recog_end_hm is not None and summary.recog_end_passed
+        )
+        reached = (
+            summary.remaining_seconds is not None
+            and summary.remaining_seconds <= 0
+        )
+        state_text, state_key = state_display(
+            status, recog_end_passed, summary.expected_exceeds_range, reached
+        )
+        self._state.setText(state_text)
+        self._state.setStyleSheet(_state_style(state_key))
         sub = (
             f"계획 퇴근 시간: ~{summary.today_recog_end_hm}"
             if summary.today_recog_end_hm

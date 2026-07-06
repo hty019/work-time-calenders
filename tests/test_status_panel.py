@@ -1,3 +1,4 @@
+from core.attendance import WorkStatus
 from core.stats import ProgressLevel
 from core.vacation import YearLeaveSummary
 from ui.status_panel import (
@@ -6,6 +7,7 @@ from ui.status_panel import (
     leave_line,
     progress_caption,
     remaining_line,
+    state_display,
     stay_line,
 )
 
@@ -41,7 +43,7 @@ def test_leave_line_without_total_shows_dash():
 
 
 def test_expected_line_shows_time_with_basis():
-    # 예상 퇴근 시각 + 산정 기준 순근무 시간
+    # 예상 퇴근 시각 + 산정 기준 순근무 시간 (경고는 상태 라인이 담당)
     assert expected_line("18:42", 480) == (
         "퇴근 예정 시간: 18:42 (8h 0m 근무 기준)"
     )
@@ -51,17 +53,64 @@ def test_expected_line_dash_without_expectation():
     assert expected_line(None, None) == "퇴근 예정 시간: -"
 
 
-def test_expected_line_appends_range_warning():
-    assert expected_line("18:30", 360, exceeds_range=True) == (
-        "퇴근 예정 시간: 18:30 (6h 0m 근무 기준)\n⚠ (가)계획 종료 초과"
-    )
+# --- 상태 라인 -------------------------------------------------------------
 
 
-def test_expected_line_overdue_warning_wins():
-    # 미퇴근 + (가)계획 퇴근 초과: 계획 수정 필요 경고 우선
-    assert expected_line("17:30", 480, exceeds_range=True, overdue=True) == (
-        "퇴근 예정 시간: 17:30 (8h 0m 근무 기준)\n⚠ 계획 수정 필요"
+def test_state_normal_while_working():
+    text, key = state_display(
+        WorkStatus.WORKING, recog_end_passed=False,
+        exceeds_range=False, reached=False,
     )
+    assert text == "상태: 정상 근무중"
+    assert key == "normal"
+
+
+def test_state_reached_while_working():
+    # 예상 퇴근 시각 달성 후 미퇴근
+    text, key = state_display(
+        WorkStatus.WORKING, recog_end_passed=False,
+        exceeds_range=False, reached=True,
+    )
+    assert text == "상태: 금일 근무 달성 · 퇴근 가능"
+    assert key == "reached"
+
+
+def test_state_over_recog_end_wins():
+    # 계획 퇴근 시각을 실제로 넘김: 최우선 경고
+    text, key = state_display(
+        WorkStatus.WORKING, recog_end_passed=True,
+        exceeds_range=True, reached=True,
+    )
+    assert text == "상태: ⚠ 계획 시간 범위 초과!!"
+    assert key == "over"
+
+
+def test_state_warn_expected_exceeds_range():
+    # 예상 퇴근이 계획 범위를 넘을 것으로 예상 (사전 경고)
+    text, key = state_display(
+        WorkStatus.WORKING, recog_end_passed=False,
+        exceeds_range=True, reached=False,
+    )
+    assert text == "상태: ⚠ 계획 범위 초과 예상"
+    assert key == "warn"
+
+
+def test_state_clocked_out():
+    text, key = state_display(
+        WorkStatus.CLOCKED_OUT, recog_end_passed=True,
+        exceeds_range=False, reached=True,
+    )
+    assert text == "상태: 퇴근 완료"
+    assert key == "done"
+
+
+def test_state_not_clocked_in():
+    text, key = state_display(
+        WorkStatus.NOT_CLOCKED_IN, recog_end_passed=False,
+        exceeds_range=False, reached=False,
+    )
+    assert text == "상태: 미출근"
+    assert key == "off"
 
 
 def test_stay_line_formats_elapsed():
