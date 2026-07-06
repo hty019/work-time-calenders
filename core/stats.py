@@ -71,6 +71,7 @@ class MonthSummary:
     today_work_seconds: int | None = None  # 오늘 근로 인정초(진행 중=실시간)
     today_recog_end_hm: str | None = None  # 오늘 (가)계획 종료 "HH:MM"
     recog_end_passed: bool = False  # 현재 시각이 (가)계획 종료를 지났는지
+    today_clock_in_hm: str | None = None  # 오늘 출근 시각 "HH:MM"
 
 
 def build_month_summary(
@@ -119,6 +120,11 @@ def build_month_summary(
         if in_progress_raw is not None
         else (rec_today.work_seconds if rec_today else None)
     )
+    today_clock_in_hm = (
+        timeutil.from_iso(rec_today.clock_in).strftime("%H:%M")
+        if rec_today and rec_today.clock_in
+        else None
+    )
     # 오늘 (가)계획 종료 시각과 초과 여부 (STATUS '계획 퇴근' 표시용).
     recog_today = storage.get_recognition(timeutil.today_str(now))
     today_recog_end_hm = None
@@ -143,6 +149,7 @@ def build_month_summary(
         today_work_seconds=today_work_seconds,
         today_recog_end_hm=today_recog_end_hm,
         recog_end_passed=recog_end_passed,
+        today_clock_in_hm=today_clock_in_hm,
     )
 
 

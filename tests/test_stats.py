@@ -193,6 +193,24 @@ def test_today_work_seconds_none_without_record():
     assert s.today_work_seconds is None
 
 
+def test_today_clock_in_hm_from_record():
+    # 오늘 출근 시각을 HH:MM 으로 노출 (STATUS 표시용)
+    rec = Rec("2026-07-01T09:12:00+09:00")
+    s = build_month_summary(
+        FakeStorage(rec), FakeAttendance(in_progress=100),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s.today_clock_in_hm == "09:12"
+
+
+def test_today_clock_in_hm_none_without_record():
+    s = build_month_summary(
+        FakeStorage(), FakeAttendance(),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s.today_clock_in_hm is None
+
+
 def test_today_recog_end_and_passed():
     # 오늘 (가)계획 09:00~17:00, 현재 19:00 → 종료 시각 노출 + 초과
     rec = Rec("2026-07-01T09:00:00+09:00")

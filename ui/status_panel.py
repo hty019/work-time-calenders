@@ -16,7 +16,7 @@ from ui import theme
 _SECONDS_PER_MINUTE = 60
 _MINUTES_PER_HOUR = 60
 _SECONDS_PER_HOUR = 3600
-_EXPECTED_FONT_PX = 20
+_EXPECTED_FONT_PX = 14  # '금일 퇴근 예정 시간: HH:MM (남음)' 한 줄이 패널 폭에 맞도록
 _CAPTION_FONT_PX = 11
 _SUB_FONT_PX = 12
 _PROGRESS_BAR_HEIGHT_PX = 6  # 얇은 바 스타일 유지
@@ -69,6 +69,11 @@ def _fmt_hours(minutes: int) -> str:
     return f"{minutes // _MINUTES_PER_HOUR}h"
 
 
+def clock_in_line(clock_in_hm: str | None) -> str:
+    """진행률 바 하단의 금일 출근 시각 라인. 기록 없으면 '-'."""
+    return f"금일 출근 시간: {clock_in_hm or '-'}"
+
+
 def expected_display(
     status: WorkStatus,
     expected_hhmm: str | None,
@@ -77,9 +82,11 @@ def expected_display(
     exceeds_range: bool,
     recog_end_hm: str | None,
     recog_end_passed: bool,
-) -> tuple[str, str, str | None, str]:
-    """예상 퇴근 영역의 (제목, 본문, 하단 보조, 상태) 산출.
+) -> tuple[str, str | None, str]:
+    """퇴근 예정 영역의 (본문, 하단 보조, 상태) 산출.
 
+    본문은 '금일 퇴근 예정 시간: HH:MM (Xh Ym 남음)' 형식, 퇴근 완료·예상
+    퇴근 달성 시 '금일 근로 시간: Xh Ym' 으로 전환한다.
     '계획 퇴근'은 (가)계획 종료 시각(recog_end_hm)을 뜻한다.
     상태: pending(대기)·warn((가)계획 초과)·done(퇴근 완료, 녹색)·
     overdue(미퇴근 + (가)계획 퇴근 초과, 주황).
@@ -89,8 +96,7 @@ def expected_display(
     if status is WorkStatus.WORKING and recog_end_hm and recog_end_passed:
         # 퇴근 미기록 상태로 (가)계획 퇴근 시각을 넘김
         return (
-            "금일 근로 시간",
-            f"{work_text}\n⚠ 계획 수정 필요",
+            f"금일 근로 시간: {work_text}\n⚠ 계획 수정 필요",
             sub,
             "overdue",
         )
@@ -98,17 +104,16 @@ def expected_display(
         expected_hhmm is not None and (remaining_seconds or 0) <= 0
     )
     if status is WorkStatus.CLOCKED_OUT and today_work_seconds is not None:
-        return "금일 근로 시간", work_text, sub, "done"
+        return f"금일 근로 시간: {work_text}", sub, "done"
     if status is WorkStatus.WORKING and reached:
         # 예상 퇴근 시각 달성: 녹색 금일 근로 시간으로 전환
-        return "금일 근로 시간", work_text, sub, "done"
+        return f"금일 근로 시간: {work_text}", sub, "done"
     if expected_hhmm is None:
-        return "오늘 예상 퇴근", "-", None, "pending"
+        return "금일 퇴근 예정 시간: -", None, "pending"
     remain_text = _fmt_seconds(remaining_seconds or 0)
     warn_text = "\n⚠ (가)계획 종료 초과" if exceeds_range else ""
     return (
-        "오늘 예상 퇴근",
-        f"{expected_hhmm} ({remain_text} 남음){warn_text}",
+        f"금일 퇴근 예정 시간: {expected_hhmm} ({remain_text} 남음){warn_text}",
         None,
         "warn" if exceeds_range else "pending",
     )
@@ -167,9 +172,9 @@ class StatusPanel(QWidget):
         self._progress.setTextVisible(False)
         self._progress.setRange(0, 100)
         self._progress.setStyleSheet(_progress_style(ProgressLevel.NORMAL))
-        self._expected_title = QLabel("오늘 예상 퇴근")
-        self._expected_title.setStyleSheet(f"color:{theme.FG_MUTED};")
+        self._clock_in = QLabel()  # 금일 출근 시각
         self._expected = QLabel()
+        self._expected.setWordWrap(True)
         self._expected.setStyleSheet(_expected_style("pending"))
         self._expected_sub = QLabel()  # 회색 계획 퇴근 안내
         self._expected_sub.setStyleSheet(
@@ -180,7 +185,7 @@ class StatusPanel(QWidget):
         for w in (self._title, self._required, self._max, self._planned,
                   self._recog_planned, self._actual, self._leave,
                   self._progress_caption, self._progress,
-                  self._expected_title, self._expected, self._expected_sub):
+                  self._clock_in, self._expected, self._expected_sub):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -248,7 +253,8 @@ class StatusPanel(QWidget):
             if summary.expected_clock_out is not None
             else None
         )
-        title, text, sub, state = expected_display(
+        self._clock_in.setText(clock_in_line(summary.today_clock_in_hm))
+        text, sub, state = expected_display(
             status,
             expected_hhmm,
             summary.remaining_seconds,
@@ -257,7 +263,6 @@ class StatusPanel(QWidget):
             summary.today_recog_end_hm,
             summary.recog_end_passed,
         )
-        self._expected_title.setText(title)
         self._expected.setText(text)
         self._expected.setStyleSheet(_expected_style(state))
         self._expected_sub.setText(sub or "")
