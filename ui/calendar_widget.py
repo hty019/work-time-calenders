@@ -283,6 +283,10 @@ class CalendarWidget(QWidget):
         # 열의 헤더(0행)부터 마지막 행까지의 합집합 영역을 계산
         top = self._layout.cellRect(0, col)
         bottom = self._layout.cellRect(self._layout.rowCount() - 1, col)
+        if not top.isValid() or not bottom.isValid():
+            # 리렌더 직후 레이아웃 미확정 상태 → 엉뚱한 영역 강조 방지
+            self._column_overlay.hide()
+            return
         rect = top.united(bottom).adjusted(-2, -2, 2, 2)
         self._column_overlay.setGeometry(rect)
         self._column_overlay.raise_()
@@ -293,6 +297,11 @@ class CalendarWidget(QWidget):
             item = self._layout.takeAt(0)
             w = item.widget()
             if w is not None:
+                # deleteLater 처리 전까지 남아 있는 옛 위젯이 마우스
+                # 이벤트·페인트를 받아 유령 호버를 만들지 않도록
+                # 즉시 숨기고 부모에서 분리한다
+                w.hide()
+                w.setParent(None)
                 w.deleteLater()
 
     def render_grid(
@@ -322,3 +331,6 @@ class CalendarWidget(QWidget):
                     ),
                     r, c,
                 )
+        # 새 위젯들의 기하를 즉시 확정해, 리렌더 직후 마우스 아래 위젯이
+        # 임시 위치 기준으로 호버 상태를 얻는 문제를 막는다
+        self._layout.activate()
