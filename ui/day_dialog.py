@@ -21,7 +21,7 @@ from core.vacation import FULL_DAY_MINUTES, Vacation, build_vacation
 from ui import theme
 
 MAX_PLAN_MINUTES = 24 * 60
-_MEMO_BOX_PADDING_PX = 16  # 메모 박스 테두리·패딩 보정
+_MEMO_BOX_PADDING_PX = 4  # 메모 박스 상하 테두리 보정 (세로 패딩 없음)
 
 # 휴가 콤보 항목: (표시 문구, 분). 없음은 None.
 VACATION_CHOICES: list[tuple[str, Optional[int]]] = [
@@ -148,6 +148,9 @@ def open_day_dialog(
     view_form = QFormLayout(view_widget)
     view_form.setContentsMargins(0, 0, 0, 0)
     view_form.setLabelAlignment(Qt.AlignLeft)
+    # macOS 기본은 폼 중앙 정렬 → 좌측 상단 고정, 인풋은 좌측부터 채움
+    view_form.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+    view_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
     view_form.addRow("출근", QLabel(time_display(in_hhmm)))
     view_form.addRow("퇴근", QLabel(time_display(out_hhmm)))
     view_form.addRow(
@@ -161,6 +164,8 @@ def open_day_dialog(
     form = QFormLayout(edit_widget)
     form.setContentsMargins(0, 0, 0, 0)
     form.setLabelAlignment(Qt.AlignLeft)
+    form.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+    form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
     in_edit = QLineEdit(in_hhmm)
     in_edit.setPlaceholderText("HH:MM")
     out_edit = QLineEdit(out_hhmm)
@@ -207,12 +212,16 @@ def open_day_dialog(
     memo_view.setReadOnly(True)
     memo_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     memo_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-    memo_view.setStyleSheet(theme.memo_box_style())
+    # 상·하단 내부 여백 제거: 세로 패딩 0 + 문서 기본 마진 0
+    memo_style = theme.memo_box_style() + " padding: 0px 6px;"
+    memo_view.setStyleSheet(memo_style)
+    memo_view.document().setDocumentMargin(0)
     # 수정: 여러 줄 입력 (편집 공간 확보를 위해 고정 높이)
     memo_edit = QTextEdit()
     memo_edit.setPlainText(initial_memo)
     memo_edit.setPlaceholderText("근무 내용·주요 안건 (비우면 메모 삭제)")
-    memo_edit.setStyleSheet(theme.memo_box_style())
+    memo_edit.setStyleSheet(memo_style)
+    memo_edit.document().setDocumentMargin(0)
     memo_edit.setFixedHeight(theme.DAY_DIALOG_MEMO_HEIGHT)
     memo_col.addWidget(memo_view)
     memo_col.addWidget(memo_edit)
