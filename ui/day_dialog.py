@@ -116,7 +116,11 @@ def open_day_dialog(
     dlg.setMinimumSize(theme.DAY_DIALOG_MIN_WIDTH, theme.DAY_DIALOG_MIN_HEIGHT)
     dlg.setStyleSheet(f"""
         QWidget {{ font-size: {theme.DAY_DIALOG_FONT_PT}pt; }}
-        QLineEdit, QComboBox {{ padding: {theme.INPUT_PADDING_PX}px; }}
+        QLineEdit, QComboBox {{
+            padding: {theme.INPUT_PADDING_PX}px;
+            border: 1px solid {theme.FG_MUTED};
+            border-radius: {theme.INPUT_RADIUS_PX}px;
+        }}
     """)
     layout = QVBoxLayout(dlg)
 
