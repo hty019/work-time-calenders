@@ -198,7 +198,6 @@ def open_day_dialog(
     content.addWidget(memo_separator)
 
     memo_panel = QWidget()
-    memo_panel.setFixedWidth(theme.DAY_DIALOG_MEMO_WIDTH)
     memo_col = QVBoxLayout(memo_panel)
     memo_col.setContentsMargins(0, 0, 0, 0)
     memo_caption = QLabel("메모")
@@ -218,7 +217,8 @@ def open_day_dialog(
     memo_edit.setPlainText(initial_memo)
     memo_edit.setPlaceholderText("근무 내용·주요 안건 (비우면 메모 삭제)")
     memo_col.addWidget(memo_edit)
-    content.addWidget(memo_panel)
+    # 좌측 폼과 1:1 비율 → 구분선이 다이얼로그 중앙에 위치
+    content.addWidget(memo_panel, stretch=1)
 
     def _hourly_selected() -> bool:
         """시간제 휴가(2h/4h/6h) 선택 여부. 없음·1day 는 시작 시각 불필요."""
