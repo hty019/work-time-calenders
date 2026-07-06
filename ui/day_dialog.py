@@ -219,6 +219,10 @@ def open_day_dialog(
     memo_stack.addWidget(memo_view)
     memo_stack.addWidget(memo_edit)
     memo_col.addLayout(memo_stack)
+    # 숨겨도 자리를 유지해 수정 모드 전환 시 좁게 렌더링되지 않도록 한다
+    memo_policy = memo_panel.sizePolicy()
+    memo_policy.setRetainSizeWhenHidden(True)
+    memo_panel.setSizePolicy(memo_policy)
     # 좌측 폼과 1:1 비율
     content.addWidget(memo_panel, stretch=1)
 
@@ -257,6 +261,8 @@ def open_day_dialog(
         edit_btn.setVisible(not editing)
         cancel_btn.setVisible(editing)
         save_btn.setVisible(editing)
+        # 보기 모드에선 메모가 있을 때만 표시, 수정 모드에선 항상 표시
+        memo_panel.setVisible(editing or bool(memo))
         if editing:
             _update_vacation_start_visibility()
 
