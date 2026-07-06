@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
     QMessageBox, QFormLayout, QComboBox, QLabel, QWidget, QTextEdit,
@@ -20,7 +20,7 @@ from core.vacation import FULL_DAY_MINUTES, Vacation, build_vacation
 from ui import theme
 
 MAX_PLAN_MINUTES = 24 * 60
-_MEMO_BOX_PADDING_PX = 4  # 메모 박스 상하 테두리 보정 (세로 패딩 없음)
+_MEMO_CAPTION_GAP_PX = 2  # 메모 캡션과 박스 사이 간격
 
 # 휴가 콤보 항목: (표시 문구, 분). 없음은 None.
 VACATION_CHOICES: list[tuple[str, Optional[int]]] = [
@@ -196,24 +196,25 @@ def open_day_dialog(
     layout.addWidget(edit_widget)
 
     # --- 메모 섹션: 가장 후순위 항목 (STATUS 와 동일한 테두리 박스) ---
+    # 내용의 많고 적음과 무관하게 항상 고정 크기 영역을 보장한다.
     memo_section = QWidget()
     memo_col = QVBoxLayout(memo_section)
     memo_col.setContentsMargins(0, 0, 0, 0)
+    memo_col.setSpacing(_MEMO_CAPTION_GAP_PX)
     memo_caption = QLabel("메모")
     memo_caption.setStyleSheet(f"color:{theme.FG_MUTED};")
     memo_col.addWidget(memo_caption)
-    # 보기: 읽기 전용, 스크롤바 없이 텍스트만. 높이는 내용에 맞춰 조절
-    # (최대 높이 초과 시 휠 스크롤)
+    memo_style = theme.memo_box_style() + " padding: 0px 6px;"
+    # 보기: 읽기 전용, 스크롤바 없이 텍스트만 (넘치면 휠 스크롤)
     memo_view = QTextEdit()
     memo_view.setPlainText(memo_display(memo))
     memo_view.setReadOnly(True)
     memo_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     memo_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-    # 상·하단 내부 여백 제거: 세로 패딩 0 + 문서 기본 마진 0
-    memo_style = theme.memo_box_style() + " padding: 0px 6px;"
     memo_view.setStyleSheet(memo_style)
     memo_view.document().setDocumentMargin(0)
-    # 수정: 여러 줄 입력 (편집 공간 확보를 위해 고정 높이)
+    memo_view.setFixedHeight(theme.DAY_DIALOG_MEMO_HEIGHT)
+    # 수정: 여러 줄 입력
     memo_edit = QTextEdit()
     memo_edit.setPlainText(initial_memo)
     memo_edit.setPlaceholderText("근무 내용·주요 안건 (비우면 메모 삭제)")
@@ -223,17 +224,6 @@ def open_day_dialog(
     memo_col.addWidget(memo_view)
     memo_col.addWidget(memo_edit)
     layout.addWidget(memo_section)
-
-    def _fit_memo_view_height() -> None:
-        """보기 메모 박스 높이를 내용에 맞춘다 (하단 빈 공간 제거)."""
-        doc = memo_view.document()
-        doc.setTextWidth(memo_view.viewport().width())
-        content_h = int(doc.size().height()) + _MEMO_BOX_PADDING_PX
-        memo_view.setFixedHeight(
-            min(content_h, theme.DAY_DIALOG_MEMO_HEIGHT)
-        )
-        dlg.layout().activate()
-        dlg.resize(dlg.sizeHint())
 
     def _hourly_selected() -> bool:
         """시간제 휴가(2h/4h/6h) 선택 여부. 없음·1day 는 시작 시각 불필요."""
@@ -367,6 +357,4 @@ def open_day_dialog(
 
     save_btn.clicked.connect(handle_save)
     _set_edit_mode(False)  # 보기 모드로 시작
-    # 보기 메모 높이는 위젯 폭이 정해진 뒤(표시 직후) 내용에 맞춘다
-    QTimer.singleShot(0, _fit_memo_view_height)
     dlg.exec()
