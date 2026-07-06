@@ -16,7 +16,7 @@ from ui import theme
 _SECONDS_PER_MINUTE = 60
 _MINUTES_PER_HOUR = 60
 _SECONDS_PER_HOUR = 3600
-_EXPECTED_FONT_PX = 14  # '금일 퇴근 예정 시간: HH:MM (남음)' 한 줄이 패널 폭에 맞도록
+_EXPECTED_FONT_PX = 14  # '퇴근 예정 시간: HH:MM (남음)' 한 줄이 패널 폭에 맞도록
 _CAPTION_FONT_PX = 11
 _SUB_FONT_PX = 12
 _PROGRESS_BAR_HEIGHT_PX = 6  # 얇은 바 스타일 유지
@@ -85,7 +85,7 @@ def expected_display(
 ) -> tuple[str, str | None, str]:
     """퇴근 예정 영역의 (본문, 하단 보조, 상태) 산출.
 
-    본문은 '금일 퇴근 예정 시간: HH:MM (Xh Ym 남음)' 형식, 퇴근 완료·예상
+    본문은 '퇴근 예정 시간: HH:MM (Xh Ym 남음)' 형식, 퇴근 완료·예상
     퇴근 달성 시 '금일 근로 시간: Xh Ym' 으로 전환한다.
     '계획 퇴근'은 (가)계획 종료 시각(recog_end_hm)을 뜻한다.
     상태: pending(대기)·warn((가)계획 초과)·done(퇴근 완료, 녹색)·
@@ -109,11 +109,11 @@ def expected_display(
         # 예상 퇴근 시각 달성: 녹색 금일 근로 시간으로 전환
         return f"금일 근로 시간: {work_text}", sub, "done"
     if expected_hhmm is None:
-        return "금일 퇴근 예정 시간: -", None, "pending"
+        return "퇴근 예정 시간: -", None, "pending"
     remain_text = _fmt_seconds(remaining_seconds or 0)
     warn_text = "\n⚠ (가)계획 종료 초과" if exceeds_range else ""
     return (
-        f"금일 퇴근 예정 시간: {expected_hhmm} ({remain_text} 남음){warn_text}",
+        f"퇴근 예정 시간: {expected_hhmm} ({remain_text} 남음){warn_text}",
         None,
         "warn" if exceeds_range else "pending",
     )

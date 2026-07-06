@@ -45,7 +45,7 @@ def test_expected_display_pending_shows_remaining():
         WorkStatus.WORKING, "18:00", 2 * 3600, 6 * 3600, False,
         recog_end_hm="19:00", recog_end_passed=False,
     )
-    assert text == "금일 퇴근 예정 시간: 18:00 (2h 0m 남음)"
+    assert text == "퇴근 예정 시간: 18:00 (2h 0m 남음)"
     assert sub is None
     assert state == "pending"
 
@@ -55,7 +55,7 @@ def test_expected_display_pending_with_range_warning():
         WorkStatus.WORKING, "18:30", 2 * 3600, 6 * 3600, True,
         recog_end_hm="18:00", recog_end_passed=False,
     )
-    assert "금일 퇴근 예정 시간: 18:30" in text
+    assert "퇴근 예정 시간: 18:30" in text
     assert "⚠ (가)계획 종료 초과" in text
     assert state == "warn"
 
@@ -108,7 +108,7 @@ def test_expected_display_none_without_expectation():
         WorkStatus.NOT_CLOCKED_IN, None, None, None, False,
         recog_end_hm=None, recog_end_passed=False,
     )
-    assert text == "금일 퇴근 예정 시간: -"
+    assert text == "퇴근 예정 시간: -"
     assert sub is None
     assert state == "pending"
 
