@@ -33,6 +33,7 @@ class MainWindowCallbacks:
     on_prev_month: Callable[[], None]
     on_next_month: Callable[[], None]
     on_switch_mode: Callable[[], None]
+    on_manage_vacation: Callable[[], None]
 
 
 class MainWindow(QMainWindow):
@@ -50,6 +51,10 @@ class MainWindow(QMainWindow):
         nxt = QAction("▶", self)
         nxt.triggered.connect(lambda: self._cb.on_next_month())
         self._status_label = QLabel("")
+        self._vacation_action = QAction("휴가 관리", self)
+        self._vacation_action.triggered.connect(
+            lambda: self._cb.on_manage_vacation()
+        )
         switch = QAction("위젯 모드", self)
         switch.triggered.connect(lambda: self._cb.on_switch_mode())
         toolbar.addAction(prev)
@@ -57,6 +62,8 @@ class MainWindow(QMainWindow):
         toolbar.addAction(nxt)
         toolbar.addSeparator()
         toolbar.addWidget(self._status_label)
+        toolbar.addSeparator()
+        toolbar.addAction(self._vacation_action)
         toolbar.addSeparator()
         toolbar.addAction(switch)
 
@@ -79,9 +86,11 @@ class MainWindow(QMainWindow):
         status: WorkStatus,
         grid: list[list[DayCell]],
         summary: MonthSummary,
+        leave_text: str,
     ) -> None:
         self._month_label.setText(f"  {year}년 {month}월  ")
         self._status_label.setText(f"{_STATUS_DOT} {status.value}")
         self._status_label.setStyleSheet(f"color:{_STATUS_COLORS[status]};")
+        self._vacation_action.setText(leave_text)
         self._calendar.render_grid(grid)
         self._status.update_summary(summary, status)

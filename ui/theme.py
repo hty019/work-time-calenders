@@ -45,6 +45,10 @@ WINDOW_MIN_WIDTH = 900
 WINDOW_MIN_HEIGHT = 640
 STATUS_PANEL_WIDTH = 260
 
+# 휴가 관리 다이얼로그 최소 크기
+VACATION_DIALOG_MIN_WIDTH = 460
+VACATION_DIALOG_MIN_HEIGHT = 380
+
 
 def base_stylesheet() -> str:
     """앱 전역 다크 스타일시트."""

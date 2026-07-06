@@ -19,10 +19,16 @@ from core.recognition import (
 )
 from core.stats import build_month_summary
 from core.storage import Storage
-from core.vacation import Vacation, VacationService
+from core.vacation import (
+    Vacation,
+    VacationService,
+    YearLeaveSummary,
+    minutes_to_days_str,
+)
 from ui import theme
 from ui.day_dialog import open_day_dialog
 from ui.main_window import MainWindow, MainWindowCallbacks
+from ui.vacation_dialog import open_vacation_dialog
 from ui.weekday_dialog import open_weekday_plan_dialog
 from ui.widget_window import WidgetWindow, WidgetCallbacks
 
@@ -56,6 +62,7 @@ class AppController:
             on_prev_month=self._handle_prev_month,
             on_next_month=self._handle_next_month,
             on_switch_mode=self._handle_switch_mode,
+            on_manage_vacation=self._handle_manage_vacation,
         )
         self._window = MainWindow(callbacks)
         self._timer = QTimer(self._window)
@@ -93,7 +100,8 @@ class AppController:
             year, month, holidays, now,
         )
         status = self._service.today_status()
-        self._window.render(year, month, status, grid, summary)
+        leave_text = _leave_button_text(self._vacations.year_summary(now.year))
+        self._window.render(year, month, status, grid, summary, leave_text)
         self._render_widget(summary, status)
 
     def _render_widget(self, summary, status) -> None:
@@ -219,6 +227,18 @@ class AppController:
         )
         self._refresh()
 
+    def _handle_manage_vacation(self) -> None:
+        year = timeutil.now().year  # 캘린더 표시 월과 무관하게 올해 기준
+
+        def save_total(total_minutes: int) -> YearLeaveSummary:
+            self._vacations.set_annual_total(year, total_minutes)
+            return self._vacations.year_summary(year)
+
+        open_vacation_dialog(
+            self._window, self._vacations.year_summary(year), save_total
+        )
+        self._refresh()
+
     def _handle_save_times(self, work_date, clock_in_iso, clock_out_iso) -> None:
         self._service.edit(work_date, clock_in_iso, clock_out_iso)
 
@@ -253,6 +273,15 @@ class AppController:
         self._show_mode(config.get_last_mode())
         self._timer.start(self._ms_until_next_minute())
         self._app.exec()
+
+
+def _leave_button_text(summary: YearLeaveSummary) -> str:
+    """툴바 휴가 버튼 문구: 잔여/총(일). 총 연차 미설정이면 기본 문구."""
+    if summary.total_minutes is None:
+        return "휴가 관리"
+    remaining = minutes_to_days_str(summary.remaining_minutes)
+    total = minutes_to_days_str(summary.total_minutes)
+    return f"휴가 {remaining}/{total}"
 
 
 def _prev_month(year: int, month: int) -> tuple[int, int]:
