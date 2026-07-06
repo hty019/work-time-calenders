@@ -86,10 +86,21 @@ class RecognitionService:
         self._storage.clear_recognition(date)
 
     def set_weekday(
-        self, year: int, month: int, weekday: int, rng: RecognitionRange | None
+        self,
+        year: int,
+        month: int,
+        weekday: int,
+        rng: RecognitionRange | None,
+        exclude_dates: set[str] = frozenset(),
     ) -> int:
-        """해당 월의 지정 요일 모든 날짜에 인정 범위를 일괄 설정/해제."""
-        dates = weekday_dates(year, month, weekday)
+        """해당 월의 지정 요일 모든 날짜에 인정 범위를 일괄 설정/해제.
+
+        exclude_dates(퇴근 완료일 등)는 건드리지 않는다.
+        """
+        dates = [
+            d for d in weekday_dates(year, month, weekday)
+            if d not in exclude_dates
+        ]
         for date in dates:
             if rng is None:
                 self._storage.clear_recognition(date)

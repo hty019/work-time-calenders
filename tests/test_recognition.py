@@ -106,3 +106,14 @@ def test_service_weekday_bulk_set_and_clear():
     cleared = svc.set_weekday(2026, 7, 2, None)
     assert cleared == 5
     assert svc.get("2026-07-08") is None
+
+
+def test_service_weekday_bulk_skips_excluded_dates():
+    # 퇴근 완료일 등 제외 날짜는 인정 범위도 변경하지 않는다
+    svc = _svc()
+    count = svc.set_weekday(
+        2026, 7, 2, RecognitionRange(540, 900), exclude_dates={"2026-07-08"}
+    )
+    assert count == 4
+    assert svc.get("2026-07-08") is None
+    assert svc.get("2026-07-01") == RecognitionRange(540, 900)

@@ -178,12 +178,19 @@ class AppController:
         year, month = self._view_year, self._view_month
         dates = weekday_dates(year, month, weekday)
         holidays = self._holidays.get_holidays(year, month)
+        # 퇴근까지 완료된 날짜는 계획·인정 범위 일괄 변경에서 제외한다
+        records = {r.work_date: r for r in self._storage.list_month(year, month)}
+        completed = {
+            d for d in dates
+            if d in records and records[d].clock_out is not None
+        }
+        target_dates = [d for d in dates if d not in completed]
 
         def validate(minutes, rng) -> str | None:
             """날짜별 유효 계획 대비 인정 범위 폭 검증. 첫 위반 날짜를 안내."""
             if rng is None:
                 return None
-            for date in dates:
+            for date in target_dates:
                 planned = (
                     minutes if minutes is not None
                     else self._plans.baseline_minutes(date, holidays)
@@ -194,16 +201,21 @@ class AppController:
             return None
 
         def apply(minutes, rng) -> None:
-            self._plans.set_weekday_plan(year, month, weekday, minutes)
-            self._recog.set_weekday(year, month, weekday, rng)
+            self._plans.set_weekday_plan(
+                year, month, weekday, minutes, exclude_dates=completed
+            )
+            self._recog.set_weekday(
+                year, month, weekday, rng, exclude_dates=completed
+            )
 
         open_weekday_plan_dialog(
             self._window,
             _WEEKDAY_NAMES[weekday],
-            len(dates),
+            len(target_dates),
             config.get_default_daily_minutes(),
             apply,
             validate,
+            excluded_count=len(completed),
         )
         self._refresh()
 

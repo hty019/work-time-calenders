@@ -40,14 +40,23 @@ class PlanService:
         self._storage.clear_plan(date)
 
     def set_weekday_plan(
-        self, year: int, month: int, weekday: int, minutes: int | None
+        self,
+        year: int,
+        month: int,
+        weekday: int,
+        minutes: int | None,
+        exclude_dates: set[str] = frozenset(),
     ) -> int:
         """해당 월의 지정 요일 모든 날짜에 계획(분)을 일괄 설정한다.
 
         minutes 가 None 이면 오버라이드를 해제(기본값 복귀)한다.
+        exclude_dates(퇴근 완료일 등)는 건드리지 않는다.
         실제 처리한 날짜 수를 반환한다.
         """
-        dates = weekday_dates(year, month, weekday)
+        dates = [
+            d for d in weekday_dates(year, month, weekday)
+            if d not in exclude_dates
+        ]
         for date in dates:
             if minutes is None:
                 self._storage.clear_plan(date)

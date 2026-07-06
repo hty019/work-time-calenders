@@ -87,3 +87,22 @@ def test_set_weekday_plan_none_clears_override():
     assert cleared == 5
     # 해제 후 평일 기본값 480 복귀
     assert svc.effective_minutes("2026-07-01", {}) == 480
+
+
+def test_set_weekday_plan_skips_excluded_dates():
+    # 퇴근 완료일 등 제외 날짜는 건드리지 않고, 처리 건수에서도 뺀다
+    svc = _svc()
+    count = svc.set_weekday_plan(2026, 7, 2, 300, exclude_dates={"2026-07-08"})
+    assert count == 4
+    assert svc.effective_minutes("2026-07-08", {}) == 480  # 제외일은 기본값 유지
+    assert svc.effective_minutes("2026-07-01", {}) == 300
+
+
+def test_set_weekday_plan_clear_skips_excluded_dates():
+    svc = _svc()
+    svc.set_weekday_plan(2026, 7, 2, 300)
+    cleared = svc.set_weekday_plan(2026, 7, 2, None, exclude_dates={"2026-07-08"})
+    assert cleared == 4
+    # 제외일의 기존 오버라이드는 해제되지 않는다
+    assert svc.effective_minutes("2026-07-08", {}) == 300
+    assert svc.effective_minutes("2026-07-01", {}) == 480
