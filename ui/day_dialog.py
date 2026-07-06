@@ -116,11 +116,6 @@ def open_day_dialog(
     dlg.setMinimumSize(theme.DAY_DIALOG_MIN_WIDTH, theme.DAY_DIALOG_MIN_HEIGHT)
     dlg.setStyleSheet(f"font-size: {theme.DAY_DIALOG_FONT_PT}pt;")
     layout = QVBoxLayout(dlg)
-    # 좌측 폼 | 구분선 | 우측 메모 패널
-    content = QHBoxLayout()
-    layout.addLayout(content)
-    left_col = QVBoxLayout()
-    content.addLayout(left_col, stretch=1)
 
     # 초기값 (취소 시 이 값으로 입력란을 되돌린다)
     in_hhmm = _hhmm_from_iso(clock_in_iso)
@@ -189,16 +184,15 @@ def open_day_dialog(
     form.addRow(vacation_start_label, vacation_start_edit)
 
     # 보기/수정 폼을 스택으로 겹쳐 두 모드 중 큰 쪽 크기로 고정
-    # (모드 전환 시 다이얼로그 크기가 변하지 않는다)
-    left_stack = QStackedLayout()
-    left_stack.addWidget(view_widget)
-    left_stack.addWidget(edit_widget)
-    left_col.addLayout(left_stack)
-    left_col.addStretch(1)
+    # (모드 전환 시 폼 영역 크기가 변하지 않는다)
+    form_stack = QStackedLayout()
+    form_stack.addWidget(view_widget)
+    form_stack.addWidget(edit_widget)
+    layout.addLayout(form_stack)
 
-    # --- 우측 메모 패널 (STATUS 와 동일한 테두리 박스, 항상 표시) ---
-    memo_panel = QWidget()
-    memo_col = QVBoxLayout(memo_panel)
+    # --- 메모 섹션: 가장 후순위 항목 (STATUS 와 동일한 테두리 박스) ---
+    memo_section = QWidget()
+    memo_col = QVBoxLayout(memo_section)
     memo_col.setContentsMargins(0, 0, 0, 0)
     memo_caption = QLabel("메모")
     memo_caption.setStyleSheet(f"color:{theme.FG_MUTED};")
@@ -210,17 +204,18 @@ def open_day_dialog(
     memo_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     memo_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     memo_view.setStyleSheet(theme.memo_box_style())
+    memo_view.setFixedHeight(theme.DAY_DIALOG_MEMO_HEIGHT)
     # 수정: 여러 줄 입력
     memo_edit = QTextEdit()
     memo_edit.setPlainText(initial_memo)
     memo_edit.setPlaceholderText("근무 내용·주요 안건 (비우면 메모 삭제)")
     memo_edit.setStyleSheet(theme.memo_box_style())
+    memo_edit.setFixedHeight(theme.DAY_DIALOG_MEMO_HEIGHT)
     memo_stack = QStackedLayout()
     memo_stack.addWidget(memo_view)
     memo_stack.addWidget(memo_edit)
     memo_col.addLayout(memo_stack)
-    # 좌측 폼과 1:1 비율
-    content.addWidget(memo_panel, stretch=1)
+    layout.addWidget(memo_section)
 
     def _hourly_selected() -> bool:
         """시간제 휴가(2h/4h/6h) 선택 여부. 없음·1day 는 시작 시각 불필요."""
@@ -251,16 +246,15 @@ def open_day_dialog(
     layout.addLayout(buttons)
 
     def _set_edit_mode(editing: bool) -> None:
-        left_stack.setCurrentWidget(edit_widget if editing else view_widget)
+        form_stack.setCurrentWidget(edit_widget if editing else view_widget)
         memo_stack.setCurrentWidget(memo_edit if editing else memo_view)
         close_btn.setVisible(not editing)
         edit_btn.setVisible(not editing)
         cancel_btn.setVisible(editing)
         save_btn.setVisible(editing)
         # 보기 모드에선 메모가 있을 때만 표시, 수정 모드에선 항상 표시.
-        # 패널 표시 여부에 맞춰 폭을 재계산해 빈 여백·좁은 렌더링을 방지
-        # (높이는 스택 레이아웃이 두 모드 최대치로 고정)
-        memo_panel.setVisible(editing or bool(memo))
+        # 섹션 표시 여부에 맞춰 높이를 재계산해 빈 여백을 남기지 않는다
+        memo_section.setVisible(editing or bool(memo))
         if editing:
             _update_vacation_start_visibility()
         dlg.layout().activate()
