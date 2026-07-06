@@ -216,6 +216,13 @@ def _detail(**kw):
     return DayDetail(**base)
 
 
+def test_plan_range_line_formats_range_or_dash():
+    from ui.status_panel import plan_range_line
+    d = _detail(recog_start_hm="08:00", recog_end_hm="21:50")
+    assert plan_range_line(d) == "계획 시간: 08:00~21:50"
+    assert plan_range_line(_detail()) == "계획 시간: -"
+
+
 def test_vacation_line_hidden_when_none():
     from ui.status_panel import vacation_line
     assert vacation_line(_detail()) is None

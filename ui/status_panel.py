@@ -149,17 +149,22 @@ def remaining_line(remaining_seconds: int | None) -> str:
     return f"남은 시간: {_fmt_seconds(remaining_seconds)}"
 
 
-def past_lines(detail: DayDetail) -> list[str]:
-    """과거 일자 표시 라인: 출근/퇴근 시각, (가)계획 범위."""
+def plan_range_line(detail: DayDetail) -> str:
+    """(가)계획 범위 라인. 미설정이면 '-'."""
     plan_range = (
         f"{detail.recog_start_hm}~{detail.recog_end_hm}"
         if detail.recog_start_hm is not None
         else "-"
     )
+    return f"계획 시간: {plan_range}"
+
+
+def past_lines(detail: DayDetail) -> list[str]:
+    """과거 일자 표시 라인: 출근/퇴근 시각, (가)계획 범위."""
     return [
         f"출근 시간: {detail.clock_in_hm or '-'}",
         f"퇴근 시간: {detail.clock_out_hm or '-'}",
-        f"계획 시간: {plan_range}",
+        plan_range_line(detail),
     ]
 
 
@@ -371,7 +376,7 @@ class StatusPanel(QWidget):
         )
         kind = detail.kind if detail is not None else KIND_TODAY
         if kind == KIND_TODAY:
-            self._render_today_detail(summary, status)
+            self._render_today_detail(summary, status, detail)
         elif kind == KIND_PAST:
             self._render_past_detail(detail)
         else:
@@ -386,7 +391,10 @@ class StatusPanel(QWidget):
         self._render_buttons(status, kind)
 
     def _render_today_detail(
-        self, summary: MonthSummary, status: WorkStatus
+        self,
+        summary: MonthSummary,
+        status: WorkStatus,
+        detail: DayDetail | None,
     ) -> None:
         expected_hhmm = (
             summary.expected_clock_out.strftime("%H:%M")
@@ -417,11 +425,8 @@ class StatusPanel(QWidget):
         )
         self._state.setText(state_rich_text(state_text, state_key))
         self._state.setVisible(True)
-        sub = (
-            f"계획 퇴근 시간: ~{summary.today_recog_end_hm}"
-            if summary.today_recog_end_hm
-            else None
-        )
+        # 다른 날짜와 동일한 '계획 시간: HH:MM~HH:MM' 형식으로 표시
+        sub = plan_range_line(detail) if detail is not None else None
         self._expected_sub.setText(sub or "")
         self._expected_sub.setVisible(bool(sub))
 
