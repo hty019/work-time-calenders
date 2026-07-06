@@ -4,7 +4,8 @@ from __future__ import annotations
 import datetime
 from typing import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QVBoxLayout, QFrame
 
 from core.calendar_model import DayCell, format_hms, format_hm
@@ -334,3 +335,23 @@ class CalendarWidget(QWidget):
         # 새 위젯들의 기하를 즉시 확정해, 리렌더 직후 마우스 아래 위젯이
         # 임시 위치 기준으로 호버 상태를 얻는 문제를 막는다
         self._layout.activate()
+        # 그래도 남는 잘못된 :hover 는 이벤트 처리 후 실제 커서 위치로 보정
+        QTimer.singleShot(0, self._fix_hover_states)
+
+    def _fix_hover_states(self) -> None:
+        """리렌더 직후 셀들의 underMouse 상태를 실제 커서 기준으로 재평가.
+
+        위젯 재생성 시 Qt 가 임시 기하 기준으로 enter 를 보내 엉뚱한 셀에
+        :hover 가 남는 문제를 바로잡는다.
+        """
+        cursor = QCursor.pos()
+        for i in range(self._layout.count()):
+            w = self._layout.itemAt(i).widget()
+            if w is None:
+                continue
+            under = w.rect().contains(w.mapFromGlobal(cursor))
+            if w.testAttribute(Qt.WA_UnderMouse) != under:
+                w.setAttribute(Qt.WA_UnderMouse, under)
+                w.style().unpolish(w)
+                w.style().polish(w)
+                w.update()
