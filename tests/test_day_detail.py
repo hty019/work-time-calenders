@@ -92,6 +92,28 @@ def test_past_clocked_out_normal():
     assert _build("2026-07-01", storage).clocked_out_early is False
 
 
+def test_vacation_fields_full_day():
+    storage = FakeStorage(vacation=(480, None, None))
+    d = _build("2026-07-01", storage)
+    assert d.vacation_minutes == 480
+    assert d.vacation_start_hm is None
+    assert d.vacation_end_hm is None
+
+
+def test_vacation_fields_hourly():
+    storage = FakeStorage(vacation=(120, 900, 1020))  # 2h, 15:00~17:00
+    d = _build("2026-07-01", storage)
+    assert d.vacation_minutes == 120
+    assert d.vacation_start_hm == "15:00"
+    assert d.vacation_end_hm == "17:00"
+
+
+def test_vacation_fields_none():
+    d = _build("2026-07-01")
+    assert d.vacation_minutes == 0
+    assert d.vacation_start_hm is None
+
+
 def test_early_none_when_no_plan_or_no_clock_out():
     # 계획 0 → 예상 퇴근 없음 → 판정 불가
     storage = FakeStorage(

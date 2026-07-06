@@ -13,7 +13,11 @@ from core.attendance import WorkStatus
 from core.calendar_model import format_hm
 from core.day_detail import DayDetail, KIND_PAST, KIND_TODAY
 from core.stats import MonthSummary, ProgressLevel, progress_state
-from core.vacation import YearLeaveSummary, minutes_to_days_str
+from core.vacation import (
+    FULL_DAY_MINUTES,
+    YearLeaveSummary,
+    minutes_to_days_str,
+)
 from ui import theme
 
 _SECONDS_PER_MINUTE = 60
@@ -172,6 +176,21 @@ def future_lines(detail: DayDetail) -> list[str]:
     ]
 
 
+def vacation_line(detail: DayDetail) -> str | None:
+    """휴가 라인. 휴가가 없으면 None(숨김)."""
+    if detail.vacation_minutes <= 0:
+        return None
+    hours = detail.vacation_minutes // _MINUTES_PER_HOUR
+    if detail.vacation_minutes >= FULL_DAY_MINUTES:
+        return f"휴가: {hours}h (1day)"
+    if detail.vacation_start_hm is not None:
+        return (
+            f"휴가: {hours}h "
+            f"({detail.vacation_start_hm} ~ {detail.vacation_end_hm})"
+        )
+    return f"휴가: {hours}h"
+
+
 def past_state_display(detail: DayDetail) -> tuple[str, str]:
     """과거 일자 상태 라인 (문구, 상태키).
 
@@ -252,6 +271,9 @@ class StatusPanel(QWidget):
         self._stay = QLabel()       # 체류 시간(휴게 포함 경과)
         self._remaining = QLabel()  # 퇴근 예정까지 남은 시간
         self._state = QLabel()      # 상태 라인 (색상·굵기로 경고 표시)
+        self._vacation = QLabel()   # 휴가 라인 (없으면 숨김, 연보라)
+        self._vacation.setStyleSheet(f"color:{theme.FG_VACATION};")
+        self._vacation.setVisible(False)
         # 당일 메모 박스: 테두리 사각형, 넘치면 스크롤(스크롤바 숨김)
         self._memo_box = QTextEdit()
         self._memo_box.setReadOnly(True)
@@ -266,12 +288,14 @@ class StatusPanel(QWidget):
         )
         self._expected_sub.setVisible(False)
 
-        # 순서: 출근 → 퇴근 예정 → 계획 퇴근 안내 → 체류 → 남은 → 상태 → 메모
+        # 순서: 출근 → 퇴근 예정 → 계획 퇴근 안내 → 체류 → 남은 → 휴가
+        #       → 상태 → 메모
         for w in (self._title, self._required, self._max, self._planned,
                   self._recog_planned, self._actual, self._leave,
                   self._progress_caption, self._progress,
                   self._clock_in, self._expected, self._expected_sub,
-                  self._stay, self._remaining, self._state, self._memo_box):
+                  self._stay, self._remaining, self._vacation,
+                  self._state, self._memo_box):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -352,6 +376,9 @@ class StatusPanel(QWidget):
             self._render_past_detail(detail)
         else:
             self._render_future_detail(detail)
+        vac_text = vacation_line(detail) if detail is not None else None
+        self._vacation.setText(vac_text or "")
+        self._vacation.setVisible(bool(vac_text))
         memo = detail.memo if detail is not None else None
         if (memo or "") != self._memo_box.toPlainText():
             self._memo_box.setPlainText(memo or "")

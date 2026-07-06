@@ -210,9 +210,28 @@ def _detail(**kw):
         date="2026-07-01", kind="past", clock_in_hm=None, clock_out_hm=None,
         recog_start_hm=None, recog_end_hm=None, planned_minutes=0,
         memo=None, has_record=False, clocked_out_early=None,
+        vacation_minutes=0, vacation_start_hm=None, vacation_end_hm=None,
     )
     base.update(kw)
     return DayDetail(**base)
+
+
+def test_vacation_line_hidden_when_none():
+    from ui.status_panel import vacation_line
+    assert vacation_line(_detail()) is None
+
+
+def test_vacation_line_full_day():
+    from ui.status_panel import vacation_line
+    assert vacation_line(_detail(vacation_minutes=480)) == "휴가: 8h (1day)"
+
+
+def test_vacation_line_hourly_with_range():
+    from ui.status_panel import vacation_line
+    d = _detail(
+        vacation_minutes=120, vacation_start_hm="15:00", vacation_end_hm="17:00"
+    )
+    assert vacation_line(d) == "휴가: 2h (15:00 ~ 17:00)"
 
 
 def test_past_lines_with_record():
