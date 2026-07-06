@@ -31,7 +31,9 @@ _PROGRESS_COLORS = {
 # 상태 라인 상태키 → (색상, 굵게)
 _STATE_STYLES = {
     "off": (theme.FG_MUTED, False),        # 미출근
-    "done": (theme.FG_MUTED, False),       # 퇴근 완료
+    "done": (theme.FG_MUTED, False),       # 퇴근 완료 (판정 불가)
+    "done_normal": (theme.FG_DONE_TODAY, False),  # 정상 퇴근 (녹색)
+    "early": (theme.FG_OVERDUE, False),    # 조기 퇴근 (주황)
     "normal": (theme.FG_DONE_TODAY, False),  # 정상 근무중 (녹색)
     "reached": (theme.FG_DONE_TODAY, True),  # 예상 퇴근 달성 (녹색 bold)
     "warn": (theme.FG_RANGE_WARN, False),    # 범위 초과 예상 (노랑)
@@ -96,16 +98,22 @@ def state_display(
     recog_end_passed: bool,
     exceeds_range: bool,
     reached: bool,
+    clocked_out_early: bool | None = None,
 ) -> tuple[str, str]:
     """상태 라인의 (문구, 상태키) 산출. 상태키는 색상·굵기 매핑용.
 
-    우선순위: 미출근/퇴근 완료 > 계획 퇴근 실제 초과(over) >
-    범위 초과 예상(warn) > 예상 퇴근 달성(reached) > 정상 근무중.
+    우선순위: 미출근/퇴근(조기·정상·판정 불가) > 계획 퇴근 실제
+    초과(over) > 범위 초과 예상(warn) > 예상 퇴근 달성(reached) >
+    정상 근무중.
     """
     if status is WorkStatus.NOT_CLOCKED_IN:
         return "상태: 미출근", "off"
     if status is WorkStatus.CLOCKED_OUT:
-        return "상태: 퇴근 완료", "done"
+        if clocked_out_early is True:
+            return "상태: 조기 퇴근", "early"
+        if clocked_out_early is False:
+            return "상태: 정상 퇴근", "done_normal"
+        return "상태: 퇴근 완료", "done"  # 예상 퇴근 없음 → 판정 불가
     if recog_end_passed:
         return "상태: ⚠ 계획 시간 범위 초과!!", "over"
     if exceeds_range:
@@ -282,7 +290,11 @@ class StatusPanel(QWidget):
             and summary.remaining_seconds <= 0
         )
         state_text, state_key = state_display(
-            status, recog_end_passed, summary.expected_exceeds_range, reached
+            status,
+            recog_end_passed,
+            summary.expected_exceeds_range,
+            reached,
+            summary.today_clocked_out_early,
         )
         self._state.setText(state_text)
         self._state.setStyleSheet(_state_style(state_key))

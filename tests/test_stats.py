@@ -191,6 +191,49 @@ def test_expected_basis_minutes_none_without_expectation():
     assert s.expected_basis_minutes is None
 
 
+def test_clocked_out_early_before_expected():
+    # 계획 8h(체류 8h30m) 기준 예상 17:30, 실제 퇴근 16:00 → 조기 퇴근
+    rec = Rec(
+        "2026-07-01T09:00:00+09:00", "2026-07-01T16:00:00+09:00", 6 * 3600
+    )
+    s = build_month_summary(
+        FakeStorage(rec), FakeAttendance(in_progress=None),
+        FakePlan(9600, 480), 2026, 7, {}, datetime(2026, 7, 1, 16, tzinfo=KST),
+    )
+    assert s.today_clocked_out_early is True
+
+
+def test_clocked_out_not_early_after_expected():
+    # 예상 17:30 이후인 18:00 퇴근 → 정상 퇴근
+    rec = Rec(
+        "2026-07-01T09:00:00+09:00", "2026-07-01T18:00:00+09:00", 8 * 3600
+    )
+    s = build_month_summary(
+        FakeStorage(rec), FakeAttendance(in_progress=None),
+        FakePlan(9600, 480), 2026, 7, {}, datetime(2026, 7, 1, 19, tzinfo=KST),
+    )
+    assert s.today_clocked_out_early is False
+
+
+def test_clocked_out_early_none_while_working_or_no_expectation():
+    # 미퇴근이면 판정 없음
+    s_working = build_month_summary(
+        FakeStorage(Rec("2026-07-01T09:00:00+09:00")),
+        FakeAttendance(in_progress=100),
+        FakePlan(9600, 480), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
+    )
+    assert s_working.today_clocked_out_early is None
+    # 계획 0 → 예상 퇴근 없음 → 판정 없음
+    rec = Rec(
+        "2026-07-01T09:00:00+09:00", "2026-07-01T18:00:00+09:00", 8 * 3600
+    )
+    s_no_plan = build_month_summary(
+        FakeStorage(rec), FakeAttendance(in_progress=None),
+        FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 19, tzinfo=KST),
+    )
+    assert s_no_plan.today_clocked_out_early is None
+
+
 def test_today_work_seconds_from_in_progress():
     # 진행 중이면 실시간 근무초
     s = build_month_summary(

@@ -95,10 +95,31 @@ def test_state_warn_expected_exceeds_range():
     assert key == "warn"
 
 
-def test_state_clocked_out():
+def test_state_clocked_out_early():
+    # 예상 퇴근 시각 이전 퇴근: 조기 퇴근 (주황)
+    text, key = state_display(
+        WorkStatus.CLOCKED_OUT, recog_end_passed=False,
+        exceeds_range=False, reached=False, clocked_out_early=True,
+    )
+    assert text == "상태: 조기 퇴근"
+    assert key == "early"
+
+
+def test_state_clocked_out_normal():
+    # 예상 퇴근 시각 이후 퇴근: 정상 퇴근 (녹색)
     text, key = state_display(
         WorkStatus.CLOCKED_OUT, recog_end_passed=True,
-        exceeds_range=False, reached=True,
+        exceeds_range=False, reached=True, clocked_out_early=False,
+    )
+    assert text == "상태: 정상 퇴근"
+    assert key == "done_normal"
+
+
+def test_state_clocked_out_unknown_expectation():
+    # 예상 퇴근이 없어 판정 불가: 기존 퇴근 완료 (회색)
+    text, key = state_display(
+        WorkStatus.CLOCKED_OUT, recog_end_passed=False,
+        exceeds_range=False, reached=False, clocked_out_early=None,
     )
     assert text == "상태: 퇴근 완료"
     assert key == "done"

@@ -74,6 +74,7 @@ class MonthSummary:
     today_clock_in_hm: str | None = None  # 오늘 출근 시각 "HH:MM"
     today_stay_seconds: int | None = None  # 출근 후 체류초(휴게 포함 경과)
     expected_basis_minutes: int | None = None  # 예상 퇴근 산정 기준 순근무 분
+    today_clocked_out_early: bool | None = None  # 예상보다 이른 퇴근 여부
 
 
 def build_month_summary(
@@ -138,6 +139,12 @@ def build_month_summary(
         today_stay_seconds = int(
             (stay_end - timeutil.from_iso(rec_today.clock_in)).total_seconds()
         )
+    # 조기 퇴근 판정: 퇴근 기록이 예상 퇴근 시각보다 이른지. 판정 불가면 None.
+    today_clocked_out_early = None
+    if rec_today and rec_today.clock_out and expected is not None:
+        today_clocked_out_early = (
+            timeutil.from_iso(rec_today.clock_out) < expected
+        )
     # 오늘 (가)계획 종료 시각과 초과 여부 (STATUS '계획 퇴근' 표시용).
     recog_today = storage.get_recognition(timeutil.today_str(now))
     today_recog_end_hm = None
@@ -165,6 +172,7 @@ def build_month_summary(
         today_clock_in_hm=today_clock_in_hm,
         today_stay_seconds=today_stay_seconds,
         expected_basis_minutes=expected_basis,
+        today_clocked_out_early=today_clocked_out_early,
     )
 
 
