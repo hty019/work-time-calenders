@@ -219,10 +219,6 @@ def open_day_dialog(
     memo_stack.addWidget(memo_view)
     memo_stack.addWidget(memo_edit)
     memo_col.addLayout(memo_stack)
-    # 숨겨도 자리를 유지해 수정 모드 전환 시 좁게 렌더링되지 않도록 한다
-    memo_policy = memo_panel.sizePolicy()
-    memo_policy.setRetainSizeWhenHidden(True)
-    memo_panel.setSizePolicy(memo_policy)
     # 좌측 폼과 1:1 비율
     content.addWidget(memo_panel, stretch=1)
 
@@ -261,10 +257,14 @@ def open_day_dialog(
         edit_btn.setVisible(not editing)
         cancel_btn.setVisible(editing)
         save_btn.setVisible(editing)
-        # 보기 모드에선 메모가 있을 때만 표시, 수정 모드에선 항상 표시
+        # 보기 모드에선 메모가 있을 때만 표시, 수정 모드에선 항상 표시.
+        # 패널 표시 여부에 맞춰 폭을 재계산해 빈 여백·좁은 렌더링을 방지
+        # (높이는 스택 레이아웃이 두 모드 최대치로 고정)
         memo_panel.setVisible(editing or bool(memo))
         if editing:
             _update_vacation_start_visibility()
+        dlg.layout().activate()
+        dlg.resize(dlg.sizeHint())
 
     def _restore_inputs() -> None:
         """취소 시 입력란을 다이얼로그 오픈 시점 값으로 되돌린다."""
