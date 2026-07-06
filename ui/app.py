@@ -10,6 +10,7 @@ import config
 from core import timeutil
 from core.attendance import AttendanceService
 from core.calendar_model import build_month_grid, format_hms
+from core.day_detail import build_day_detail
 from core.holidays import HolidayClient
 from core.plan import PlanService, weekday_dates
 from core.recognition import (
@@ -48,16 +49,19 @@ class AppController:
 
         now = timeutil.now()
         self._view_year, self._view_month = now.year, now.month
+        self._selected_date = timeutil.today_str(now)
 
         callbacks = MainWindowCallbacks(
             on_clock_out=self._handle_clock_out,
             on_cancel_clock_out=self._handle_cancel_clock_out,
-            on_edit_day=self._handle_edit_day,
+            on_select_day=self._handle_select_day,
             on_edit_weekday=self._handle_edit_weekday,
             on_prev_month=self._handle_prev_month,
             on_next_month=self._handle_next_month,
             on_switch_mode=self._handle_switch_mode,
             on_manage_vacation=self._handle_manage_vacation,
+            on_edit_selected=self._handle_edit_selected,
+            on_go_today=self._handle_go_today,
         )
         self._window = MainWindow(callbacks)
         self._timer = QTimer(self._window)
@@ -97,10 +101,10 @@ class AppController:
         )
         status = self._service.today_status()
         leave = self._vacations.year_summary(now.year)
-        self._window.render(
-            year, month, status, grid, summary, leave,
-            today_memo=self._storage.get_memo(today),
+        detail = build_day_detail(
+            self._storage, self._plans, holidays, self._selected_date, today
         )
+        self._window.render(year, month, status, grid, summary, leave, detail)
         self._render_widget(summary, status)
 
     def _render_widget(self, summary, status) -> None:
@@ -161,7 +165,21 @@ class AppController:
             self._window.show()
         self._refresh()
 
-    def _handle_edit_day(self, date: str) -> None:
+    def _handle_select_day(self, date: str) -> None:
+        """셀 클릭 = 선택. 상세는 STATUS 패널에 표시된다."""
+        self._selected_date = date
+        self._refresh()
+
+    def _handle_go_today(self) -> None:
+        """[오늘]: 선택·캘린더를 오늘/현재 월로 복귀."""
+        now = timeutil.now()
+        self._selected_date = timeutil.today_str(now)
+        self._view_year, self._view_month = now.year, now.month
+        self._refresh()
+
+    def _handle_edit_selected(self) -> None:
+        """[수정]: 선택 날짜를 수정 다이얼로그(수정 모드)로 연다."""
+        date = self._selected_date
         rec = self._storage.get(date)
         holidays = self._holidays.get_holidays(self._view_year, self._view_month)
         open_day_dialog(
@@ -180,6 +198,7 @@ class AppController:
             on_save_vacation=self._handle_save_vacation,
             memo=self._storage.get_memo(date),
             on_save_memo=self._storage.set_memo,
+            start_in_edit=True,
         )
         self._refresh()
 

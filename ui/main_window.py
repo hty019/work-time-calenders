@@ -11,6 +11,7 @@ from PySide6.QtGui import QAction
 
 from core.attendance import WorkStatus
 from core.calendar_model import DayCell
+from core.day_detail import DayDetail
 from core.stats import MonthSummary
 from core.vacation import YearLeaveSummary
 from ui import theme
@@ -30,12 +31,14 @@ _STATUS_COLORS = {
 class MainWindowCallbacks:
     on_clock_out: Callable[[], None]
     on_cancel_clock_out: Callable[[], None]
-    on_edit_day: Callable[[str], None]
+    on_select_day: Callable[[str], None]
     on_edit_weekday: Callable[[int], None]
     on_prev_month: Callable[[], None]
     on_next_month: Callable[[], None]
     on_switch_mode: Callable[[], None]
     on_manage_vacation: Callable[[], None]
+    on_edit_selected: Callable[[], None]
+    on_go_today: Callable[[], None]
 
 
 class MainWindow(QMainWindow):
@@ -72,10 +75,13 @@ class MainWindow(QMainWindow):
         central = QWidget()
         layout = QHBoxLayout(central)
         self._calendar = CalendarWidget(
-            self._cb.on_edit_day, self._cb.on_edit_weekday
+            self._cb.on_select_day, self._cb.on_edit_weekday
         )
         self._status = StatusPanel(
-            self._cb.on_clock_out, self._cb.on_cancel_clock_out
+            self._cb.on_clock_out,
+            self._cb.on_cancel_clock_out,
+            self._cb.on_edit_selected,
+            self._cb.on_go_today,
         )
         layout.addWidget(self._calendar, stretch=1)
         layout.addWidget(self._status)
@@ -89,10 +95,12 @@ class MainWindow(QMainWindow):
         grid: list[list[DayCell]],
         summary: MonthSummary,
         leave: YearLeaveSummary,
-        today_memo: str | None = None,
+        detail: DayDetail | None = None,
     ) -> None:
         self._month_label.setText(f"  {year}년 {month}월  ")
         self._status_label.setText(f"{_STATUS_DOT} {status.value}")
         self._status_label.setStyleSheet(f"color:{_STATUS_COLORS[status]};")
-        self._calendar.render_grid(grid)
-        self._status.update_summary(summary, status, leave, today_memo)
+        self._calendar.render_grid(
+            grid, selected_date=detail.date if detail else None
+        )
+        self._status.update_summary(summary, status, leave, detail)

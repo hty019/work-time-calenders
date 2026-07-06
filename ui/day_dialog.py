@@ -112,6 +112,7 @@ def open_day_dialog(
     ] = None,
     memo: Optional[str] = None,
     on_save_memo: Optional[Callable[[str, str], None]] = None,
+    start_in_edit: bool = False,
 ) -> None:
     dlg = QDialog(parent)
     dlg.setWindowTitle(f"{work_date} 편집")
@@ -380,5 +381,5 @@ def open_day_dialog(
         dlg.accept()
 
     save_btn.clicked.connect(handle_save)
-    _set_edit_mode(False)  # 보기 모드로 시작
+    _set_edit_mode(start_in_edit)
     dlg.exec()

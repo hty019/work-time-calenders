@@ -71,7 +71,12 @@ class _WeekdayHeader(QLabel):
 
 
 class _DayCellWidget(QFrame):
-    def __init__(self, cell: DayCell, on_click: Callable[[str], None]) -> None:
+    def __init__(
+        self,
+        cell: DayCell,
+        on_click: Callable[[str], None],
+        is_selected: bool = False,
+    ) -> None:
         super().__init__()
         self._date = cell.date
         self._on_click = on_click
@@ -83,9 +88,13 @@ class _DayCellWidget(QFrame):
         bg = theme.BG_WEEKEND if is_weekend else theme.BG_ELEVATED
         # 주말은 호버 시에도 본래 배경(연갈색)을 유지하고 테두리만 강조
         hover_bg = bg if is_weekend else theme.BG_HOVER
-        base_border = (
-            theme.BORDER_TODAY if cell.is_today else "transparent"
-        )
+        # 선택 셀(보라) > 오늘 셀(파랑) > 기본(투명)
+        if is_selected and not cell.is_today:
+            base_border = theme.BORDER_SELECTED
+        elif cell.is_today:
+            base_border = theme.BORDER_TODAY
+        else:
+            base_border = "transparent"
         # ID 셀렉터로 셀 프레임에만 적용 (자식 QLabel 이 QFrame 을 상속해
         # 셀렉터 없는 border 규칙이 라벨까지 번지는 것을 방지)
         self.setObjectName("dayCell")
@@ -286,7 +295,11 @@ class CalendarWidget(QWidget):
             if w is not None:
                 w.deleteLater()
 
-    def render_grid(self, grid: list[list[DayCell]]) -> None:
+    def render_grid(
+        self,
+        grid: list[list[DayCell]],
+        selected_date: str | None = None,
+    ) -> None:
         self._clear()
         self._column_overlay.hide()  # 재렌더 시 이전 호버 흔적 제거
         for col, name in enumerate(_WEEKDAYS):
@@ -302,5 +315,10 @@ class CalendarWidget(QWidget):
                     self._layout.addWidget(QWidget(), r, c)
                     continue
                 self._layout.addWidget(
-                    _DayCellWidget(cell, self._on_day_click), r, c
+                    _DayCellWidget(
+                        cell,
+                        self._on_day_click,
+                        is_selected=(cell.date == selected_date),
+                    ),
+                    r, c,
                 )

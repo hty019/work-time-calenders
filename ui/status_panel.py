@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 
 from core.attendance import WorkStatus
 from core.calendar_model import format_hm
+from core.day_detail import DayDetail, KIND_PAST, KIND_TODAY
 from core.stats import MonthSummary, ProgressLevel, progress_state
 from core.vacation import YearLeaveSummary, minutes_to_days_str
 from ui import theme
@@ -144,6 +145,49 @@ def remaining_line(remaining_seconds: int | None) -> str:
     return f"남은 시간: {_fmt_seconds(remaining_seconds)}"
 
 
+def past_lines(detail: DayDetail) -> list[str]:
+    """과거 일자 표시 라인: 출근/퇴근 시각, (가)계획 범위."""
+    plan_range = (
+        f"{detail.recog_start_hm}~{detail.recog_end_hm}"
+        if detail.recog_start_hm is not None
+        else "-"
+    )
+    return [
+        f"출근 시간: {detail.clock_in_hm or '-'}",
+        f"퇴근 시간: {detail.clock_out_hm or '-'}",
+        f"계획 시간: {plan_range}",
+    ]
+
+
+def future_lines(detail: DayDetail) -> list[str]:
+    """미래 일자 표시 라인: 실 계획(분), (가)계획 범위."""
+    recog_range = (
+        f"{detail.recog_start_hm} ~ {detail.recog_end_hm}"
+        if detail.recog_start_hm is not None
+        else "-"
+    )
+    return [
+        f"실 계획: {format_hm(detail.planned_minutes)}",
+        f"(가)계획 시간: {recog_range}",
+    ]
+
+
+def past_state_display(detail: DayDetail) -> tuple[str, str]:
+    """과거 일자 상태 라인 (문구, 상태키).
+
+    미출근 > 퇴근 미기록(경고) > 조기/정상 퇴근 > 판정 불가 순.
+    """
+    if not detail.has_record:
+        return "상태: 미출근", "off"
+    if detail.clock_out_hm is None:
+        return "상태: ⚠ 퇴근 미기록", "over"
+    if detail.clocked_out_early is True:
+        return "상태: 조기 퇴근", "early"
+    if detail.clocked_out_early is False:
+        return "상태: 정상 퇴근", "done_normal"
+    return "상태: 퇴근 완료", "done"
+
+
 def leave_line(leave: YearLeaveSummary) -> str:
     """연차 현황 라인: 잔여 / 총(일). 총 연차 미설정이면 '-'."""
     if leave.total_minutes is None:
@@ -171,11 +215,15 @@ class StatusPanel(QWidget):
         self,
         on_clock_out: Callable[[], None],
         on_cancel_clock_out: Callable[[], None],
+        on_edit: Callable[[], None],
+        on_today: Callable[[], None],
     ) -> None:
         super().__init__()
         self.setFixedWidth(theme.STATUS_PANEL_WIDTH)
         self._on_clock_out = on_clock_out
         self._on_cancel_clock_out = on_cancel_clock_out
+        self._on_edit = on_edit
+        self._on_today = on_today
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -237,27 +285,37 @@ class StatusPanel(QWidget):
             if w is not None:
                 w.deleteLater()
 
-    def _render_buttons(self, status: WorkStatus) -> None:
+    def _render_buttons(self, status: WorkStatus, kind: str) -> None:
+        """오늘: [수정][퇴근/퇴근 취소] · 과거/미래: [수정][오늘]."""
         self._clear_buttons()
-        if status == WorkStatus.CLOCKED_OUT:
-            cancel = QPushButton("취소")
-            cancel.clicked.connect(lambda: self._on_cancel_clock_out())
-            reclock = QPushButton("재퇴근")
-            reclock.clicked.connect(lambda: self._on_clock_out())
-            self._buttons.addWidget(cancel)
-            self._buttons.addWidget(reclock)
+        edit = QPushButton("수정")
+        edit.clicked.connect(lambda: self._on_edit())
+        self._buttons.addWidget(edit)
+        if kind == KIND_TODAY:
+            if status == WorkStatus.CLOCKED_OUT:
+                cancel = QPushButton("퇴근 취소")
+                cancel.clicked.connect(lambda: self._on_cancel_clock_out())
+                self._buttons.addWidget(cancel)
+            else:
+                clock = QPushButton("퇴근")
+                clock.clicked.connect(lambda: self._on_clock_out())
+                self._buttons.addWidget(clock)
         else:
-            clock = QPushButton("퇴근")
-            clock.clicked.connect(lambda: self._on_clock_out())
-            self._buttons.addWidget(clock)
+            today_btn = QPushButton("오늘")
+            today_btn.clicked.connect(lambda: self._on_today())
+            self._buttons.addWidget(today_btn)
 
     def update_summary(
         self,
         summary: MonthSummary,
         status: WorkStatus,
         leave: YearLeaveSummary,
-        today_memo: str | None = None,
+        detail: DayDetail | None = None,
     ) -> None:
+        """월 요약 + 선택 날짜(detail) 상세를 렌더링한다.
+
+        detail 이 None 이면 오늘 기준으로 동작한다.
+        """
         self._required.setText(
             f"법정 기준   {_fmt_hours(summary.required_minutes)}"
         )
@@ -287,6 +345,22 @@ class StatusPanel(QWidget):
                 pct, level, summary.actual_seconds, summary.required_minutes
             )
         )
+        kind = detail.kind if detail is not None else KIND_TODAY
+        if kind == KIND_TODAY:
+            self._render_today_detail(summary, status)
+        elif kind == KIND_PAST:
+            self._render_past_detail(detail)
+        else:
+            self._render_future_detail(detail)
+        memo = detail.memo if detail is not None else None
+        if (memo or "") != self._memo_box.toPlainText():
+            self._memo_box.setPlainText(memo or "")
+        self._memo_box.setVisible(bool(memo))
+        self._render_buttons(status, kind)
+
+    def _render_today_detail(
+        self, summary: MonthSummary, status: WorkStatus
+    ) -> None:
         expected_hhmm = (
             summary.expected_clock_out.strftime("%H:%M")
             if summary.expected_clock_out is not None
@@ -297,7 +371,9 @@ class StatusPanel(QWidget):
             expected_line(expected_hhmm, summary.expected_basis_minutes)
         )
         self._stay.setText(stay_line(summary.today_stay_seconds))
+        self._stay.setVisible(True)
         self._remaining.setText(remaining_line(summary.remaining_seconds))
+        self._remaining.setVisible(True)
         recog_end_passed = (
             summary.today_recog_end_hm is not None and summary.recog_end_passed
         )
@@ -313,6 +389,7 @@ class StatusPanel(QWidget):
             summary.today_clocked_out_early,
         )
         self._state.setText(state_rich_text(state_text, state_key))
+        self._state.setVisible(True)
         sub = (
             f"계획 퇴근 시간: ~{summary.today_recog_end_hm}"
             if summary.today_recog_end_hm
@@ -320,7 +397,24 @@ class StatusPanel(QWidget):
         )
         self._expected_sub.setText(sub or "")
         self._expected_sub.setVisible(bool(sub))
-        if (today_memo or "") != self._memo_box.toPlainText():
-            self._memo_box.setPlainText(today_memo or "")
-        self._memo_box.setVisible(bool(today_memo))
-        self._render_buttons(status)
+
+    def _render_past_detail(self, detail: DayDetail) -> None:
+        in_line, out_line, plan_line = past_lines(detail)
+        self._clock_in.setText(in_line)
+        self._expected.setText(out_line)
+        self._expected_sub.setVisible(False)
+        self._stay.setText(plan_line)
+        self._stay.setVisible(True)
+        self._remaining.setVisible(False)
+        state_text, state_key = past_state_display(detail)
+        self._state.setText(state_rich_text(state_text, state_key))
+        self._state.setVisible(True)
+
+    def _render_future_detail(self, detail: DayDetail) -> None:
+        plan_line, recog_line = future_lines(detail)
+        self._clock_in.setText(plan_line)
+        self._expected.setText(recog_line)
+        self._expected_sub.setVisible(False)
+        self._stay.setVisible(False)
+        self._remaining.setVisible(False)
+        self._state.setVisible(False)

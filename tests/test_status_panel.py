@@ -199,3 +199,74 @@ def test_caption_critical_and_exceeded_also_show_hours():
     assert progress_caption(
         100, ProgressLevel.EXCEEDED, 231 * 3600, 177 * 60
     ) == "초과 근로 진행: +54h"
+
+
+# --- 선택 날짜(과거/미래) 표시 ----------------------------------------------
+
+
+def _detail(**kw):
+    from core.day_detail import DayDetail
+    base = dict(
+        date="2026-07-01", kind="past", clock_in_hm=None, clock_out_hm=None,
+        recog_start_hm=None, recog_end_hm=None, planned_minutes=0,
+        memo=None, has_record=False, clocked_out_early=None,
+    )
+    base.update(kw)
+    return DayDetail(**base)
+
+
+def test_past_lines_with_record():
+    from ui.status_panel import past_lines
+    d = _detail(
+        clock_in_hm="09:12", clock_out_hm="18:00",
+        recog_start_hm="08:00", recog_end_hm="21:50", has_record=True,
+    )
+    assert past_lines(d) == [
+        "출근 시간: 09:12",
+        "퇴근 시간: 18:00",
+        "계획 시간: 08:00~21:50",
+    ]
+
+
+def test_past_lines_without_data():
+    from ui.status_panel import past_lines
+    assert past_lines(_detail()) == [
+        "출근 시간: -",
+        "퇴근 시간: -",
+        "계획 시간: -",
+    ]
+
+
+def test_future_lines():
+    from ui.status_panel import future_lines
+    d = _detail(
+        kind="future", planned_minutes=480,
+        recog_start_hm="08:00", recog_end_hm="21:50",
+    )
+    assert future_lines(d) == [
+        "실 계획: 8h 0m",
+        "(가)계획 시간: 08:00 ~ 21:50",
+    ]
+
+
+def test_future_lines_without_recog():
+    from ui.status_panel import future_lines
+    d = _detail(kind="future", planned_minutes=300)
+    assert future_lines(d) == ["실 계획: 5h 0m", "(가)계획 시간: -"]
+
+
+def test_past_state_variants():
+    from ui.status_panel import past_state_display
+    assert past_state_display(_detail()) == ("상태: 미출근", "off")
+    assert past_state_display(
+        _detail(has_record=True, clock_in_hm="09:00")
+    ) == ("상태: ⚠ 퇴근 미기록", "over")
+    assert past_state_display(
+        _detail(has_record=True, clock_out_hm="16:00", clocked_out_early=True)
+    ) == ("상태: 조기 퇴근", "early")
+    assert past_state_display(
+        _detail(has_record=True, clock_out_hm="18:00", clocked_out_early=False)
+    ) == ("상태: 정상 퇴근", "done_normal")
+    assert past_state_display(
+        _detail(has_record=True, clock_out_hm="18:00", clocked_out_early=None)
+    ) == ("상태: 퇴근 완료", "done")
