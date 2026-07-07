@@ -451,12 +451,11 @@ class StatusPanel(QWidget):
         self._clock_in.setText(in_line)
         self._expected.setText(out_line)
         self._expected_sub.setVisible(False)
-        # 퇴근 완료일은 퇴근 시간과 계획 시간 사이에 근무 시간을 끼워 넣는다
-        # (캘린더 셀의 근로 인정시간 강조와 같은 녹색)
+        # 퇴근 완료일은 퇴근 시간과 계획 시간 사이에 근무 시간을 끼워 넣는다.
+        # 라벨은 기본 색, 값만 녹색(셀 근로 인정시간 강조와 동일) 처리
         work = work_line(detail)
         self._stay.setText(
-            f'<span style="color:{theme.FG_ACTUAL_DONE};">{work}</span>'
-            if work is not None else plan_line
+            state_rich_text(work, "normal") if work is not None else plan_line
         )
         self._stay.setVisible(True)
         self._remaining.setText(plan_line)
