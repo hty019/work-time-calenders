@@ -42,6 +42,7 @@ CELL_ACTUAL_DONE_FONT_PX = 14  # 퇴근 완료일 실 근로시간 강조(조금
 CELL_DATE_ROW_PX = 20
 
 WEEKDAY_HEADER_PAD_PX = 10   # 요일 헤더 상하 패딩 (헤더 높이 확보)
+CELL_DISABLED_OPACITY = 0.35  # 다중 선택 모드에서 선택 불가 셀 흐림 정도
 
 WINDOW_MIN_WIDTH = 900
 WINDOW_MIN_HEIGHT = 640

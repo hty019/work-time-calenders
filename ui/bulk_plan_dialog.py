@@ -1,4 +1,4 @@
-"""요일 단위 계획 근무시간·인정 범위 일괄 수정 다이얼로그."""
+"""복수 날짜(요일·다중 선택) 계획 근무시간·인정 범위 일괄 수정 다이얼로그."""
 from __future__ import annotations
 
 from typing import Callable, Optional
@@ -12,27 +12,23 @@ from core.recognition import RecognitionRange
 from ui.day_dialog import MAX_PLAN_MINUTES, parse_recognition_inputs
 
 
-def open_weekday_plan_dialog(
+def open_bulk_plan_dialog(
     parent,
-    weekday_name: str,
-    date_count: int,
+    title: str,
+    info_text: str,
     default_minutes: int,
     on_apply: Callable[[Optional[int], Optional[RecognitionRange]], None],
     validate: Callable[[Optional[int], Optional[RecognitionRange]], Optional[str]],
-    excluded_count: int = 0,
-) -> None:
-    """해당 요일 전체에 적용할 계획(분)·인정 범위를 입력받아 on_apply 로 전달.
+) -> bool:
+    """대상 날짜들에 적용할 계획(분)·인정 범위를 입력받아 on_apply 로 전달.
 
     validate 가 오류 메시지를 반환하면 경고를 띄우고 저장을 막는다.
-    excluded_count 는 퇴근 완료로 제외된 날짜 수(안내 문구에 표시).
+    적용했으면 True, 취소했으면 False 를 반환한다.
     """
     dlg = QDialog(parent)
-    dlg.setWindowTitle(f"{weekday_name} 계획 일괄 수정")
+    dlg.setWindowTitle(title)
     layout = QVBoxLayout(dlg)
 
-    info_text = f"이번 달 {weekday_name} {date_count}일에 일괄 적용됩니다."
-    if excluded_count > 0:
-        info_text += f" (퇴근 완료 {excluded_count}일 제외)"
     info = QLabel(info_text)
     layout.addWidget(info)
 
@@ -88,4 +84,4 @@ def open_weekday_plan_dialog(
         dlg.accept()
 
     save.clicked.connect(handle_save)
-    dlg.exec()
+    return dlg.exec() == QDialog.Accepted

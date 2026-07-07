@@ -36,7 +36,7 @@ from ui.status_panel import (
     vacation_line,
 )
 from ui.vacation_dialog import open_vacation_dialog
-from ui.weekday_dialog import open_weekday_plan_dialog
+from ui.bulk_plan_dialog import open_bulk_plan_dialog
 from ui.widget_window import WidgetWindow, WidgetCallbacks, TodayInfo
 
 _MINUTE_SECONDS = 60
@@ -61,6 +61,9 @@ class AppController:
         now = timeutil.now()
         self._view_year, self._view_month = now.year, now.month
         self._selected_date = timeutil.today_str(now)
+        # 다중 선택 계획 수정 모드 상태
+        self._plan_edit_mode = False
+        self._plan_edit_dates: set[str] = set()
 
         callbacks = MainWindowCallbacks(
             on_clock_out=self._handle_clock_out,
@@ -68,6 +71,8 @@ class AppController:
             on_select_day=self._handle_select_day,
             on_edit_day=self._handle_edit_day,
             on_edit_weekday=self._handle_edit_weekday,
+            on_toggle_plan_edit=self._handle_toggle_plan_edit,
+            on_cancel_plan_edit=self._handle_cancel_plan_edit,
             on_prev_month=self._handle_prev_month,
             on_next_month=self._handle_next_month,
             on_switch_mode=self._handle_switch_mode,
@@ -118,7 +123,12 @@ class AppController:
         detail = build_day_detail(
             self._storage, self._plans, holidays, self._selected_date, today
         )
-        self._window.render(year, month, status, grid, summary, leave, detail)
+        self._window.render(
+            year, month, status, grid, summary, leave, detail,
+            plan_edit_dates=(
+                self._plan_edit_dates if self._plan_edit_mode else None
+            ),
+        )
         self._render_widget(summary, status)
 
     def _render_widget(self, summary, status) -> None:
@@ -210,7 +220,17 @@ class AppController:
         self._refresh()
 
     def _handle_select_day(self, date: str) -> None:
-        """셀 클릭 = 선택. 상세는 STATUS 패널에 표시된다."""
+        """셀 클릭 = 선택. 상세는 STATUS 패널에 표시된다.
+
+        다중 선택 계획 수정 모드에서는 대상 날짜 토글로 동작한다.
+        """
+        if self._plan_edit_mode:
+            rec = self._storage.get(date)
+            if rec is not None and rec.clock_out is not None:
+                return  # 퇴근 완료일은 선택 불가 (셀도 비활성)
+            self._plan_edit_dates ^= {date}
+            self._refresh()
+            return
         self._selected_date = date
         self._refresh()
 
@@ -223,6 +243,8 @@ class AppController:
 
     def _handle_edit_day(self, date: str) -> None:
         """셀 더블 클릭 = 해당 날짜 선택 후 곧바로 수정 다이얼로그."""
+        if self._plan_edit_mode:
+            return  # 다중 선택 모드에서는 더블 클릭 수정을 막는다
         self._selected_date = date
         self._handle_edit_selected()
 
@@ -270,23 +292,18 @@ class AppController:
         self._window.set_api_key_registered(True)
         self._refresh()
 
-    def _handle_edit_weekday(self, weekday: int) -> None:
-        year, month = self._view_year, self._view_month
-        dates = weekday_dates(year, month, weekday)
-        holidays = self._holidays.get_holidays(year, month)
-        # 퇴근까지 완료된 날짜는 계획·인정 범위 일괄 변경에서 제외한다
-        records = {r.work_date: r for r in self._storage.list_month(year, month)}
-        completed = {
-            d for d in dates
-            if d in records and records[d].clock_out is not None
-        }
-        target_dates = [d for d in dates if d not in completed]
+    def _validate_bulk_range(self, dates: list[str]):
+        """일괄 수정 다이얼로그용 검증 콜백 생성.
 
+        날짜별 유효 계획 대비 인정 범위 폭을 검증하고 첫 위반 날짜를 안내한다.
+        """
         def validate(minutes, rng) -> str | None:
-            """날짜별 유효 계획 대비 인정 범위 폭 검증. 첫 위반 날짜를 안내."""
             if rng is None:
                 return None
-            for date in target_dates:
+            for date in dates:
+                holidays = self._holidays.get_holidays(
+                    int(date[:4]), int(date[5:7])
+                )
                 planned = (
                     minutes if minutes is not None
                     else self._plans.baseline_minutes(date, holidays)
@@ -296,6 +313,19 @@ class AppController:
                     return f"{date}: {err}"
             return None
 
+        return validate
+
+    def _handle_edit_weekday(self, weekday: int) -> None:
+        year, month = self._view_year, self._view_month
+        dates = weekday_dates(year, month, weekday)
+        # 퇴근까지 완료된 날짜는 계획·인정 범위 일괄 변경에서 제외한다
+        records = {r.work_date: r for r in self._storage.list_month(year, month)}
+        completed = {
+            d for d in dates
+            if d in records and records[d].clock_out is not None
+        }
+        target_dates = [d for d in dates if d not in completed]
+
         def apply(minutes, rng) -> None:
             self._plans.set_weekday_plan(
                 year, month, weekday, minutes, exclude_dates=completed
@@ -304,16 +334,65 @@ class AppController:
                 year, month, weekday, rng, exclude_dates=completed
             )
 
-        open_weekday_plan_dialog(
+        name = _WEEKDAY_NAMES[weekday]
+        info = f"이번 달 {name} {len(target_dates)}일에 일괄 적용됩니다."
+        if completed:
+            info += f" (퇴근 완료 {len(completed)}일 제외)"
+        open_bulk_plan_dialog(
             self._window,
-            _WEEKDAY_NAMES[weekday],
-            len(target_dates),
+            f"{name} 계획 일괄 수정",
+            info,
             config.get_default_daily_minutes(),
             apply,
-            validate,
-            excluded_count=len(completed),
+            self._validate_bulk_range(target_dates),
         )
         self._refresh()
+
+    def _handle_toggle_plan_edit(self) -> None:
+        """[계획 수정]: 모드 진입 → 셀 토글 선택 → 재클릭 시 적용(0일이면 취소)."""
+        if not self._plan_edit_mode:
+            self._plan_edit_mode = True
+            self._plan_edit_dates = set()
+            self._refresh()
+            return
+        if not self._plan_edit_dates:
+            self._handle_cancel_plan_edit()
+            return
+        self._open_bulk_plan_edit_dialog()
+
+    def _handle_cancel_plan_edit(self) -> None:
+        if not self._plan_edit_mode:
+            return
+        self._plan_edit_mode = False
+        self._plan_edit_dates = set()
+        self._refresh()
+
+    def _open_bulk_plan_edit_dialog(self) -> None:
+        dates = sorted(self._plan_edit_dates)
+
+        def apply(minutes, rng) -> None:
+            for date in dates:
+                if minutes is None:
+                    self._plans.clear_plan(date)
+                else:
+                    self._plans.set_plan(date, minutes)
+                if rng is None:
+                    self._recog.clear(date)
+                else:
+                    self._recog.set(date, rng)
+
+        applied = open_bulk_plan_dialog(
+            self._window,
+            "선택 일자 계획 일괄 수정",
+            f"선택한 {len(dates)}일에 일괄 적용됩니다.",
+            config.get_default_daily_minutes(),
+            apply,
+            self._validate_bulk_range(dates),
+        )
+        if applied:
+            self._handle_cancel_plan_edit()  # 적용 완료 → 모드 종료
+        else:
+            self._refresh()  # 취소 → 선택 유지한 채 모드 계속
 
     def _handle_manage_vacation(self) -> None:
         year = timeutil.now().year  # 캘린더 표시 월과 무관하게 올해 기준

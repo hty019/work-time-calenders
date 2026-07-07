@@ -9,7 +9,9 @@ from PySide6.QtWidgets import (
     QSizePolicy, QToolButton,
 )
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import (
+    QAction, QColor, QIcon, QKeySequence, QPainter, QPixmap, QShortcut,
+)
 
 from core.attendance import WorkStatus
 from core.calendar_model import DayCell
@@ -30,6 +32,8 @@ class MainWindowCallbacks:
     on_select_day: Callable[[str], None]
     on_edit_day: Callable[[str], None]
     on_edit_weekday: Callable[[int], None]
+    on_toggle_plan_edit: Callable[[], None]
+    on_cancel_plan_edit: Callable[[], None]
     on_prev_month: Callable[[], None]
     on_next_month: Callable[[], None]
     on_switch_mode: Callable[[], None]
@@ -73,6 +77,16 @@ class MainWindow(QMainWindow):
         self._month_label = QLabel("  ")
         nxt = QAction("▶", self)
         nxt.triggered.connect(lambda: self._cb.on_next_month())
+        # 다중 선택 계획 수정 — 모드 중에는 라벨이 '적용 (N일)'/'취소'로 변함
+        self._plan_edit_action = QAction("계획 수정", self)
+        self._plan_edit_action.triggered.connect(
+            lambda: self._cb.on_toggle_plan_edit()
+        )
+        # ESC 로 다중 선택 모드 취소
+        QShortcut(
+            QKeySequence(Qt.Key_Escape), self,
+            activated=lambda: self._cb.on_cancel_plan_edit(),
+        )
         self._vacation_action = QAction(_VACATION_DEFAULT_LABEL, self)
         self._vacation_action.triggered.connect(
             lambda: self._cb.on_manage_vacation()
@@ -90,6 +104,8 @@ class MainWindow(QMainWindow):
         toolbar.addAction(prev)
         toolbar.addWidget(self._month_label)
         toolbar.addAction(nxt)
+        toolbar.addSeparator()
+        toolbar.addAction(self._plan_edit_action)
         toolbar.addWidget(spacer)
         toolbar.addAction(self._api_key_action)
         toolbar.addSeparator()
@@ -131,9 +147,19 @@ class MainWindow(QMainWindow):
         summary: MonthSummary,
         leave: YearLeaveSummary,
         detail: DayDetail | None = None,
+        plan_edit_dates: set[str] | None = None,
     ) -> None:
+        """plan_edit_dates 가 None 이 아니면 다중 선택 계획 수정 모드."""
         self._month_label.setText(f"  {year}년 {month}월  ")
+        if plan_edit_dates is None:
+            self._plan_edit_action.setText("계획 수정")
+        elif plan_edit_dates:
+            self._plan_edit_action.setText(f"적용 ({len(plan_edit_dates)}일)")
+        else:
+            self._plan_edit_action.setText("취소")
         self._calendar.render_grid(
-            grid, selected_date=detail.date if detail else None
+            grid,
+            selected_date=detail.date if detail else None,
+            multi_selected=plan_edit_dates,
         )
         self._status.update_summary(summary, status, leave, detail)
