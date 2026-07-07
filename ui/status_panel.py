@@ -168,6 +168,13 @@ def past_lines(detail: DayDetail) -> list[str]:
     ]
 
 
+def work_line(detail: DayDetail) -> str | None:
+    """과거 일자 근무 시간 라인. 퇴근 완료가 아니면 None(숨김)."""
+    if detail.clock_out_hm is None or detail.work_seconds is None:
+        return None
+    return f"근무 시간: {_fmt_seconds(detail.work_seconds)}"
+
+
 def future_lines(detail: DayDetail) -> list[str]:
     """미래 일자 표시 라인: 실 계획(분), (가)계획 범위."""
     recog_range = (
@@ -444,9 +451,12 @@ class StatusPanel(QWidget):
         self._clock_in.setText(in_line)
         self._expected.setText(out_line)
         self._expected_sub.setVisible(False)
-        self._stay.setText(plan_line)
+        # 퇴근 완료일은 퇴근 시간과 계획 시간 사이에 근무 시간을 끼워 넣는다
+        work = work_line(detail)
+        self._stay.setText(work if work is not None else plan_line)
         self._stay.setVisible(True)
-        self._remaining.setVisible(False)
+        self._remaining.setText(plan_line)
+        self._remaining.setVisible(work is not None)
         state_text, state_key = past_state_display(detail)
         self._state.setText(state_rich_text(state_text, state_key))
         self._state.setVisible(True)

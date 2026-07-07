@@ -296,3 +296,15 @@ def test_past_state_variants():
     assert past_state_display(
         _detail(has_record=True, clock_out_hm="18:00", clocked_out_early=None)
     ) == ("상태: 퇴근 완료", "done")
+
+
+def test_work_line_for_clocked_out_past_day():
+    from ui.status_panel import work_line
+    d = _detail(clock_out_hm="18:00", work_seconds=30600, has_record=True)
+    assert work_line(d) == "근무 시간: 8h 30m"
+
+
+def test_work_line_hidden_without_clock_out_or_seconds():
+    from ui.status_panel import work_line
+    assert work_line(_detail(has_record=True)) is None
+    assert work_line(_detail(clock_out_hm="18:00", has_record=True)) is None

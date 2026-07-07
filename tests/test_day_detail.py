@@ -30,9 +30,10 @@ class FakePlan:
 
 
 class Rec:
-    def __init__(self, clock_in, clock_out=None):
+    def __init__(self, clock_in, clock_out=None, work_seconds=None):
         self.clock_in = clock_in
         self.clock_out = clock_out
+        self.work_seconds = work_seconds
 
 
 TODAY = "2026-07-06"
@@ -123,3 +124,17 @@ def test_early_none_when_no_plan_or_no_clock_out():
     # 퇴근 미기록 → 판정 불가
     storage2 = FakeStorage(rec=Rec("2026-07-01T09:00:00+09:00"))
     assert _build("2026-07-01", storage2).clocked_out_early is None
+
+
+def test_work_seconds_from_record():
+    storage = FakeStorage(
+        rec=Rec(
+            "2026-07-01T09:00:00+09:00", "2026-07-01T18:00:00+09:00",
+            work_seconds=30600,
+        ),
+    )
+    assert _build("2026-07-01", storage).work_seconds == 30600
+
+
+def test_work_seconds_none_without_record():
+    assert _build("2026-07-01").work_seconds is None
