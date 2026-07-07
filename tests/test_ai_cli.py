@@ -296,32 +296,28 @@ def test_cli_search_dirs_macos_common_locations():
 
 
 def test_cli_search_dirs_picks_latest_nvm_version():
-    import os
-
     from core.ai_cli import cli_search_dirs
 
-    nvm_base = os.path.join("/Users/u", ".nvm", "versions", "node")
+    nvm_base = "/Users/u/.nvm/versions/node"
 
     def listdir(path):
         assert path == nvm_base
         return ["v18.20.3", "v20.11.1", "not-a-version"]
 
     dirs = cli_search_dirs("darwin", "/Users/u", environ={}, listdir=listdir)
-    assert os.path.join(nvm_base, "v20.11.1", "bin") in dirs
-    assert os.path.join(nvm_base, "v18.20.3", "bin") not in dirs
+    assert f"{nvm_base}/v20.11.1/bin" in dirs
+    assert f"{nvm_base}/v18.20.3/bin" not in dirs
 
 
 def test_cli_search_dirs_windows_npm_appdata():
-    import os
-
     from core.ai_cli import cli_search_dirs
 
-    appdata = "C:\\Users\\u\\AppData\\Roaming"
     dirs = cli_search_dirs(
-        "win32", "C:\\Users\\u", environ={"APPDATA": appdata},
+        "win32", "C:\\Users\\u",
+        environ={"APPDATA": "C:\\Users\\u\\AppData\\Roaming"},
         listdir=_no_versions,
     )
-    assert os.path.join(appdata, "npm") in dirs
+    assert "C:\\Users\\u\\AppData\\Roaming\\npm" in dirs
 
 
 def test_augmented_path_appends_only_missing_existing_dirs():

@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import ntpath
 import os
+import posixpath
 import shutil
 import sys
 
@@ -54,7 +56,7 @@ def version_command(provider: str) -> list[str]:
 
 def _latest_nvm_bin(home: str, listdir) -> str | None:
     """nvm 설치본 중 최신 node 버전의 bin 디렉토리. 없으면 None."""
-    base = os.path.join(home, ".nvm", "versions", "node")
+    base = posixpath.join(home, ".nvm", "versions", "node")
     try:
         names = listdir(base)
     except OSError:
@@ -69,7 +71,7 @@ def _latest_nvm_bin(home: str, listdir) -> str | None:
     versions = [(v, n) for n in names if (v := parse(n)) is not None]
     if not versions:
         return None
-    return os.path.join(base, max(versions)[1], "bin")
+    return posixpath.join(base, max(versions)[1], "bin")
 
 
 def cli_search_dirs(
@@ -79,15 +81,17 @@ def cli_search_dirs(
 
     Finder·설치본으로 실행된 GUI 앱은 셸 PATH 를 물려받지 못해(launchd
     최소 PATH) 전역 CLI 를 찾지 못한다. 이 후보들을 PATH 에 보강한다.
+    경로 구분자는 호스트 OS 가 아니라 platform 인자를 따른다(테스트가
+    어느 OS 에서 돌아도 결과가 같도록).
     """
     if platform.startswith("win"):
         appdata = environ.get("APPDATA")
-        return [os.path.join(appdata, "npm")] if appdata else []
+        return [ntpath.join(appdata, "npm")] if appdata else []
     dirs = [
         "/opt/homebrew/bin",  # macOS Apple Silicon homebrew
         "/usr/local/bin",     # macOS Intel homebrew·시스템 node
-        os.path.join(home, ".local", "bin"),
-        os.path.join(home, ".npm-global", "bin"),
+        posixpath.join(home, ".local", "bin"),
+        posixpath.join(home, ".npm-global", "bin"),
     ]
     nvm_bin = _latest_nvm_bin(home, listdir)
     if nvm_bin is not None:
