@@ -112,13 +112,13 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self._month_label)
         toolbar.addAction(nxt)
         toolbar.addWidget(spacer)
+        toolbar.addAction(help_action)
+        toolbar.addSeparator()
         toolbar.addAction(self._api_key_action)
         toolbar.addSeparator()
         toolbar.addAction(self._vacation_action)
         toolbar.addSeparator()
         toolbar.addAction(switch)
-        toolbar.addSeparator()
-        toolbar.addAction(help_action)
         # 메뉴 버튼 호버 시 손가락 커서
         for button in toolbar.findChildren(QToolButton):
             button.setCursor(Qt.PointingHandCursor)
