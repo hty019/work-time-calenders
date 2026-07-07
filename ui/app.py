@@ -338,8 +338,8 @@ class AppController:
 
         name = _WEEKDAY_NAMES[weekday]
         info = (
-            f"이번 달 {name} {len(target_dates)}일에 일괄 적용됩니다.\n"
-            "(과거일자 제외)"
+            f"이번 달 {name} {len(target_dates)}일에 일괄 적용됩니다.<br/>"
+            f'<span style="color:{theme.FG_MUTED};">(과거일자 제외)</span>'
         )
         open_bulk_plan_dialog(
             self._window,

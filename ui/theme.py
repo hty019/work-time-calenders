@@ -55,6 +55,9 @@ TOOLBAR_EDGE_PAD_PX = 8   # 툴바 좌우 가장자리 여백
 TOOLBAR_BTN_PAD_V_PX = 4  # 툴바 버튼 상하 패딩
 TOOLBAR_BTN_PAD_H_PX = 8  # 툴바 버튼 좌우 패딩 (균일)
 
+# 일괄 계획 수정 다이얼로그 최소 폭 (placeholder 잘림 방지)
+BULK_PLAN_DIALOG_MIN_WIDTH = 460
+
 # 휴가 관리 다이얼로그 최소 크기
 VACATION_DIALOG_MIN_WIDTH = 460
 VACATION_DIALOG_MIN_HEIGHT = 380

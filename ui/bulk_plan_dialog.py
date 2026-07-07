@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.recognition import RecognitionRange
+from ui import theme
 from ui.day_dialog import MAX_PLAN_MINUTES, parse_recognition_inputs
 
 
@@ -27,9 +28,10 @@ def open_bulk_plan_dialog(
     """
     dlg = QDialog(parent)
     dlg.setWindowTitle(title)
+    dlg.setMinimumWidth(theme.BULK_PLAN_DIALOG_MIN_WIDTH)
     layout = QVBoxLayout(dlg)
 
-    info = QLabel(info_text)
+    info = QLabel(info_text)  # HTML 포함 가능 (보조 문구 색상 등)
     layout.addWidget(info)
 
     form = QFormLayout()
