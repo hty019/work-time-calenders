@@ -188,7 +188,7 @@ def open_day_dialog(
     out_edit = QLineEdit(out_hhmm)
     out_edit.setPlaceholderText("HH:MM (비우면 미퇴근)")
     plan_edit = QLineEdit(initial_plan_text)
-    plan_edit.setPlaceholderText(f"기본값:{default_minutes}")
+    plan_edit.setPlaceholderText("분 단위 입력")
     recog_start_edit = QLineEdit(initial_recog_start)
     recog_start_edit.setPlaceholderText("HH:MM (비우면 미설정)")
     recog_end_edit = QLineEdit(initial_recog_end)

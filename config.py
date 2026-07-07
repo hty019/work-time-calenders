@@ -10,7 +10,7 @@ DATA_DIR = os.environ.get(
 
 _SERVICE_KEY_ENV = "DATA_GO_KR_SERVICE_KEY"
 
-DEFAULT_DAILY_MINUTES = 480  # 평일 기본 계획 순근무(분) = 8h
+DEFAULT_DAILY_MINUTES = 0  # 계획 미설정 시 기본값 없음 (직접 입력)
 MODE_FULL = "full"
 MODE_WIDGET = "widget"
 
