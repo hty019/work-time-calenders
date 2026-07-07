@@ -220,10 +220,6 @@ class AppController:
             self._window.show()
         self._refresh()
 
-    def _is_clocked_out(self, date: str) -> bool:
-        rec = self._storage.get(date)
-        return rec is not None and rec.clock_out is not None
-
     def _handle_select_day(self, date: str, mode: str = SELECT_SINGLE) -> None:
         """셀 클릭 = 선택 (STATUS 는 마지막 선택 일자 표시).
 
@@ -239,17 +235,11 @@ class AppController:
         self._refresh()
 
     def _toggle_multi_date(self, date: str) -> None:
-        """Cmd+클릭 토글. 퇴근 완료일은 일괄 수정 불가라 선택에서 제외."""
-        if self._is_clocked_out(date):
-            return
+        """Cmd+클릭 토글."""
         dates = list(self._multi_dates)
-        if not dates:
+        if not dates and self._selected_date != date:
             # 단일 선택 상태에서 시작: 기존 선택 일자를 시드로 포함
-            if (
-                self._selected_date != date
-                and not self._is_clocked_out(self._selected_date)
-            ):
-                dates = [self._selected_date]
+            dates = [self._selected_date]
         if date in dates:
             dates.remove(date)
         else:
@@ -262,11 +252,11 @@ class AppController:
     def _select_range_to(self, date: str) -> None:
         """Shift+클릭: 마지막 선택 일자부터 클릭 일자까지 연속 선택.
 
-        기존 다중 선택에 범위를 합치고, 퇴근 완료일은 제외한다.
+        기존 다중 선택에 범위를 합친다.
         """
         dates = list(self._multi_dates)
         for d in _date_range(self._selected_date, date):
-            if d not in dates and not self._is_clocked_out(d):
+            if d not in dates:
                 dates.append(d)
         self._selected_date = date  # STATUS 는 마지막 클릭 일자 표시
         self._multi_dates = dates if len(dates) >= 2 else []

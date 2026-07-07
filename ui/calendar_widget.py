@@ -6,10 +6,7 @@ from typing import Callable
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCursor
-from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QLabel, QVBoxLayout, QFrame,
-    QGraphicsOpacityEffect,
-)
+from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QVBoxLayout, QFrame
 
 from core.calendar_model import DayCell, format_hms, format_hm
 from core.vacation import FULL_DAY_MINUTES
@@ -94,7 +91,6 @@ class _DayCellWidget(QFrame):
         on_click: Callable[[str, str], None],  # (날짜, 선택 모드)
         on_double_click: Callable[[str], None],
         is_selected: bool = False,
-        is_dimmed: bool = False,
         selected_over_today: bool = False,
     ) -> None:
         super().__init__()
@@ -117,13 +113,6 @@ class _DayCellWidget(QFrame):
             base_border = theme.BORDER_TODAY
         else:
             base_border = "transparent"
-        # 흐림(선택 불가) 셀은 호버 강조도 제거
-        hover_css = "" if is_dimmed else f"""
-        #dayCell:hover {{
-            border: 2px solid {theme.BORDER_HOVER};
-            background-color: {hover_bg};
-        }}
-        """
         # ID 셀렉터로 셀 프레임에만 적용 (자식 QLabel 이 QFrame 을 상속해
         # 셀렉터 없는 border 규칙이 라벨까지 번지는 것을 방지)
         self.setObjectName("dayCell")
@@ -133,14 +122,12 @@ class _DayCellWidget(QFrame):
             border-radius: 6px;
             border: 2px solid {base_border};
         }}
-        {hover_css}
+        #dayCell:hover {{
+            border: 2px solid {theme.BORDER_HOVER};
+            background-color: {hover_bg};
+        }}
         """)
-        if is_dimmed:
-            effect = QGraphicsOpacityEffect(self)
-            effect.setOpacity(theme.CELL_DISABLED_OPACITY)
-            self.setGraphicsEffect(effect)
-        else:
-            self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.PointingHandCursor)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 4, 6, 4)
@@ -354,11 +341,7 @@ class CalendarWidget(QWidget):
         selected_date: str | None = None,
         multi_selected: set[str] | None = None,
     ) -> None:
-        """multi_selected 가 주어지면 다중 선택 상태로 렌더링한다.
-
-        다중 선택 중에는 퇴근 완료 셀을 흐리게(일괄 수정 제외 안내) 표시한다.
-        흐린 셀도 일반 클릭(선택 초기화)은 가능하다.
-        """
+        """multi_selected 가 주어지면 다중 선택 상태로 렌더링한다."""
         multi_mode = multi_selected is not None
         self._clear()
         self._column_overlay.hide()  # 재렌더 시 이전 호버 흔적 제거
@@ -374,19 +357,16 @@ class CalendarWidget(QWidget):
                 if cell.day == 0:
                     self._layout.addWidget(QWidget(), r, c)
                     continue
-                if multi_mode:
-                    is_selected = cell.date in multi_selected
-                    is_dimmed = cell.is_clocked_out
-                else:
-                    is_selected = cell.date == selected_date
-                    is_dimmed = False
+                is_selected = (
+                    cell.date in multi_selected if multi_mode
+                    else cell.date == selected_date
+                )
                 self._layout.addWidget(
                     _DayCellWidget(
                         cell,
                         self._on_day_click,
                         self._on_day_double_click,
                         is_selected=is_selected,
-                        is_dimmed=is_dimmed,
                         selected_over_today=multi_mode,
                     ),
                     r, c,
