@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QToolBar, QLabel,
     QSizePolicy, QToolButton,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 
 from core.attendance import WorkStatus
@@ -69,6 +69,10 @@ class MainWindow(QMainWindow):
         toolbar = QToolBar()
         # 아이콘이 있는 액션(공휴일 API 키)도 텍스트를 함께 표시
         toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        # 아이콘 슬롯을 점 크기에 맞춰 버튼 좌우 여백이 균일하도록 함
+        toolbar.setIconSize(
+            QSize(theme.TOOLBAR_DOT_ICON_PX, theme.TOOLBAR_DOT_ICON_PX)
+        )
         self.addToolBar(toolbar)
         prev = QAction("◀", self)
         prev.triggered.connect(lambda: self._cb.on_prev_month())

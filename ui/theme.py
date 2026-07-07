@@ -53,6 +53,7 @@ TOOLBAR_DOT_ICON_PX = 12  # 툴바 상태 점 아이콘 크기
 TOOLBAR_EDGE_PAD_PX = 8   # 툴바 좌우 가장자리 여백
 TOOLBAR_BTN_PAD_V_PX = 4  # 툴바 버튼 상하 패딩
 TOOLBAR_BTN_PAD_H_PX = 8  # 툴바 버튼 좌우 패딩 (균일)
+TOOLBAR_BTN_MIN_H_PX = 28  # 툴바 버튼 최소 높이 (아이콘 유무와 무관하게 통일)
 
 # 휴가 관리 다이얼로그 최소 크기
 VACATION_DIALOG_MIN_WIDTH = 460
@@ -89,6 +90,7 @@ def base_stylesheet() -> str:
     QLabel {{ background: transparent; }}
     QToolBar {{ padding: 0 {TOOLBAR_EDGE_PAD_PX}px; }}
     QToolButton {{ background: transparent; border: none; border-radius: 6px;
-                   padding: {TOOLBAR_BTN_PAD_V_PX}px {TOOLBAR_BTN_PAD_H_PX}px; }}
+                   padding: {TOOLBAR_BTN_PAD_V_PX}px {TOOLBAR_BTN_PAD_H_PX}px;
+                   min-height: {TOOLBAR_BTN_MIN_H_PX}px; }}
     QToolButton:hover {{ background-color: {BG_HOVER}; }}
     """
