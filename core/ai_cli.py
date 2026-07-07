@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 
@@ -120,6 +121,27 @@ def login_terminal_command(
         return ["cmd", "/c", "start", "", "cmd", "/k", login]
     # linux 등: 표준 터미널 에뮬레이터로 시도
     return ["x-terminal-emulator", "-e", login]
+
+
+def workctl_command_prefix(executable: str, workdir: str) -> str:
+    """workctl.py 호출용 명령 접두사를 만든다.
+
+    두 가지를 보정한다:
+    - GUI 런처(pythonw)로 앱이 떠도 workctl 은 콘솔 python 으로 실행해야
+      stdout(조회 결과·오류)을 받는다. pythonw → python 으로 바꾼다.
+    - AI(claude)는 Bash 에서 경로를 정슬래시로 바꿔 실행하므로, 자동 승인
+      되도록 --allowedTools 패턴과 정확히 일치시키려면 경로 구분자를 '/'
+      로 통일해야 한다.
+    """
+    exe = executable
+    for suffix, replacement in (("pythonw.exe", "python.exe"), ("pythonw", "python")):
+        if exe.endswith(suffix):
+            exe = exe[: -len(suffix)] + replacement
+            break
+    rel = os.path.relpath(exe, workdir)
+    if rel.startswith(".."):
+        rel = exe  # 작업 폴더 밖(venv 밖 실행 등)이면 절대 경로 사용
+    return f"{rel.replace(os.sep, '/')} workctl.py"
 
 
 def build_prompt(instruction: str, today: str, workctl_cmd: str) -> str:

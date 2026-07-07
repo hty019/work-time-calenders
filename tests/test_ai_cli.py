@@ -39,6 +39,33 @@ def test_build_run_command_codex_exec():
     assert cmd[-1] == "-"
 
 
+def test_workctl_command_prefix_console_python_and_slashes():
+    import os
+
+    from core.ai_cli import workctl_command_prefix
+
+    workdir = os.path.join("C:" + os.sep, "proj") if os.name == "nt" \
+        else os.path.join(os.sep, "proj")
+    exe = os.path.join(workdir, "venv", "Scripts", "pythonw.exe")
+    got = workctl_command_prefix(exe, workdir)
+    # pythonw -> python(콘솔), 경로는 정슬래시, 작업폴더 상대경로
+    assert got == "venv/Scripts/python.exe workctl.py"
+    assert "pythonw" not in got
+    assert "\\" not in got
+
+
+def test_workctl_command_prefix_outside_workdir_uses_absolute():
+    import os
+
+    from core.ai_cli import workctl_command_prefix
+
+    workdir = os.path.join(os.sep, "proj")
+    exe = os.path.join(os.sep, "other", "python")  # 작업폴더 밖
+    got = workctl_command_prefix(exe, workdir)
+    assert got.endswith("workctl.py")
+    assert "\\" not in got
+
+
 def test_build_prompt_contains_context_and_rules():
     prompt = build_prompt("수요일 계획 6시간으로", "2026-07-07", "python workctl.py")
     assert "2026-07-07" in prompt

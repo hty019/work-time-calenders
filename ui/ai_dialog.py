@@ -5,7 +5,6 @@
 """
 from __future__ import annotations
 
-import os
 import sys
 from typing import Callable
 
@@ -35,6 +34,7 @@ from core.ai_cli import (
     parse_auth_status,
     to_shell_command,
     version_command,
+    workctl_command_prefix,
 )
 from ui import theme
 
@@ -116,11 +116,8 @@ def open_ai_dialog(
     layout = QVBoxLayout(dlg)
 
     # 허용 패턴(접두사 일치)과 AI 가 실행할 명령이 정확히 같아지도록
-    # 작업 폴더 기준 상대 경로의 짧은 표준형을 쓴다
-    python_cmd = os.path.relpath(sys.executable, workdir)
-    if python_cmd.startswith(".."):
-        python_cmd = sys.executable  # venv 밖 실행 등 예외 시 절대 경로
-    workctl_cmd = f"{python_cmd} workctl.py"
+    # 콘솔 python·정슬래시로 표준화한 접두사를 쓴다
+    workctl_cmd = workctl_command_prefix(sys.executable, workdir)
     running_procs: list[QProcess] = []
 
     provider_row = QHBoxLayout()
