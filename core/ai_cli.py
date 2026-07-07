@@ -183,6 +183,26 @@ def build_prompt(instruction: str, today: str, workctl_cmd: str) -> str:
 사용자 지시: {instruction}"""
 
 
+def allowed_tool_patterns(workctl_cmd: str) -> list[str]:
+    """claude --allowedTools 로 자동 허용할 Bash 패턴 목록.
+
+    workctl 을 표준형뿐 아니라 흔한 변형(선행 './', bare python/python3)으로
+    호출해도 승인 없이 실행되도록 여러 접두사를 허용한다. 모두 workctl.py
+    호출이라 도메인 안전 범위(오직 workctl) 안이다.
+    """
+    prefixes = [workctl_cmd]
+    looks_absolute = workctl_cmd.startswith("/") or (
+        len(workctl_cmd) > 1 and workctl_cmd[1] == ":"
+    )
+    if not workctl_cmd.startswith("./") and not looks_absolute:
+        prefixes.append(f"./{workctl_cmd}")
+    prefixes.append("python workctl.py")
+    prefixes.append("python3 workctl.py")
+    seen: set[str] = set()
+    uniq = [p for p in prefixes if not (p in seen or seen.add(p))]
+    return [f"Bash({p}:*)" for p in uniq]
+
+
 def build_run_command(
     provider: str,
     workctl_cmd: str,
@@ -196,13 +216,12 @@ def build_run_command(
     model 이 None 이면 각 CLI 의 기본 설정 모델을 사용한다.
     """
     if provider == PROVIDER_CLAUDE:
-        # workctl 호출만 자동 허용 — 그 외 도구는 헤드리스에서 거부됨.
-        # stream-json 으로 진행 상황(도구 실행 등)을 실시간 수신한다.
-        cmd = [
-            "claude", "-p",
-            "--allowedTools", f"Bash({workctl_cmd}:*)",
-            "--output-format", "stream-json", "--verbose",
-        ]
+        # workctl 호출(표준형·흔한 변형)만 자동 허용 — 그 외 도구는
+        # 헤드리스에서 거부된다. stream-json 으로 진행 상황을 실시간 수신.
+        cmd = ["claude", "-p"]
+        for pattern in allowed_tool_patterns(workctl_cmd):
+            cmd += ["--allowedTools", pattern]
+        cmd += ["--output-format", "stream-json", "--verbose"]
         if model is not None:
             cmd += ["--model", model]
         return cmd
@@ -236,6 +255,48 @@ def to_shell_command(
 
 RESULT_HEADER = "=== AI 응답 ==="
 
+# 승인 요청/권한 거부로 보이는 문구. 헤드리스(단일 실행)라 승인 창을 띄울 수
+# 없어, 이런 정황이 보이면 해당 작업이 실행되지 않았을 수 있음을 안내한다.
+_APPROVAL_HINTS = (
+    "승인해주", "승인해 주", "승인이 필요", "승인 필요", "승인을 요청",
+    "승인 부탁", "권한 승인이 필요", "권한이 필요",
+    "permission denied", "need approval", "needs approval",
+    "requires approval", "requires permission", "approval to proceed",
+)
+
+_DENIAL_NOTE = (
+    "⚠ 승인이 필요한 명령이 감지되었습니다. 이 앱은 단일 실행이라 승인 창을 "
+    "띄울 수 없어, 해당 작업은 실행되지 않았을 수 있습니다. workctl 표준 "
+    "명령은 자동 허용되니 지시를 더 명확히 하여 다시 시도하세요."
+)
+
+
+def permission_warning(text: str) -> str | None:
+    """AI 응답 문구에 승인 요청 정황이 보이면 안내 문구를 돌려준다."""
+    if not text:
+        return None
+    low = text.lower()
+    for hint in _APPROVAL_HINTS:
+        if hint.lower() in low:
+            return _DENIAL_NOTE
+    return None
+
+
+def describe_permission_denials(denials: list | None) -> str | None:
+    """result 이벤트의 permission_denials 배열을 사람이 읽을 안내로 변환."""
+    if not denials:
+        return None
+    cmds = []
+    for d in denials:
+        inp = (d.get("tool_input") or d.get("input") or {}) if isinstance(d, dict) else {}
+        cmds.append(inp.get("command") or (d.get("tool_name") if isinstance(d, dict) else None) or "(알 수 없음)")
+    listed = "\n".join(f"  - {c}" for c in cmds)
+    return (
+        "⚠ 자동승인 대상이 아니어서 실행되지 않은 명령이 있습니다"
+        f"(단일 실행이라 승인 불가):\n{listed}\n"
+        "workctl 표준 형식인지 확인하세요."
+    )
+
 
 def _format_claude_event(event: dict) -> str | None:
     """stream-json 이벤트를 사용자용 진행 로그 한 줄로 변환."""
@@ -253,7 +314,14 @@ def _format_claude_event(event: dict) -> str | None:
         return "\n".join(lines) or None
     if kind == "result":
         result = event.get("result", "")
-        return f"\n{RESULT_HEADER}\n{result}"
+        parts = [f"\n{RESULT_HEADER}\n{result}"]
+        # 승인 필요로 실행되지 못한 정황을 명확히 알린다
+        note = describe_permission_denials(event.get("permission_denials"))
+        if note is None:
+            note = permission_warning(result)
+        if note is not None:
+            parts.append(note)
+        return "\n".join(parts)
     # system(init)·user(tool_result) 등은 진행 로그로 노출하지 않음
     return None
 

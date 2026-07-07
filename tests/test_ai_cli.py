@@ -31,6 +31,66 @@ def test_build_run_command_claude_headless_with_tool_allowlist():
     assert "python workctl.py" in allow
 
 
+def test_allowed_tool_patterns_relative_includes_variants():
+    from core.ai_cli import allowed_tool_patterns
+
+    pats = allowed_tool_patterns("venv/Scripts/python.exe workctl.py")
+    # 표준형·'./' 변형·bare python/python3 을 모두 허용
+    assert "Bash(venv/Scripts/python.exe workctl.py:*)" in pats
+    assert "Bash(./venv/Scripts/python.exe workctl.py:*)" in pats
+    assert "Bash(python workctl.py:*)" in pats
+    assert "Bash(python3 workctl.py:*)" in pats
+
+
+def test_allowed_tool_patterns_absolute_has_no_dotslash():
+    from core.ai_cli import allowed_tool_patterns
+
+    pats = allowed_tool_patterns("C:/proj/venv/Scripts/python.exe workctl.py")
+    assert not any(p.startswith("Bash(./") for p in pats)
+
+
+def test_build_run_command_claude_has_multiple_allowlist_flags():
+    cmd = build_run_command(PROVIDER_CLAUDE, "venv/Scripts/python.exe workctl.py")
+    # --allowedTools 가 여러 번(변형별로) 붙는다
+    assert cmd.count("--allowedTools") >= 2
+
+
+def test_permission_warning_detects_approval_request():
+    from core.ai_cli import permission_warning
+
+    assert permission_warning("승인해주시면 변경사항을 적용하겠습니다") is not None
+    assert permission_warning("Requires approval to proceed") is not None
+    # 정상 완료 응답에는 경고가 없다
+    assert permission_warning("실 계획 3건을 480분으로 설정했습니다.") is None
+    assert permission_warning("") is None
+
+
+def test_describe_permission_denials():
+    from core.ai_cli import describe_permission_denials
+
+    assert describe_permission_denials([]) is None
+    assert describe_permission_denials(None) is None
+    msg = describe_permission_denials(
+        [{"tool_name": "Bash", "tool_input": {"command": "git status"}}]
+    )
+    assert "git status" in msg
+
+
+def test_format_stream_event_result_appends_denial_warning():
+    import json
+
+    from core.ai_cli import format_stream_event
+
+    line = json.dumps({
+        "type": "result", "subtype": "success",
+        "result": "승인해주시면 적용하겠습니다",
+        "permission_denials": [],
+    })
+    out = format_stream_event(PROVIDER_CLAUDE, line)
+    assert "AI 응답" in out
+    assert "승인" in out and "실행되지 않았을" in out
+
+
 def test_build_run_command_codex_exec():
     cmd = build_run_command(PROVIDER_CODEX, "python workctl.py")
     assert cmd[0] == "codex"
