@@ -384,6 +384,15 @@ class AppController:
                 else:
                     self._recog.set(date, rng)
 
+        def apply_vacation(vacation) -> None:
+            for date in dates:
+                if vacation is None:
+                    self._vacations.clear(date)
+                else:
+                    self._vacations.set(date, vacation)
+                # 휴가 변경은 저장된 근무초에 영향 → 즉시 재계산
+                self._service.recompute_work(date)
+
         applied = open_bulk_plan_dialog(
             self._window,
             "선택 일자 계획 일괄 수정",
@@ -391,6 +400,7 @@ class AppController:
             config.get_default_daily_minutes(),
             apply,
             self._validate_bulk_range(dates),
+            on_apply_vacation=apply_vacation,
         )
         if applied:
             self._handle_cancel_plan_edit()  # 적용 완료 → 모드 종료
