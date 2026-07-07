@@ -28,13 +28,14 @@ def open_bulk_plan_dialog(
     """
     dlg = QDialog(parent)
     dlg.setWindowTitle(title)
-    dlg.setMinimumWidth(theme.BULK_PLAN_DIALOG_MIN_WIDTH)
     layout = QVBoxLayout(dlg)
 
     info = QLabel(info_text)  # HTML 포함 가능 (보조 문구 색상 등)
     layout.addWidget(info)
 
     form = QFormLayout()
+    # macOS 기본 정책은 입력란을 sizeHint 로 고정 — 폭을 따라 늘어나게 함
+    form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
     plan_edit = QLineEdit()
     plan_edit.setPlaceholderText(f"분 단위 (비우면 기본 {default_minutes}분으로 초기화)")
     recog_start_edit = QLineEdit()
@@ -86,4 +87,8 @@ def open_bulk_plan_dialog(
         dlg.accept()
 
     save.clicked.connect(handle_save)
+    # 자연 크기 + 소폭 여유 (입력란은 성장 정책으로 함께 늘어남)
+    dlg.setMinimumWidth(
+        dlg.sizeHint().width() + theme.BULK_PLAN_DIALOG_EXTRA_W_PX
+    )
     return dlg.exec() == QDialog.Accepted
