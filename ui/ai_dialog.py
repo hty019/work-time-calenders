@@ -11,7 +11,7 @@ from typing import Callable
 
 from PySide6.QtCore import QProcess, Qt, QTimer
 from PySide6.QtGui import (
-    QColor, QKeySequence, QLinearGradient, QPainter, QShortcut,
+    QColor, QKeySequence, QLinearGradient, QPainter, QShortcut, QTextCursor,
 )
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QHBoxLayout, QLabel, QMessageBox, QPushButton,
@@ -261,6 +261,8 @@ def open_ai_dialog(
         pending = {"buffer": ""}  # 줄 단위 파싱용 미완성 라인 버퍼
 
         def _append_line(text: str) -> None:
+            # 사용자가 로그를 클릭해 커서가 옮겨져도 항상 문서 끝에 덧붙인다
+            log_view.moveCursor(QTextCursor.End)
             log_view.insertPlainText(text + "\n")
             log_view.verticalScrollBar().setValue(
                 log_view.verticalScrollBar().maximum()
