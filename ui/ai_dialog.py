@@ -187,7 +187,22 @@ def open_ai_dialog(
             )
         )
 
+    awaiting_reset = False  # 실행 완료 후 [재입력] 대기 상태
+
+    def _reset_for_new_input() -> None:
+        nonlocal awaiting_reset
+        awaiting_reset = False
+        run_btn.setText("실행")
+        instruction_edit.setReadOnly(False)
+        instruction_edit.clear()
+        log_view.clear()
+        instruction_edit.setFocus()
+
     def handle_run() -> None:
+        nonlocal awaiting_reset
+        if awaiting_reset:
+            _reset_for_new_input()
+            return
         instruction = instruction_edit.toPlainText().strip()
         if not instruction:
             QMessageBox.warning(dlg, "입력 오류", "지시할 내용을 입력하세요.")
@@ -212,10 +227,15 @@ def open_ai_dialog(
             log_view.insertPlainText(text)
 
         def _finished(_code, _status) -> None:
+            nonlocal awaiting_reset
             _append_output()
             done = "완료" if proc.exitCode() == 0 else f"실패 (exit {proc.exitCode()})"
             log_view.insertPlainText(f"\n--- {done} ---\n")
             progress.stop()
+            # 결과 검토 상태로 전환 — [재입력] 을 눌러야 새 지시 입력 가능
+            awaiting_reset = True
+            instruction_edit.setReadOnly(True)
+            run_btn.setText("재입력")
             run_btn.setEnabled(True)
             on_applied()  # 변경사항을 캘린더에 반영
 
