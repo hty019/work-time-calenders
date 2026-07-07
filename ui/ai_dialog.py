@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import os
 import sys
 from typing import Callable
 
@@ -105,7 +106,13 @@ def open_ai_dialog(
     dlg.setMinimumWidth(theme.AI_DIALOG_MIN_WIDTH)
     layout = QVBoxLayout(dlg)
 
-    workctl_cmd = f"{sys.executable} {workdir}/workctl.py"
+    # 허용 패턴(접두사 일치)과 AI 가 실행할 명령이 정확히 같아지도록
+    # 작업 폴더 기준 상대 경로의 짧은 표준형을 쓴다
+    python_cmd = os.path.relpath(sys.executable, workdir)
+    if python_cmd.startswith(".."):
+        python_cmd = sys.executable  # venv 밖 실행 등 예외 시 절대 경로
+    workctl_cmd = f"{python_cmd} workctl.py"
+    running_procs: list[QProcess] = []
 
     provider_row = QHBoxLayout()
     provider_combo = QComboBox()
@@ -265,7 +272,18 @@ def open_ai_dialog(
                 run_btn.setVisible(True),
             )
         )
+        running_procs.append(proc)
         proc.start(cmd[0], cmd[1:])
+        # 파이프 입력 대기(경고·지연)를 막기 위해 stdin 을 즉시 닫는다
+        proc.closeWriteChannel()
+
+    def _kill_running() -> None:
+        """다이얼로그를 닫으면 실행 중인 AI 프로세스도 함께 종료한다."""
+        for proc in running_procs:
+            if proc.state() != QProcess.NotRunning:
+                proc.kill()
+
+    dlg.finished.connect(lambda _result: _kill_running())
 
     check_btn.clicked.connect(handle_check)
     run_btn.clicked.connect(handle_run)

@@ -46,6 +46,9 @@ def build_prompt(instruction: str, today: str, workctl_cmd: str) -> str:
   {workctl_cmd} clear-memo DATE
 
 규칙:
+- 명령은 현재 작업 폴더에서 위 형식 그대로 실행하세요. cd·파이프·
+  리다이렉션·셸 스크립트 조합이나 다른 프로그램 사용은 허용되지 않아
+  거부됩니다.
 - 출퇴근 시각(실적)은 절대 수정하지 마세요. 위 명령 외 다른 방법으로
   데이터 파일(DB)에 접근하지 마세요.
 - 수정 전 show 로 현재 값을 확인하고, 명령이 오류를 반환하면 지시를
