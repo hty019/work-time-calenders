@@ -102,8 +102,12 @@ def _resolve_target_dates(
             d for d in dates
             if datetime.date.fromisoformat(d).weekday() == args.weekday
         ]
+    if args.skip_holidays and args.only_holidays:
+        return None, "오류: --skip-holidays 와 --only-holidays 는 함께 쓸 수 없습니다."
     if args.skip_holidays:
         dates = [d for d in dates if d not in svc.holidays_for(d)]
+    if args.only_holidays:
+        dates = [d for d in dates if d in svc.holidays_for(d)]
     if not dates:
         return None, "오류: 조건에 맞는 날짜가 없습니다."
     return dates, None
@@ -131,6 +135,7 @@ def _day_snapshot(svc: _Services, date: str) -> dict:
     rng = svc.recog.get(date)
     vacation = svc.vacations.get(date)
     return {
+        "holiday": svc.holidays_for(date).get(date),
         "clock_in": rec.clock_in if rec else None,
         "clock_out": rec.clock_out if rec else None,
         "work_seconds": rec.work_seconds if rec else None,
@@ -298,6 +303,9 @@ def _add_edit_target_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--skip-holidays", action="store_true", help="공휴일 제외"
+    )
+    parser.add_argument(
+        "--only-holidays", action="store_true", help="공휴일만 대상"
     )
 
 

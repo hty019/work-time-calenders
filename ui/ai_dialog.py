@@ -25,6 +25,7 @@ from core.ai_cli import (
     PROVIDER_LABELS,
     build_prompt,
     build_run_command,
+    format_stream_event,
     version_command,
 )
 from ui import theme
@@ -146,10 +147,10 @@ def open_ai_dialog(
     progress = _RainbowLoadingBar()
     layout.addWidget(progress)
 
+    # 실행 중에는 진행 로그(실행 명령·중간 텍스트)를 스트리밍 표시하고,
+    # 완료 시 AI 최종 응답을 하단에 덧붙인다. 넘치면 내부 스크롤.
     log_view = QTextEdit()
     log_view.setReadOnly(True)
-    # AI CLI 는 결과를 마지막에 한 번에 출력하므로, 로그 영역은
-    # 실행 중에는 숨기고 완료 후에만 노출한다
     log_view.setVisible(False)
     layout.addWidget(log_view, stretch=1)
 
@@ -238,27 +239,44 @@ def open_ai_dialog(
         prompt = build_prompt(
             instruction, timeutil.today_str(timeutil.now()), workctl_cmd
         )
-        cmd = build_run_command(_provider(), prompt, workctl_cmd)
+        provider = _provider()
+        cmd = build_run_command(provider, prompt, workctl_cmd)
         instruction_edit.setReadOnly(True)  # 실행 중 재입력 방지
         progress.start()
         log_view.clear()
+        _show_log_area()  # 진행 로그를 실시간으로 보여준다
 
         proc = QProcess(dlg)
         proc.setWorkingDirectory(workdir)
         proc.setProcessChannelMode(QProcess.MergedChannels)
+        pending = {"buffer": ""}  # 줄 단위 파싱용 미완성 라인 버퍼
+
+        def _append_line(text: str) -> None:
+            log_view.insertPlainText(text + "\n")
+            log_view.verticalScrollBar().setValue(
+                log_view.verticalScrollBar().maximum()
+            )
 
         def _append_output() -> None:
-            text = bytes(proc.readAllStandardOutput()).decode(errors="replace")
-            log_view.insertPlainText(text)
+            chunk = bytes(proc.readAllStandardOutput()).decode(errors="replace")
+            pending["buffer"] += chunk
+            *lines, pending["buffer"] = pending["buffer"].split("\n")
+            for line in lines:
+                text = format_stream_event(provider, line)
+                if text is not None:
+                    _append_line(text)
 
         def _finished(_code, _status) -> None:
             _append_output()
+            leftover = format_stream_event(provider, pending["buffer"])
+            if leftover is not None:
+                _append_line(leftover)
+            pending["buffer"] = ""
             done = "완료" if proc.exitCode() == 0 else f"실패 (exit {proc.exitCode()})"
-            log_view.insertPlainText(
-                f"\n--- {done} ---\n재입력 시, 'r'을 눌러 입력모드로 돌아가세요.\n"
+            _append_line(
+                f"\n--- {done} ---\n재입력 시, 'r'을 눌러 입력모드로 돌아가세요."
             )
             progress.stop()
-            _show_log_area()  # 완료 후에만 로그 노출
             # 결과 검토 상태 — 'r'/'ㄱ' 로 입력모드 복귀
             _set_reset_enabled(True)
             on_applied()  # 변경사항을 캘린더에 반영
@@ -267,11 +285,10 @@ def open_ai_dialog(
         proc.finished.connect(_finished)
         proc.errorOccurred.connect(
             lambda _e: (
-                log_view.insertPlainText(
-                    "\nCLI 실행 실패 — [연동 확인] 으로 설치 상태를 점검하세요.\n"
+                _append_line(
+                    "\nCLI 실행 실패 — [연동 확인] 으로 설치 상태를 점검하세요."
                 ),
                 progress.stop(),
-                _show_log_area(),
                 instruction_edit.setReadOnly(False),
             )
         )

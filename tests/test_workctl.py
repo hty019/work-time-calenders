@@ -106,3 +106,31 @@ def test_single_date_with_range_is_rejected(workctl):
         "--to", "2026-07-31",
     ])
     assert rc != 0
+
+
+def test_show_includes_holiday_name(workctl, capsys):
+    assert _show(workctl, capsys, "2026-05-05")["holiday"] == "어린이날"
+    assert _show(workctl, capsys, "2026-05-04")["holiday"] is None
+
+
+def test_clear_plan_only_holidays(workctl, capsys):
+    workctl.main([
+        "set-plan", "--from", "2026-05-04", "--to", "2026-05-06", "600",
+    ])
+    capsys.readouterr()
+    assert workctl.main([
+        "clear-plan", "--from", "2026-05-04", "--to", "2026-05-06",
+        "--only-holidays",
+    ]) == 0
+    capsys.readouterr()
+    assert _show(workctl, capsys, "2026-05-04")["plan_override"] == 600
+    assert _show(workctl, capsys, "2026-05-05")["plan_override"] is None
+    assert _show(workctl, capsys, "2026-05-06")["plan_override"] == 600
+
+
+def test_skip_and_only_holidays_are_mutually_exclusive(workctl):
+    rc = workctl.main([
+        "clear-plan", "--from", "2026-05-01", "--to", "2026-05-31",
+        "--skip-holidays", "--only-holidays",
+    ])
+    assert rc != 0

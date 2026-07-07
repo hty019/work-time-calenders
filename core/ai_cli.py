@@ -1,6 +1,8 @@
 """로컬 AI CLI(Claude Code·Codex) 연동 — 명령·프롬프트 구성 (Qt 비의존)."""
 from __future__ import annotations
 
+import json
+
 PROVIDER_CLAUDE = "claude"
 PROVIDER_CODEX = "codex"
 
@@ -46,7 +48,10 @@ def build_prompt(instruction: str, today: str, workctl_cmd: str) -> str:
   {workctl_cmd} clear-memo DATE
 
 모든 편집 명령은 단일 DATE 대신 범위 옵션을 지원합니다:
-  --from DATE --to DATE [--weekday 월|화|수|목|금|토|일] [--skip-holidays]
+  --from DATE --to DATE [--weekday 월|화|수|목|금|토|일]
+  [--skip-holidays | --only-holidays]
+공휴일 여부는 show 출력의 holiday 필드(공휴일 이름 또는 null)로 확인할
+수 있고, 공휴일 대상/제외 작업은 위 필터 옵션으로 처리하세요.
 예) 올해 모든 월요일(공휴일 제외) 실 계획 12시간:
   {workctl_cmd} set-plan --from 2026-01-01 --to 2026-12-31 --weekday 월 --skip-holidays 720
 
@@ -70,10 +75,12 @@ def build_run_command(
 ) -> list[str]:
     """제공자별 헤드리스 실행 명령을 구성한다."""
     if provider == PROVIDER_CLAUDE:
-        # workctl 호출만 자동 허용 — 그 외 도구는 헤드리스에서 거부됨
+        # workctl 호출만 자동 허용 — 그 외 도구는 헤드리스에서 거부됨.
+        # stream-json 으로 진행 상황(도구 실행 등)을 실시간 수신한다.
         return [
             "claude", "-p", prompt,
             "--allowedTools", f"Bash({workctl_cmd}:*)",
+            "--output-format", "stream-json", "--verbose",
         ]
     if provider == PROVIDER_CODEX:
         # DB 가 홈 디렉터리(작업 폴더 밖)에 있어 샌드박스 완화가 필요
@@ -81,3 +88,45 @@ def build_run_command(
             "codex", "exec", "--sandbox", "danger-full-access", prompt,
         ]
     raise ValueError(f"알 수 없는 AI 제공자: {provider!r}")
+
+
+RESULT_HEADER = "=== AI 응답 ==="
+
+
+def _format_claude_event(event: dict) -> str | None:
+    """stream-json 이벤트를 사용자용 진행 로그 한 줄로 변환."""
+    kind = event.get("type")
+    if kind == "assistant":
+        lines = []
+        for block in event.get("message", {}).get("content", []):
+            if block.get("type") == "text" and block.get("text", "").strip():
+                lines.append(block["text"].strip())
+            elif block.get("type") == "tool_use":
+                command = block.get("input", {}).get("command")
+                lines.append(
+                    f"$ {command}" if command else f"[{block.get('name')}]"
+                )
+        return "\n".join(lines) or None
+    if kind == "result":
+        result = event.get("result", "")
+        return f"\n{RESULT_HEADER}\n{result}"
+    # system(init)·user(tool_result) 등은 진행 로그로 노출하지 않음
+    return None
+
+
+def format_stream_event(provider: str, line: str) -> str | None:
+    """CLI 출력 한 줄을 진행 로그 문자열로 변환. 숨길 라인은 None.
+
+    claude 는 stream-json 라인을 해석하고, JSON 이 아닌 라인(경고 등)과
+    codex 출력은 그대로 통과시킨다.
+    """
+    line = line.rstrip()
+    if not line:
+        return None
+    if provider != PROVIDER_CLAUDE:
+        return line
+    try:
+        event = json.loads(line)
+    except json.JSONDecodeError:
+        return line
+    return _format_claude_event(event)

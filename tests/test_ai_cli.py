@@ -35,3 +35,57 @@ def test_build_prompt_contains_context_and_rules():
     assert "수요일 계획 6시간으로" in prompt
     assert "python workctl.py" in prompt
     assert "출퇴근" in prompt  # 출퇴근 수정 금지 규칙 명시
+
+
+def test_format_stream_event_claude_tool_use():
+    import json
+    from core.ai_cli import format_stream_event
+
+    line = json.dumps({
+        "type": "assistant",
+        "message": {"content": [{
+            "type": "tool_use", "name": "Bash",
+            "input": {"command": "python workctl.py show 2026-01-01"},
+        }]},
+    })
+    out = format_stream_event(PROVIDER_CLAUDE, line)
+    assert out.startswith("$ ")
+    assert "python workctl.py show" in out
+
+
+def test_format_stream_event_claude_text_and_result():
+    import json
+    from core.ai_cli import format_stream_event
+
+    text_line = json.dumps({
+        "type": "assistant",
+        "message": {"content": [{"type": "text", "text": "확인 중"}]},
+    })
+    assert "확인 중" in format_stream_event(PROVIDER_CLAUDE, text_line)
+    result_line = json.dumps(
+        {"type": "result", "subtype": "success", "result": "3일 정리 완료"}
+    )
+    out = format_stream_event(PROVIDER_CLAUDE, result_line)
+    assert "AI 응답" in out
+    assert "3일 정리 완료" in out
+
+
+def test_format_stream_event_skips_tool_results_and_empty():
+    import json
+    from core.ai_cli import format_stream_event
+
+    tool_result = json.dumps({
+        "type": "user",
+        "message": {"content": [{"type": "tool_result", "content": "ok"}]},
+    })
+    assert format_stream_event(PROVIDER_CLAUDE, tool_result) is None
+    assert format_stream_event(PROVIDER_CLAUDE, "") is None
+
+
+def test_format_stream_event_passthrough():
+    from core.ai_cli import format_stream_event
+
+    # codex 는 사람이 읽는 로그를 그대로 출력
+    assert format_stream_event(PROVIDER_CODEX, "working...") == "working..."
+    # claude 라도 JSON 이 아닌 라인(경고 등)은 그대로 노출
+    assert format_stream_event(PROVIDER_CLAUDE, "Warning: x") == "Warning: x"
