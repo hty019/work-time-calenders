@@ -61,10 +61,10 @@ BULK_PLAN_DIALOG_EXTRA_W_PX = 10
 HELP_DIALOG_MIN_WIDTH = 560
 HELP_DIALOG_MIN_HEIGHT = 430
 
-# AI 연동 다이얼로그 최소 크기 (실행 로그 가독성 확보)
+# AI 연동 다이얼로그
 AI_DIALOG_MIN_WIDTH = 600
-AI_DIALOG_MIN_HEIGHT = 460
 AI_INSTRUCTION_HEIGHT = 64  # 지시문 입력 박스 높이
+AI_LOG_MAX_LINES = 8        # 로그 영역 최대 표시 줄 수 (넘치면 스크롤)
 AI_LOADING_BAR_H_PX = 6     # 로딩 바 높이 (STATUS 진행률 바와 동일한 얇기)
 AI_LOADING_TICK_MS = 16     # 로딩 바 프레임 간격 (~60fps)
 AI_LOADING_HUE_STEP = 2     # 프레임당 색상(hue) 이동량 — 클수록 빠르게 흐름

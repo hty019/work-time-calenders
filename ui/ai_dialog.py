@@ -148,11 +148,18 @@ def open_ai_dialog(
     layout.addWidget(progress)
 
     # 실행 중에는 진행 로그(실행 명령·중간 텍스트)를 스트리밍 표시하고,
-    # 완료 시 AI 최종 응답을 하단에 덧붙인다. 넘치면 내부 스크롤.
+    # 완료 시 AI 최종 응답을 하단에 덧붙인다. 최대 N줄 높이로 제한하고
+    # 넘치는 내용은 내부 스크롤로 확인한다.
     log_view = QTextEdit()
     log_view.setReadOnly(True)
     log_view.setVisible(False)
-    layout.addWidget(log_view, stretch=1)
+    line_height = log_view.fontMetrics().lineSpacing()
+    log_view.setFixedHeight(
+        line_height * theme.AI_LOG_MAX_LINES
+        + int(log_view.document().documentMargin()) * 2
+        + log_view.frameWidth() * 2
+    )
+    layout.addWidget(log_view)
 
     buttons = QHBoxLayout()
     buttons.addWidget(close_btn)
@@ -161,7 +168,9 @@ def open_ai_dialog(
     def _show_log_area() -> None:
         if not log_view.isVisible():
             log_view.setVisible(True)
-            dlg.resize(dlg.width(), theme.AI_DIALOG_MIN_HEIGHT)
+            QTimer.singleShot(
+                0, lambda: dlg.resize(dlg.width(), dlg.sizeHint().height())
+            )
 
     def _provider() -> str:
         return _PROVIDER_KEYS[provider_combo.currentIndex()]
