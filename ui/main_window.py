@@ -29,7 +29,7 @@ _VACATION_DEFAULT_LABEL = "휴가 관리"
 class MainWindowCallbacks:
     on_clock_out: Callable[[], None]
     on_cancel_clock_out: Callable[[], None]
-    on_select_day: Callable[[str, bool], None]  # (날짜, Cmd 다중 선택 여부)
+    on_select_day: Callable[[str, str], None]  # (날짜, 선택 모드)
     on_edit_day: Callable[[str], None]
     on_edit_weekday: Callable[[int], None]
     on_clear_selection: Callable[[], None]

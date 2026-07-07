@@ -1,6 +1,7 @@
 """Qt 앱 조립·모드 전환·주기 갱신 컨트롤러."""
 from __future__ import annotations
 
+import datetime
 import sys
 
 from PySide6.QtCore import QTimer
@@ -23,6 +24,7 @@ from core.storage import Storage
 from core.vacation import Vacation, VacationService, YearLeaveSummary
 from ui import theme
 from ui.api_key_dialog import open_api_key_dialog
+from ui.calendar_widget import SELECT_RANGE, SELECT_SINGLE, SELECT_TOGGLE
 from ui.day_dialog import open_day_dialog
 from ui.main_window import MainWindow, MainWindowCallbacks
 from ui.status_panel import (
@@ -222,13 +224,15 @@ class AppController:
         rec = self._storage.get(date)
         return rec is not None and rec.clock_out is not None
 
-    def _handle_select_day(self, date: str, multi: bool = False) -> None:
+    def _handle_select_day(self, date: str, mode: str = SELECT_SINGLE) -> None:
         """셀 클릭 = 선택 (STATUS 는 마지막 선택 일자 표시).
 
-        Cmd+클릭(multi)은 다중 선택 토글로 동작한다.
+        Cmd+클릭은 다중 선택 토글, Shift+클릭은 연속 범위 선택.
         """
-        if multi:
+        if mode == SELECT_TOGGLE:
             self._toggle_multi_date(date)
+        elif mode == SELECT_RANGE:
+            self._select_range_to(date)
         else:
             self._multi_dates = []
             self._selected_date = date
@@ -253,6 +257,18 @@ class AppController:
         if dates:
             self._selected_date = dates[-1]
         # 1일 이하로 줄면 단일 선택으로 복귀
+        self._multi_dates = dates if len(dates) >= 2 else []
+
+    def _select_range_to(self, date: str) -> None:
+        """Shift+클릭: 마지막 선택 일자부터 클릭 일자까지 연속 선택.
+
+        기존 다중 선택에 범위를 합치고, 퇴근 완료일은 제외한다.
+        """
+        dates = list(self._multi_dates)
+        for d in _date_range(self._selected_date, date):
+            if d not in dates and not self._is_clocked_out(d):
+                dates.append(d)
+        self._selected_date = date  # STATUS 는 마지막 클릭 일자 표시
         self._multi_dates = dates if len(dates) >= 2 else []
 
     def _handle_clear_selection(self) -> None:
@@ -463,6 +479,18 @@ class AppController:
         self._show_mode(config.get_last_mode())
         self._timer.start(self._ms_until_next_minute())
         self._app.exec()
+
+
+def _date_range(start: str, end: str) -> list[str]:
+    """start 부터 end 까지(양 끝 포함) ISO 날짜 목록. 역방향도 지원."""
+    d1 = datetime.date.fromisoformat(start)
+    d2 = datetime.date.fromisoformat(end)
+    step = 1 if d2 >= d1 else -1
+    days = abs((d2 - d1).days)
+    return [
+        (d1 + datetime.timedelta(days=i * step)).isoformat()
+        for i in range(days + 1)
+    ]
 
 
 def _prev_month(year: int, month: int) -> tuple[int, int]:

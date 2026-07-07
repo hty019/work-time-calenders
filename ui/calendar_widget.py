@@ -20,6 +20,19 @@ _SAT_COL = 5
 _SATURDAY = 5  # date.weekday(): 월=0 ~ 일=6
 _MEMO_ICON = "📝"  # 메모가 있는 날짜 표시
 
+# 셀 클릭 선택 모드 (on_day_click 두 번째 인자)
+SELECT_SINGLE = "single"  # 일반 클릭: 단일 선택
+SELECT_TOGGLE = "toggle"  # Cmd+클릭: 다중 선택 토글
+SELECT_RANGE = "range"    # Shift+클릭: 기존 선택부터 연속 범위 선택
+
+
+def _select_mode(modifiers) -> str:
+    if modifiers & Qt.ShiftModifier:
+        return SELECT_RANGE
+    if modifiers & Qt.ControlModifier:  # macOS 에서 Cmd
+        return SELECT_TOGGLE
+    return SELECT_SINGLE
+
 
 def _is_weekend(date: str | None) -> bool:
     if date is None:
@@ -78,7 +91,7 @@ class _DayCellWidget(QFrame):
     def __init__(
         self,
         cell: DayCell,
-        on_click: Callable[[str, bool], None],
+        on_click: Callable[[str, str], None],  # (날짜, 선택 모드)
         on_double_click: Callable[[str], None],
         is_selected: bool = False,
         is_dimmed: bool = False,
@@ -266,16 +279,15 @@ class _DayCellWidget(QFrame):
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt override)
         if self._date is None:
             return
-        # macOS 에서 Cmd 는 Qt.ControlModifier 로 매핑된다
-        multi = bool(event.modifiers() & Qt.ControlModifier)
-        self._on_click(self._date, multi)
+        self._on_click(self._date, _select_mode(event.modifiers()))
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 (Qt override)
         if self._date is None:
             return
-        if event.modifiers() & Qt.ControlModifier:
-            # Cmd+연속 클릭은 두 번째 토글로 처리 (수정 다이얼로그 방지)
-            self._on_click(self._date, True)
+        mode = _select_mode(event.modifiers())
+        if mode != SELECT_SINGLE:
+            # 수식키를 누른 연속 클릭은 선택 조작으로 처리 (다이얼로그 방지)
+            self._on_click(self._date, mode)
             return
         self._on_double_click(self._date)
 
@@ -283,7 +295,7 @@ class _DayCellWidget(QFrame):
 class CalendarWidget(QWidget):
     def __init__(
         self,
-        on_day_click: Callable[[str, bool], None],
+        on_day_click: Callable[[str, str], None],  # (날짜, 선택 모드)
         on_weekday_click: Callable[[int], None],
         on_day_double_click: Callable[[str], None],
     ) -> None:
