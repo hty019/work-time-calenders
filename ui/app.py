@@ -25,9 +25,19 @@ from ui import theme
 from ui.api_key_dialog import open_api_key_dialog
 from ui.day_dialog import open_day_dialog
 from ui.main_window import MainWindow, MainWindowCallbacks
+from ui.status_panel import (
+    clock_in_line,
+    expected_line,
+    plan_range_line,
+    remaining_line,
+    state_display,
+    state_rich_text,
+    stay_line,
+    vacation_line,
+)
 from ui.vacation_dialog import open_vacation_dialog
 from ui.weekday_dialog import open_weekday_plan_dialog
-from ui.widget_window import WidgetWindow, WidgetCallbacks
+from ui.widget_window import WidgetWindow, WidgetCallbacks, TodayInfo
 
 _MINUTE_SECONDS = 60
 _SYNC_BUFFER_MS = 100
@@ -116,13 +126,45 @@ class AppController:
     def _render_widget(self, summary, status) -> None:
         in_prog = self._service.today_in_progress_seconds()
         header = f"오늘 {format_hms(in_prog)}" if in_prog is not None else "오늘 -"
-        if summary.expected_clock_out is None:
-            expected = "예상 퇴근 -"
-        else:
-            expected = f"예상 퇴근 {summary.expected_clock_out.strftime('%H:%M')}"
-            if summary.expected_exceeds_range:
-                expected += " ⚠"
-        self._widget.render(status, header, expected)
+        # STATUS 패널의 당일 라인과 동일한 구성 (전체화면에서 다른 달을
+        # 보고 있어도 여기서는 항상 오늘 기준 detail 을 사용)
+        now = timeutil.now()
+        today = timeutil.today_str(now)
+        holidays = self._holidays.get_holidays(now.year, now.month)
+        detail = build_day_detail(
+            self._storage, self._plans, holidays, today, today
+        )
+        expected_hhmm = (
+            summary.expected_clock_out.strftime("%H:%M")
+            if summary.expected_clock_out is not None
+            else None
+        )
+        recog_end_passed = (
+            summary.today_recog_end_hm is not None and summary.recog_end_passed
+        )
+        reached = (
+            summary.remaining_seconds is not None
+            and summary.remaining_seconds <= 0
+        )
+        state_text, state_key = state_display(
+            status,
+            recog_end_passed,
+            summary.expected_exceeds_range,
+            reached,
+            summary.today_clocked_out_early,
+        )
+        today_info = TodayInfo(
+            clock_in=clock_in_line(summary.today_clock_in_hm),
+            expected=expected_line(
+                expected_hhmm, summary.expected_basis_minutes
+            ),
+            plan_range=plan_range_line(detail),
+            stay=stay_line(summary.today_stay_seconds),
+            remaining=remaining_line(summary.remaining_seconds),
+            vacation=vacation_line(detail),
+            state_html=state_rich_text(state_text, state_key),
+        )
+        self._widget.render(status, header, today_info)
 
     def _ms_until_next_minute(self) -> int:
         now = timeutil.now()

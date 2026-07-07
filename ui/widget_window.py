@@ -22,6 +22,7 @@ _STATUS_COLORS = {
 _MARGIN_H = 12   # 좌우 여백(px)
 _MARGIN_V = 10   # 상하 여백(px)
 _BORDER_RADIUS = 8  # 모서리 둥글기(px)
+_SUB_FONT_PX = 12  # 계획 시간 보조 라인 폰트 (STATUS 패널과 동일)
 
 
 @dataclass
@@ -30,6 +31,18 @@ class WidgetCallbacks:
     on_cancel_clock_out: Callable[[], None]
     on_switch_mode: Callable[[], None]
     on_close: Callable[[], None]
+
+
+@dataclass
+class TodayInfo:
+    """STATUS 패널의 당일 라인들과 동일한 구성 (텍스트는 호출측에서 생성)."""
+    clock_in: str
+    expected: str
+    plan_range: str
+    stay: str
+    remaining: str
+    vacation: str | None  # 휴가 없으면 None → 라인 숨김
+    state_html: str       # 상태 라인 (색상 포함 rich text)
 
 
 class WidgetWindow(QWidget):
@@ -61,20 +74,45 @@ class WidgetWindow(QWidget):
         layout.addLayout(top)
 
         self._header = QLabel()
-        self._expected = QLabel()
-        self._expected.setStyleSheet(f"color:{theme.FG_PLANNED};")
         layout.addWidget(self._header)
-        layout.addWidget(self._expected)
+
+        # STATUS 패널과 동일한 당일 라인:
+        # 출근 → 퇴근 예정 → 계획 시간 → 체류 → 남은 → 휴가 → 상태
+        self._clock_in = QLabel()
+        self._expected = QLabel()
+        self._plan_range = QLabel()
+        self._plan_range.setStyleSheet(
+            f"color:{theme.FG_MUTED}; font-size:{_SUB_FONT_PX}px;"
+        )
+        self._stay = QLabel()
+        self._remaining = QLabel()
+        self._vacation = QLabel()
+        self._vacation.setStyleSheet(f"color:{theme.FG_VACATION};")
+        self._vacation.setVisible(False)
+        self._state = QLabel()
+        for w in (self._clock_in, self._expected, self._plan_range,
+                  self._stay, self._remaining, self._vacation, self._state):
+            layout.addWidget(w)
 
         self._clock_btn = QPushButton("퇴근")
         self._clock_btn.clicked.connect(lambda: self._cb.on_clock_out())
         layout.addWidget(self._clock_btn)
 
-    def render(self, status: WorkStatus, header_text: str, expected_text: str) -> None:
+    def render(
+        self, status: WorkStatus, header_text: str, today: TodayInfo
+    ) -> None:
         self._status.setText(f"{_STATUS_DOT} {status.value}")
         self._status.setStyleSheet(f"color:{_STATUS_COLORS[status]};")
         self._header.setText(header_text)
-        self._expected.setText(expected_text)
+        self._clock_in.setText(today.clock_in)
+        self._expected.setText(today.expected)
+        self._plan_range.setText(today.plan_range)
+        self._stay.setText(today.stay)
+        self._remaining.setText(today.remaining)
+        self._vacation.setText(today.vacation or "")
+        self._vacation.setVisible(bool(today.vacation))
+        self._state.setText(today.state_html)
+        self.adjustSize()  # 휴가 라인 표시/숨김에 따라 높이 재계산
 
     # 드래그 이동 + 위치 저장
     def mousePressEvent(self, event) -> None:  # noqa: N802
