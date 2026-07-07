@@ -27,8 +27,6 @@ _SUB_FONT_PX = 12  # 계획 시간 보조 라인 폰트 (STATUS 패널과 동일
 
 @dataclass
 class WidgetCallbacks:
-    on_clock_out: Callable[[], None]
-    on_cancel_clock_out: Callable[[], None]
     on_switch_mode: Callable[[], None]
     on_close: Callable[[], None]
 
@@ -73,9 +71,6 @@ class WidgetWindow(QWidget):
         top.addWidget(close)
         layout.addLayout(top)
 
-        self._header = QLabel()
-        layout.addWidget(self._header)
-
         # STATUS 패널과 동일한 당일 라인:
         # 출근 → 퇴근 예정 → 계획 시간 → 체류 → 남은 → 휴가 → 상태
         self._clock_in = QLabel()
@@ -94,16 +89,9 @@ class WidgetWindow(QWidget):
                   self._stay, self._remaining, self._vacation, self._state):
             layout.addWidget(w)
 
-        self._clock_btn = QPushButton("퇴근")
-        self._clock_btn.clicked.connect(lambda: self._cb.on_clock_out())
-        layout.addWidget(self._clock_btn)
-
-    def render(
-        self, status: WorkStatus, header_text: str, today: TodayInfo
-    ) -> None:
+    def render(self, status: WorkStatus, today: TodayInfo) -> None:
         self._status.setText(f"{_STATUS_DOT} {status.value}")
         self._status.setStyleSheet(f"color:{_STATUS_COLORS[status]};")
-        self._header.setText(header_text)
         self._clock_in.setText(today.clock_in)
         self._expected.setText(today.expected)
         self._plan_range.setText(today.plan_range)

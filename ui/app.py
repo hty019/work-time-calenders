@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QApplication
 import config
 from core import timeutil
 from core.attendance import AttendanceService
-from core.calendar_model import build_month_grid, format_hms
+from core.calendar_model import build_month_grid
 from core.day_detail import build_day_detail
 from core.holidays import HolidayClient, verify_service_key
 from core.plan import PlanService, weekday_dates
@@ -85,8 +85,6 @@ class AppController:
         self._timer.timeout.connect(self._tick)
 
         self._widget = WidgetWindow(WidgetCallbacks(
-            on_clock_out=self._handle_clock_out,
-            on_cancel_clock_out=self._handle_cancel_clock_out,
             on_switch_mode=lambda: self._show_mode(config.MODE_FULL),
             on_close=self._app.quit,
         ))
@@ -124,8 +122,6 @@ class AppController:
         self._render_widget(summary, status)
 
     def _render_widget(self, summary, status) -> None:
-        in_prog = self._service.today_in_progress_seconds()
-        header = f"오늘 {format_hms(in_prog)}" if in_prog is not None else "오늘 -"
         # STATUS 패널의 당일 라인과 동일한 구성 (전체화면에서 다른 달을
         # 보고 있어도 여기서는 항상 오늘 기준 detail 을 사용)
         now = timeutil.now()
@@ -164,7 +160,7 @@ class AppController:
             vacation=vacation_line(detail),
             state_html=state_rich_text(state_text, state_key),
         )
-        self._widget.render(status, header, today_info)
+        self._widget.render(status, today_info)
 
     def _ms_until_next_minute(self) -> int:
         now = timeutil.now()
