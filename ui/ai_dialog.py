@@ -33,6 +33,7 @@ from core.ai_cli import (
     login_command,
     login_terminal_command,
     parse_auth_status,
+    to_shell_command,
     version_command,
 )
 from ui import theme
@@ -253,14 +254,15 @@ def open_ai_dialog(
                 login_btn.setVisible(False),
             )
         )
-        proc.start(version_command(provider)[0], version_command(provider)[1:])
+        vc = to_shell_command(version_command(provider))
+        proc.start(vc[0], vc[1:])
 
     def handle_check() -> None:
         """CLI 설치·로그인 상태 확인. 미로그인이면 [로그인] 버튼을 노출한다."""
         provider = _provider()
         proc = QProcess(dlg)
         proc.setProcessChannelMode(QProcess.MergedChannels)
-        args = auth_status_command(provider)
+        args = to_shell_command(auth_status_command(provider))
 
         def _done(_code, _status) -> None:
             out = bytes(proc.readAllStandardOutput()).decode(errors="replace")
@@ -344,8 +346,8 @@ def open_ai_dialog(
             instruction, timeutil.today_str(timeutil.now()), workctl_cmd
         )
         provider = _provider()
-        cmd = build_run_command(
-            provider, prompt, workctl_cmd, model=_current_model()
+        cmd = to_shell_command(
+            build_run_command(provider, workctl_cmd, model=_current_model())
         )
         instruction_edit.setReadOnly(True)  # 실행 중 재입력 방지
         progress.start()
@@ -402,7 +404,9 @@ def open_ai_dialog(
         )
         running_procs.append(proc)
         proc.start(cmd[0], cmd[1:])
-        # 파이프 입력 대기(경고·지연)를 막기 위해 stdin 을 즉시 닫는다
+        # 프롬프트는 stdin 으로 전달한다(명령 인용 문제 회피). 쓰고 나면
+        # 즉시 채널을 닫아 CLI 가 입력 종료(EOF)를 인식하게 한다.
+        proc.write(prompt.encode("utf-8"))
         proc.closeWriteChannel()
 
     def _kill_running() -> None:

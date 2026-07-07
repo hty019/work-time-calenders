@@ -10,6 +10,7 @@ from core.ai_cli import (
     login_command,
     login_terminal_command,
     parse_auth_status,
+    to_shell_command,
     version_command,
 )
 
@@ -20,20 +21,22 @@ def test_version_command_per_provider():
 
 
 def test_build_run_command_claude_headless_with_tool_allowlist():
-    cmd = build_run_command(PROVIDER_CLAUDE, "PROMPT", "python workctl.py")
+    cmd = build_run_command(PROVIDER_CLAUDE, "python workctl.py")
     assert cmd[0] == "claude"
     assert "-p" in cmd
-    assert "PROMPT" in cmd
+    # 프롬프트는 stdin 으로 전달하므로 명령 인자에 없어야 한다
+    assert not any("PROMPT" in part for part in cmd)
     # workctl 만 허용하는 Bash 패턴이 포함되어야 한다
     allow = cmd[cmd.index("--allowedTools") + 1]
     assert "python workctl.py" in allow
 
 
 def test_build_run_command_codex_exec():
-    cmd = build_run_command(PROVIDER_CODEX, "PROMPT", "python workctl.py")
+    cmd = build_run_command(PROVIDER_CODEX, "python workctl.py")
     assert cmd[0] == "codex"
     assert cmd[1] == "exec"
-    assert "PROMPT" in cmd
+    # '-' 로 프롬프트를 stdin 에서 읽는다
+    assert cmd[-1] == "-"
 
 
 def test_build_prompt_contains_context_and_rules():
@@ -99,21 +102,48 @@ def test_format_stream_event_passthrough():
 
 
 def test_build_run_command_with_model_override():
-    cmd = build_run_command(
-        PROVIDER_CLAUDE, "PROMPT", "python workctl.py", model="haiku"
-    )
+    cmd = build_run_command(PROVIDER_CLAUDE, "python workctl.py", model="haiku")
     assert cmd[cmd.index("--model") + 1] == "haiku"
     cmd = build_run_command(
-        PROVIDER_CODEX, "PROMPT", "python workctl.py", model="gpt-5.1-codex"
+        PROVIDER_CODEX, "python workctl.py", model="gpt-5.1-codex"
     )
     assert cmd[cmd.index("-m") + 1] == "gpt-5.1-codex"
 
 
 def test_build_run_command_default_model_omits_flag():
-    cmd = build_run_command(PROVIDER_CLAUDE, "PROMPT", "python workctl.py")
+    cmd = build_run_command(PROVIDER_CLAUDE, "python workctl.py")
     assert "--model" not in cmd
-    cmd = build_run_command(PROVIDER_CODEX, "PROMPT", "python workctl.py")
+    cmd = build_run_command(PROVIDER_CODEX, "python workctl.py")
     assert "-m" not in cmd
+
+
+def test_to_shell_command_wraps_npm_shim_on_windows():
+    which = lambda p: {  # noqa: E731
+        "codex": r"C:\Users\x\AppData\Roaming\npm\codex.CMD",
+        "claude": r"C:\Users\x\.local\bin\claude.EXE",
+    }.get(p)
+    # 네이티브 exe 는 그대로 실행
+    assert to_shell_command(
+        ["claude", "-p"], platform="win32", which=which
+    ) == ["claude", "-p"]
+    # .cmd shim 은 cmd /c 로 감싼다
+    assert to_shell_command(
+        ["codex", "exec"], platform="win32", which=which
+    ) == ["cmd", "/c", "codex", "exec"]
+
+
+def test_to_shell_command_passthrough_on_posix():
+    # 비-Windows 에서는 감싸지 않는다
+    assert to_shell_command(
+        ["codex", "exec"], platform="darwin", which=lambda p: None
+    ) == ["codex", "exec"]
+
+
+def test_to_shell_command_unresolved_wraps_on_windows():
+    # 미설치(해결 실패) 시에도 cmd /c 로 감싸 실행을 시도한다
+    assert to_shell_command(
+        ["codex"], platform="win32", which=lambda p: None
+    ) == ["cmd", "/c", "codex"]
 
 
 def test_auth_status_command_per_provider():

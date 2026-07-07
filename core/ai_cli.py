@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 
 PROVIDER_CLAUDE = "claude"
@@ -159,19 +160,21 @@ def build_prompt(instruction: str, today: str, workctl_cmd: str) -> str:
 
 def build_run_command(
     provider: str,
-    prompt: str,
     workctl_cmd: str,
     model: str | None = None,
 ) -> list[str]:
     """제공자별 헤드리스 실행 명령을 구성한다.
 
+    프롬프트는 명령 인자가 아니라 stdin 으로 전달한다. 프롬프트에 줄바꿈·
+    특수문자가 있어, Windows 에서 cmd /c 로 감싸 실행할 때 인용이 깨지는
+    문제를 피하기 위함이다(claude·codex 모두 stdin 프롬프트를 지원).
     model 이 None 이면 각 CLI 의 기본 설정 모델을 사용한다.
     """
     if provider == PROVIDER_CLAUDE:
         # workctl 호출만 자동 허용 — 그 외 도구는 헤드리스에서 거부됨.
         # stream-json 으로 진행 상황(도구 실행 등)을 실시간 수신한다.
         cmd = [
-            "claude", "-p", prompt,
+            "claude", "-p",
             "--allowedTools", f"Bash({workctl_cmd}:*)",
             "--output-format", "stream-json", "--verbose",
         ]
@@ -183,8 +186,27 @@ def build_run_command(
         cmd = ["codex", "exec", "--sandbox", "danger-full-access"]
         if model is not None:
             cmd += ["-m", model]
-        return cmd + [prompt]
+        return cmd + ["-"]  # '-' = 프롬프트를 stdin 에서 읽음
     raise ValueError(f"알 수 없는 AI 제공자: {provider!r}")
+
+
+def to_shell_command(
+    cmd: list[str], platform: str | None = None, which=None
+) -> list[str]:
+    """Windows 에서 npm 셸 스크립트(.cmd) CLI 를 QProcess 로 실행 가능하게 한다.
+
+    QProcess(CreateProcess)는 .cmd/.bat 를 직접 실행하지 못하므로 cmd /c 로
+    감싼다. 네이티브 exe(예: claude.exe)는 그대로 두고, 그 외(codex.cmd 등)는
+    감싼다. 비-Windows 에서는 원본을 그대로 반환한다.
+    """
+    plat = platform if platform is not None else sys.platform
+    if not cmd or not plat.startswith("win"):
+        return cmd
+    resolver = which if which is not None else shutil.which
+    resolved = resolver(cmd[0])
+    if resolved and resolved.lower().endswith(".exe"):
+        return cmd
+    return ["cmd", "/c", *cmd]
 
 
 RESULT_HEADER = "=== AI 응답 ==="
