@@ -45,7 +45,14 @@ def build_prompt(instruction: str, today: str, workctl_cmd: str) -> str:
   {workctl_cmd} set-memo DATE "TEXT"
   {workctl_cmd} clear-memo DATE
 
+모든 편집 명령은 단일 DATE 대신 범위 옵션을 지원합니다:
+  --from DATE --to DATE [--weekday 월|화|수|목|금|토|일] [--skip-holidays]
+예) 올해 모든 월요일(공휴일 제외) 실 계획 12시간:
+  {workctl_cmd} set-plan --from 2026-01-01 --to 2026-12-31 --weekday 월 --skip-holidays 720
+
 규칙:
+- 여러 날짜에 같은 값을 적용할 때는 반드시 범위 옵션 한 번으로
+  처리하세요. 날짜별로 반복 호출하지 마세요.
 - 명령은 현재 작업 폴더에서 위 형식 그대로 실행하세요. cd·파이프·
   리다이렉션·셸 스크립트 조합이나 다른 프로그램 사용은 허용되지 않아
   거부됩니다.
