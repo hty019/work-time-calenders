@@ -65,6 +65,27 @@ def _http_fetch(service_key: str, year: int, month: int) -> list[dict]:
     raise last_exc  # type: ignore[misc]
 
 
+def verify_service_key(
+    service_key: str,
+    year: int,
+    month: int,
+    fetcher: Callable[[str, int, int], list[dict]] | None = None,
+) -> tuple[bool, str]:
+    """인증키로 단건 조회를 수행해 (성공 여부, 안내 메시지) 를 반환.
+
+    잘못된 키는 게이트웨이가 200 + XML 오류 본문을 주는 경우가 많아
+    JSON 해석 실패(ValueError)를 키 오류 안내로 매핑한다.
+    """
+    fetcher = fetcher or _http_fetch
+    try:
+        items = fetcher(service_key, year, month)
+    except (ValueError, KeyError, TypeError):
+        return False, "응답을 해석할 수 없습니다 — 인증키(Decoding) 값을 확인하세요."
+    except requests.RequestException as exc:
+        return False, f"호출 실패: {exc}"
+    return True, f"정상 호출 확인 ({year}년 {month}월 공휴일 {len(items)}건)"
+
+
 class HolidayClient:
     def __init__(
         self,

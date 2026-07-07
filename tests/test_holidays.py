@@ -146,3 +146,31 @@ def test_save_cache_failure_does_not_raise(tmp_path):
     result = client.get_holidays(2026, 6)
     # 캐시 저장은 실패했지만 parsed holidays는 반환됨
     assert result == {"2026-06-06": "현충일"}
+
+
+def test_verify_service_key_success_reports_count():
+    ok, msg = holidays_mod.verify_service_key(
+        "KEY", 2026, 7,
+        fetcher=lambda k, y, m: [{"locdate": 20260815, "dateName": "광복절"}],
+    )
+    assert ok is True
+    assert "1건" in msg
+
+
+def test_verify_service_key_request_error_fails():
+    def fetcher(_k, _y, _m):
+        raise requests.HTTPError("401 Unauthorized")
+
+    ok, msg = holidays_mod.verify_service_key("KEY", 2026, 7, fetcher=fetcher)
+    assert ok is False
+    assert "401" in msg
+
+
+def test_verify_service_key_parse_error_mentions_key_check():
+    """잘못된 키로 XML 오류 응답이 오면 JSON 해석이 실패한다 — 키 확인 안내."""
+    def fetcher(_k, _y, _m):
+        raise ValueError("Expecting value")
+
+    ok, msg = holidays_mod.verify_service_key("KEY", 2026, 7, fetcher=fetcher)
+    assert ok is False
+    assert "인증키" in msg

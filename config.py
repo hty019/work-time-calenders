@@ -51,6 +51,12 @@ def get_service_key() -> str | None:
     return load_config().get("service_key")
 
 
+def set_service_key(key: str) -> None:
+    cfg = load_config()
+    cfg["service_key"] = key
+    save_config(cfg)
+
+
 def get_window_pos() -> tuple[int, int] | None:
     pos = load_config().get("window_pos")
     if isinstance(pos, list) and len(pos) == 2:

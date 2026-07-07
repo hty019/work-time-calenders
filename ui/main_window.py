@@ -40,6 +40,7 @@ class MainWindowCallbacks:
     on_manage_vacation: Callable[[], None]
     on_edit_selected: Callable[[], None]
     on_go_today: Callable[[], None]
+    on_register_api_key: Callable[[], None]
 
 
 class MainWindow(QMainWindow):
@@ -63,6 +64,11 @@ class MainWindow(QMainWindow):
         )
         switch = QAction("위젯 모드", self)
         switch.triggered.connect(lambda: self._cb.on_switch_mode())
+        # 공휴일 API 키 미등록 시에만 노출되는 등록 버튼
+        self._api_key_action = QAction("공휴일 API 키 등록", self)
+        self._api_key_action.triggered.connect(
+            lambda: self._cb.on_register_api_key()
+        )
         toolbar.addAction(prev)
         toolbar.addWidget(self._month_label)
         toolbar.addAction(nxt)
@@ -71,6 +77,7 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
         toolbar.addAction(self._vacation_action)
         toolbar.addSeparator()
+        toolbar.addAction(self._api_key_action)
         toolbar.addAction(switch)
 
         central = QWidget()
@@ -89,6 +96,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._calendar, stretch=1)
         layout.addWidget(self._status)
         self.setCentralWidget(central)
+
+    def set_api_key_registered(self, registered: bool) -> None:
+        """API 키가 등록되어 있으면 등록 버튼을 숨긴다."""
+        self._api_key_action.setVisible(not registered)
 
     def render(
         self,

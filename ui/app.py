@@ -11,7 +11,7 @@ from core import timeutil
 from core.attendance import AttendanceService
 from core.calendar_model import build_month_grid, format_hms
 from core.day_detail import build_day_detail
-from core.holidays import HolidayClient
+from core.holidays import HolidayClient, verify_service_key
 from core.plan import PlanService, weekday_dates
 from core.recognition import (
     RecognitionRange,
@@ -22,6 +22,7 @@ from core.stats import build_month_summary
 from core.storage import Storage
 from core.vacation import Vacation, VacationService, YearLeaveSummary
 from ui import theme
+from ui.api_key_dialog import open_api_key_dialog
 from ui.day_dialog import open_day_dialog
 from ui.main_window import MainWindow, MainWindowCallbacks
 from ui.vacation_dialog import open_vacation_dialog
@@ -63,8 +64,12 @@ class AppController:
             on_manage_vacation=self._handle_manage_vacation,
             on_edit_selected=self._handle_edit_selected,
             on_go_today=self._handle_go_today,
+            on_register_api_key=self._handle_register_api_key,
         )
         self._window = MainWindow(callbacks)
+        self._window.set_api_key_registered(
+            config.get_service_key() is not None
+        )
         self._timer = QTimer(self._window)
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._tick)
@@ -206,6 +211,25 @@ class AppController:
             on_save_memo=self._storage.set_memo,
             start_in_edit=True,
         )
+        self._refresh()
+
+    def _handle_register_api_key(self) -> None:
+        """공휴일 API 인증키 등록 다이얼로그를 연다."""
+        open_api_key_dialog(
+            self._window,
+            on_test=lambda key: verify_service_key(
+                key, self._view_year, self._view_month
+            ),
+            on_save=self._handle_save_service_key,
+        )
+
+    def _handle_save_service_key(self, key: str) -> None:
+        config.set_service_key(key)
+        # 새 키로 클라이언트를 재생성해 즉시 공휴일 조회에 반영
+        self._holidays = HolidayClient(
+            config.get_service_key(), config.holidays_cache_path()
+        )
+        self._window.set_api_key_registered(True)
         self._refresh()
 
     def _handle_edit_weekday(self, weekday: int) -> None:

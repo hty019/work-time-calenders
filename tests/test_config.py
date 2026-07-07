@@ -51,3 +51,10 @@ def test_last_mode_roundtrip(tmp_path, monkeypatch):
     assert cfg.get_last_mode() == cfg.MODE_FULL
     cfg.set_last_mode(cfg.MODE_WIDGET)
     assert cfg.get_last_mode() == cfg.MODE_WIDGET
+
+
+def test_set_service_key_roundtrip(tmp_path, monkeypatch):
+    cfg = load_config_module(tmp_path, monkeypatch)
+    assert cfg.get_service_key() is None
+    cfg.set_service_key("NEW_KEY")
+    assert cfg.get_service_key() == "NEW_KEY"
