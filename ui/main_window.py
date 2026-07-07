@@ -81,6 +81,16 @@ class MainWindow(QMainWindow):
             QKeySequence(Qt.Key_Escape), self,
             activated=lambda: self._cb.on_clear_selection(),
         )
+        # Cmd+E = 선택 일자 수정 ([수정] 버튼과 동일)
+        QShortcut(
+            QKeySequence("Ctrl+E"), self,
+            activated=lambda: self._cb.on_edit_selected(),
+        )
+        # Space = 오늘로 복귀 ([오늘] 버튼과 동일)
+        QShortcut(
+            QKeySequence(Qt.Key_Space), self,
+            activated=lambda: self._cb.on_go_today(),
+        )
         self._vacation_action = QAction(_VACATION_DEFAULT_LABEL, self)
         self._vacation_action.triggered.connect(
             lambda: self._cb.on_manage_vacation()
