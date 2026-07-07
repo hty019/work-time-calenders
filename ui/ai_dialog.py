@@ -133,9 +133,8 @@ def open_ai_dialog(
 
     close_btn = QPushButton("닫기")
     close_btn.clicked.connect(dlg.reject)
-    run_btn = QPushButton("실행")
 
-    instruction_edit = _InstructionEdit(lambda: run_btn.click())
+    instruction_edit = _InstructionEdit(lambda: handle_run())
     instruction_edit.setPlaceholderText(
         "예) 다음 주 월~수 실 계획을 6시간으로 바꾸고 금요일에 반차 넣어줘"
         " (Enter=실행, Shift+Enter=줄바꿈)"
@@ -149,13 +148,19 @@ def open_ai_dialog(
 
     log_view = QTextEdit()
     log_view.setReadOnly(True)
-    log_view.setVisible(False)  # 첫 화면에서는 숨김 → 실행 시 표시
+    # AI CLI 는 결과를 마지막에 한 번에 출력하므로, 로그 영역은
+    # 실행 중에는 숨기고 완료 후에만 노출한다
+    log_view.setVisible(False)
     layout.addWidget(log_view, stretch=1)
 
     buttons = QHBoxLayout()
     buttons.addWidget(close_btn)
-    buttons.addWidget(run_btn)
     layout.addLayout(buttons)
+
+    def _show_log_area() -> None:
+        if not log_view.isVisible():
+            log_view.setVisible(True)
+            dlg.resize(dlg.width(), theme.AI_DIALOG_MIN_HEIGHT)
 
     def _provider() -> str:
         return _PROVIDER_KEYS[provider_combo.currentIndex()]
@@ -211,8 +216,6 @@ def open_ai_dialog(
 
     def _reset_for_new_input() -> None:
         _set_reset_enabled(False)
-        run_btn.setVisible(True)
-        run_btn.setEnabled(True)
         instruction_edit.setReadOnly(False)
         instruction_edit.clear()
         log_view.clear()
@@ -226,6 +229,8 @@ def open_ai_dialog(
         shortcut.activated.connect(_reset_for_new_input)
 
     def handle_run() -> None:
+        if instruction_edit.isReadOnly():
+            return  # 실행 중이거나 결과 검토 상태 — Enter 무시
         instruction = instruction_edit.toPlainText().strip()
         if not instruction:
             QMessageBox.warning(dlg, "입력 오류", "지시할 내용을 입력하세요.")
@@ -234,11 +239,8 @@ def open_ai_dialog(
             instruction, timeutil.today_str(timeutil.now()), workctl_cmd
         )
         cmd = build_run_command(_provider(), prompt, workctl_cmd)
-        run_btn.setVisible(False)  # 실행 중에는 [닫기]만 노출
+        instruction_edit.setReadOnly(True)  # 실행 중 재입력 방지
         progress.start()
-        if not log_view.isVisible():
-            log_view.setVisible(True)
-            dlg.resize(dlg.width(), theme.AI_DIALOG_MIN_HEIGHT)
         log_view.clear()
 
         proc = QProcess(dlg)
@@ -256,8 +258,8 @@ def open_ai_dialog(
                 f"\n--- {done} ---\n재입력 시, 'r'을 눌러 입력모드로 돌아가세요.\n"
             )
             progress.stop()
+            _show_log_area()  # 완료 후에만 로그 노출
             # 결과 검토 상태 — 'r'/'ㄱ' 로 입력모드 복귀
-            instruction_edit.setReadOnly(True)
             _set_reset_enabled(True)
             on_applied()  # 변경사항을 캘린더에 반영
 
@@ -269,7 +271,8 @@ def open_ai_dialog(
                     "\nCLI 실행 실패 — [연동 확인] 으로 설치 상태를 점검하세요.\n"
                 ),
                 progress.stop(),
-                run_btn.setVisible(True),
+                _show_log_area(),
+                instruction_edit.setReadOnly(False),
             )
         )
         running_procs.append(proc)
@@ -286,6 +289,5 @@ def open_ai_dialog(
     dlg.finished.connect(lambda _result: _kill_running())
 
     check_btn.clicked.connect(handle_check)
-    run_btn.clicked.connect(handle_run)
     handle_check()  # 열릴 때 연동 상태 자동 확인
     dlg.exec()
