@@ -65,6 +65,23 @@ def test_edit_clear_clock_out_sets_incomplete(tmp_path):
     assert rec.work_seconds is None
 
 
+def test_clear_removes_record(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.edit(
+        "2026-06-29",
+        "2026-06-29T09:00:00+09:00",
+        "2026-06-29T17:00:00+09:00",
+    )
+    svc.clear("2026-06-29")
+    assert svc._storage.get("2026-06-29") is None
+
+
+def test_clear_missing_is_noop(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.clear("2026-06-29")  # 기록이 없어도 오류 없이 통과
+    assert svc._storage.get("2026-06-29") is None
+
+
 def test_edit_clock_out_before_in_raises(tmp_path):
     svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
     with pytest.raises(ValueError):

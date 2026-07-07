@@ -34,6 +34,19 @@ def test_upsert_overwrites_same_date(tmp_path):
     assert got.work_seconds == 8 * 3600
 
 
+def test_delete_removes_row(tmp_path):
+    s = make_storage(tmp_path)
+    s.upsert(Attendance("2026-06-30", "2026-06-30T09:00:00+09:00", None, None))
+    s.delete("2026-06-30")
+    assert s.get("2026-06-30") is None
+
+
+def test_delete_missing_is_noop(tmp_path):
+    s = make_storage(tmp_path)
+    s.delete("2026-06-30")  # 없어도 오류 없이 통과
+    assert s.get("2026-06-30") is None
+
+
 def test_list_month_filters_by_month(tmp_path):
     s = make_storage(tmp_path)
     s.upsert(Attendance("2026-06-01", "2026-06-01T09:00:00+09:00", None, None))

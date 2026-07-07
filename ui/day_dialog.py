@@ -353,7 +353,7 @@ def open_day_dialog(
         if on_save_memo is not None:
             on_save_memo(work_date, memo_edit.toPlainText())
 
-        # 5) 출퇴근 저장 (출근 입력 시에만)
+        # 5) 출퇴근 저장. 출근을 비우면 그날 기록 삭제(빈 값으로 통지).
         in_text = in_edit.text().strip()
         if in_text:
             try:
@@ -364,6 +364,8 @@ def open_day_dialog(
             except ValueError as exc:
                 QMessageBox.warning(dlg, "저장 실패", str(exc))
                 return
+        else:
+            on_save_times(work_date, "", None)
         dlg.accept()
 
     save_btn.clicked.connect(handle_save)

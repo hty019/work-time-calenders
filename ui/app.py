@@ -448,7 +448,11 @@ class AppController:
         self._refresh()
 
     def _handle_save_times(self, work_date, clock_in_iso, clock_out_iso) -> None:
-        self._service.edit(work_date, clock_in_iso, clock_out_iso)
+        # 출근 시각을 비우면 그날의 출퇴근 기록을 삭제한다
+        if not clock_in_iso:
+            self._service.clear(work_date)
+        else:
+            self._service.edit(work_date, clock_in_iso, clock_out_iso)
 
     def _handle_save_plan(self, work_date, minutes) -> None:
         if minutes is None:

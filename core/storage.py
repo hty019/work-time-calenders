@@ -99,6 +99,13 @@ class Storage:
         )
         self._conn.commit()
 
+    def delete(self, work_date: str) -> None:
+        """해당 날짜의 출퇴근 기록을 삭제한다(없으면 무시)."""
+        self._conn.execute(
+            "DELETE FROM attendance WHERE work_date = ?", (work_date,)
+        )
+        self._conn.commit()
+
     def list_month(self, year: int, month: int) -> list[Attendance]:
         prefix = f"{year:04d}-{month:02d}-"
         cur = self._conn.execute(

@@ -89,6 +89,10 @@ class AttendanceService:
         self._storage.upsert(rec)
         return rec
 
+    def clear(self, work_date: str) -> None:
+        """해당 날짜의 출퇴근 기록을 삭제한다(출근 시각을 비워 저장할 때)."""
+        self._storage.delete(work_date)
+
     def recompute_work(self, work_date: str) -> Attendance | None:
         """휴가 변경 등으로 저장된 근무초를 현재 규칙으로 재계산한다.
 
