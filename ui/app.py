@@ -318,26 +318,29 @@ class AppController:
     def _handle_edit_weekday(self, weekday: int) -> None:
         year, month = self._view_year, self._view_month
         dates = weekday_dates(year, month, weekday)
-        # 퇴근까지 완료된 날짜는 계획·인정 범위 일괄 변경에서 제외한다
+        # 과거 일자와 퇴근 완료 날짜는 계획·인정 범위 일괄 변경에서 제외한다
+        today = timeutil.today_str(timeutil.now())
         records = {r.work_date: r for r in self._storage.list_month(year, month)}
-        completed = {
+        excluded = {
             d for d in dates
-            if d in records and records[d].clock_out is not None
+            if d < today
+            or (d in records and records[d].clock_out is not None)
         }
-        target_dates = [d for d in dates if d not in completed]
+        target_dates = [d for d in dates if d not in excluded]
 
         def apply(minutes, rng) -> None:
             self._plans.set_weekday_plan(
-                year, month, weekday, minutes, exclude_dates=completed
+                year, month, weekday, minutes, exclude_dates=excluded
             )
             self._recog.set_weekday(
-                year, month, weekday, rng, exclude_dates=completed
+                year, month, weekday, rng, exclude_dates=excluded
             )
 
         name = _WEEKDAY_NAMES[weekday]
-        info = f"이번 달 {name} {len(target_dates)}일에 일괄 적용됩니다."
-        if completed:
-            info += f" (퇴근 완료 {len(completed)}일 제외)"
+        info = (
+            f"이번 달 {name} {len(target_dates)}일에 일괄 적용됩니다.\n"
+            "(과거일자 제외)"
+        )
         open_bulk_plan_dialog(
             self._window,
             f"{name} 계획 일괄 수정",
