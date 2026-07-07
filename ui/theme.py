@@ -49,6 +49,7 @@ STATUS_PANEL_WIDTH = 260
 
 # 공휴일 API 키 등록 다이얼로그 최소 폭 (인증키가 길어 넉넉히)
 API_KEY_DIALOG_MIN_WIDTH = 460
+TOOLBAR_DOT_ICON_PX = 12  # 툴바 상태 점 아이콘 크기
 
 # 휴가 관리 다이얼로그 최소 크기
 VACATION_DIALOG_MIN_WIDTH = 460

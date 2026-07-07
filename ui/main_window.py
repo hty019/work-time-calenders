@@ -7,7 +7,8 @@ from typing import Callable
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QToolBar, QLabel,
 )
-from PySide6.QtGui import QAction
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 
 from core.attendance import WorkStatus
 from core.calendar_model import DayCell
@@ -43,6 +44,20 @@ class MainWindowCallbacks:
     on_register_api_key: Callable[[], None]
 
 
+def _dot_icon(color: str) -> QIcon:
+    """툴바용 단색 원형 점 아이콘."""
+    size = theme.TOOLBAR_DOT_ICON_PX
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.setBrush(QColor(color))
+    painter.setPen(Qt.NoPen)
+    painter.drawEllipse(0, 0, size, size)
+    painter.end()
+    return QIcon(pixmap)
+
+
 class MainWindow(QMainWindow):
     def __init__(self, callbacks: MainWindowCallbacks) -> None:
         super().__init__()
@@ -51,6 +66,8 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(theme.WINDOW_MIN_WIDTH, theme.WINDOW_MIN_HEIGHT)
 
         toolbar = QToolBar()
+        # 아이콘이 있는 액션(공휴일 API 키)도 텍스트를 함께 표시
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self.addToolBar(toolbar)
         prev = QAction("◀", self)
         prev.triggered.connect(lambda: self._cb.on_prev_month())
@@ -64,8 +81,8 @@ class MainWindow(QMainWindow):
         )
         switch = QAction("위젯 모드", self)
         switch.triggered.connect(lambda: self._cb.on_switch_mode())
-        # 공휴일 API 키 미등록 시에만 노출되는 등록 버튼
-        self._api_key_action = QAction("공휴일 API 키 등록", self)
+        # 공휴일 API 키 등록·교체 버튼 — 등록 상태를 색 점으로 표시
+        self._api_key_action = QAction("공휴일 API 키", self)
         self._api_key_action.triggered.connect(
             lambda: self._cb.on_register_api_key()
         )
@@ -98,8 +115,9 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
     def set_api_key_registered(self, registered: bool) -> None:
-        """API 키가 등록되어 있으면 등록 버튼을 숨긴다."""
-        self._api_key_action.setVisible(not registered)
+        """등록 상태를 색 점(등록=연두, 미등록=노랑)으로 표시한다."""
+        color = theme.FG_WORKING if registered else theme.FG_INCOMPLETE
+        self._api_key_action.setIcon(_dot_icon(color))
 
     def render(
         self,
