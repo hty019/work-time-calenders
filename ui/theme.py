@@ -65,6 +65,9 @@ HELP_DIALOG_MIN_HEIGHT = 430
 AI_DIALOG_MIN_WIDTH = 600
 AI_DIALOG_MIN_HEIGHT = 460
 AI_INSTRUCTION_HEIGHT = 64  # 지시문 입력 박스 높이
+AI_LOADING_BAR_H_PX = 6     # 로딩 바 높이 (STATUS 진행률 바와 동일한 얇기)
+AI_LOADING_TICK_MS = 16     # 로딩 바 프레임 간격 (~60fps)
+AI_LOADING_HUE_STEP = 2     # 프레임당 색상(hue) 이동량 — 클수록 빠르게 흐름
 
 # 휴가 관리 다이얼로그 최소 크기
 VACATION_DIALOG_MIN_WIDTH = 460

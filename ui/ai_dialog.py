@@ -8,10 +8,11 @@ from __future__ import annotations
 import sys
 from typing import Callable
 
-from PySide6.QtCore import QProcess, Qt
+from PySide6.QtCore import QProcess, Qt, QTimer
+from PySide6.QtGui import QColor, QLinearGradient, QPainter
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QHBoxLayout, QLabel, QMessageBox, QProgressBar,
-    QPushButton, QStyleFactory, QTextEdit, QVBoxLayout,
+    QComboBox, QDialog, QHBoxLayout, QLabel, QMessageBox, QPushButton,
+    QStyleFactory, QTextEdit, QVBoxLayout, QWidget,
 )
 
 import config
@@ -26,6 +27,55 @@ from core.ai_cli import (
 from ui import theme
 
 _PROVIDER_KEYS = list(PROVIDER_LABELS.keys())
+
+
+class _RainbowLoadingBar(QWidget):
+    """색상이 무지개로 부드럽게 흐르는 얇은 로딩 바.
+
+    네이티브 불확정 QProgressBar 의 끊기는 애니메이션 대신, 매 프레임
+    hue 를 조금씩 밀며 그라데이션을 다시 그려 연속적으로 움직인다.
+    """
+
+    _HUE_MAX = 360
+    _GRADIENT_STOPS = 7
+    _SATURATION = 180
+    _VALUE = 235
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setFixedHeight(theme.AI_LOADING_BAR_H_PX)
+        self._phase = 0.0
+        self._timer = QTimer(self)
+        self._timer.setInterval(theme.AI_LOADING_TICK_MS)
+        self._timer.timeout.connect(self._advance)
+        self.setVisible(False)
+
+    def start(self) -> None:
+        self.setVisible(True)
+        self._timer.start()
+
+    def stop(self) -> None:
+        self._timer.stop()
+        self.setVisible(False)
+
+    def _advance(self) -> None:
+        self._phase = (self._phase + theme.AI_LOADING_HUE_STEP) % self._HUE_MAX
+        self.update()
+
+    def paintEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        gradient = QLinearGradient(0, 0, self.width(), 0)
+        for i in range(self._GRADIENT_STOPS):
+            t = i / (self._GRADIENT_STOPS - 1)
+            hue = int(self._phase + t * self._HUE_MAX) % self._HUE_MAX
+            gradient.setColorAt(
+                t, QColor.fromHsv(hue, self._SATURATION, self._VALUE)
+            )
+        painter.setBrush(gradient)
+        painter.setPen(Qt.NoPen)
+        radius = self.height() / 2
+        painter.drawRoundedRect(self.rect(), radius, radius)
 
 
 class _InstructionEdit(QTextEdit):
@@ -84,11 +134,8 @@ def open_ai_dialog(
     instruction_edit.setFixedHeight(theme.AI_INSTRUCTION_HEIGHT)
     layout.addWidget(instruction_edit)
 
-    # 실행 중 표시용 불확정(indeterminate) 로딩 바
-    progress = QProgressBar()
-    progress.setRange(0, 0)
-    progress.setTextVisible(False)
-    progress.setVisible(False)
+    # 실행 중 표시용 무지개 로딩 바
+    progress = _RainbowLoadingBar()
     layout.addWidget(progress)
 
     log_view = QTextEdit()
@@ -150,7 +197,7 @@ def open_ai_dialog(
         )
         cmd = build_run_command(_provider(), prompt, workctl_cmd)
         run_btn.setEnabled(False)
-        progress.setVisible(True)
+        progress.start()
         if not log_view.isVisible():
             log_view.setVisible(True)
             dlg.resize(dlg.width(), theme.AI_DIALOG_MIN_HEIGHT)
@@ -168,7 +215,7 @@ def open_ai_dialog(
             _append_output()
             done = "완료" if proc.exitCode() == 0 else f"실패 (exit {proc.exitCode()})"
             log_view.insertPlainText(f"\n--- {done} ---\n")
-            progress.setVisible(False)
+            progress.stop()
             run_btn.setEnabled(True)
             on_applied()  # 변경사항을 캘린더에 반영
 
@@ -179,7 +226,7 @@ def open_ai_dialog(
                 log_view.insertPlainText(
                     "\nCLI 실행 실패 — [연동 확인] 으로 설치 상태를 점검하세요.\n"
                 ),
-                progress.setVisible(False),
+                progress.stop(),
                 run_btn.setEnabled(True),
             )
         )
