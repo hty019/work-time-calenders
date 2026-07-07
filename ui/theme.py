@@ -57,6 +57,10 @@ TOOLBAR_BTN_PAD_H_PX = 8  # 툴바 버튼 좌우 패딩 (균일)
 # 일괄 계획 수정 다이얼로그: 자연 크기 대비 추가 폭 (placeholder 여유)
 BULK_PLAN_DIALOG_EXTRA_W_PX = 10
 
+# 도움말 다이얼로그 최소 크기 (페이지 넘김 시 크기 흔들림 방지)
+HELP_DIALOG_MIN_WIDTH = 560
+HELP_DIALOG_MIN_HEIGHT = 430
+
 # 휴가 관리 다이얼로그 최소 크기
 VACATION_DIALOG_MIN_WIDTH = 460
 VACATION_DIALOG_MIN_HEIGHT = 380

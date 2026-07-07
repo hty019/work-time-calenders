@@ -26,6 +26,7 @@ from ui import theme
 from ui.api_key_dialog import open_api_key_dialog
 from ui.calendar_widget import SELECT_RANGE, SELECT_SINGLE, SELECT_TOGGLE
 from ui.day_dialog import open_day_dialog
+from ui.help_dialog import open_help_dialog
 from ui.main_window import MainWindow, MainWindowCallbacks
 from ui.status_panel import (
     clock_in_line,
@@ -80,6 +81,7 @@ class AppController:
             on_edit_selected=self._handle_edit_selected,
             on_go_today=self._handle_go_today,
             on_register_api_key=self._handle_register_api_key,
+            on_show_help=lambda: open_help_dialog(self._window),
         )
         self._window = MainWindow(callbacks)
         self._window.set_api_key_registered(

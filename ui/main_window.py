@@ -40,6 +40,7 @@ class MainWindowCallbacks:
     on_edit_selected: Callable[[], None]
     on_go_today: Callable[[], None]
     on_register_api_key: Callable[[], None]
+    on_show_help: Callable[[], None]
 
 
 def _dot_icon(color: str) -> QIcon:
@@ -97,6 +98,8 @@ class MainWindow(QMainWindow):
         )
         switch = QAction("위젯 모드", self)
         switch.triggered.connect(lambda: self._cb.on_switch_mode())
+        help_action = QAction("도움말", self)
+        help_action.triggered.connect(lambda: self._cb.on_show_help())
         # 공휴일 API 키 등록·교체 버튼 — 등록 상태를 색 점으로 표시
         self._api_key_action = QAction("공휴일 API 키", self)
         self._api_key_action.triggered.connect(
@@ -114,6 +117,8 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self._vacation_action)
         toolbar.addSeparator()
         toolbar.addAction(switch)
+        toolbar.addSeparator()
+        toolbar.addAction(help_action)
         # 메뉴 버튼 호버 시 손가락 커서
         for button in toolbar.findChildren(QToolButton):
             button.setCursor(Qt.PointingHandCursor)
