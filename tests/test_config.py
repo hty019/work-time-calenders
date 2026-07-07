@@ -58,3 +58,13 @@ def test_set_service_key_roundtrip(tmp_path, monkeypatch):
     assert cfg.get_service_key() is None
     cfg.set_service_key("NEW_KEY")
     assert cfg.get_service_key() == "NEW_KEY"
+
+
+def test_ai_model_roundtrip_per_provider(tmp_path, monkeypatch):
+    cfg = load_config_module(tmp_path, monkeypatch)
+    assert cfg.get_ai_model("claude") is None
+    cfg.set_ai_model("claude", "haiku")
+    assert cfg.get_ai_model("claude") == "haiku"
+    assert cfg.get_ai_model("codex") is None
+    cfg.set_ai_model("claude", None)
+    assert cfg.get_ai_model("claude") is None

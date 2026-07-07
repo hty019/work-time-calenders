@@ -25,6 +25,21 @@ INSTALL_GUIDES = {
 
 _BINARIES = {PROVIDER_CLAUDE: "claude", PROVIDER_CODEX: "codex"}
 
+# 제공자별 모델 선택지: (표시 문구, CLI 인자값). None 은 CLI 기본 설정.
+MODEL_CHOICES: dict[str, list[tuple[str, str | None]]] = {
+    PROVIDER_CLAUDE: [
+        ("기본 설정", None),
+        ("Haiku (빠름·경제적)", "haiku"),
+        ("Sonnet (균형)", "sonnet"),
+        ("Opus (고성능)", "opus"),
+    ],
+    PROVIDER_CODEX: [
+        ("기본 설정", None),
+        ("gpt-5.1-codex", "gpt-5.1-codex"),
+        ("gpt-5.1-codex-mini", "gpt-5.1-codex-mini"),
+    ],
+}
+
 
 def version_command(provider: str) -> list[str]:
     """설치 여부 확인용 명령."""
@@ -71,22 +86,32 @@ def build_prompt(instruction: str, today: str, workctl_cmd: str) -> str:
 
 
 def build_run_command(
-    provider: str, prompt: str, workctl_cmd: str
+    provider: str,
+    prompt: str,
+    workctl_cmd: str,
+    model: str | None = None,
 ) -> list[str]:
-    """제공자별 헤드리스 실행 명령을 구성한다."""
+    """제공자별 헤드리스 실행 명령을 구성한다.
+
+    model 이 None 이면 각 CLI 의 기본 설정 모델을 사용한다.
+    """
     if provider == PROVIDER_CLAUDE:
         # workctl 호출만 자동 허용 — 그 외 도구는 헤드리스에서 거부됨.
         # stream-json 으로 진행 상황(도구 실행 등)을 실시간 수신한다.
-        return [
+        cmd = [
             "claude", "-p", prompt,
             "--allowedTools", f"Bash({workctl_cmd}:*)",
             "--output-format", "stream-json", "--verbose",
         ]
+        if model is not None:
+            cmd += ["--model", model]
+        return cmd
     if provider == PROVIDER_CODEX:
         # DB 가 홈 디렉터리(작업 폴더 밖)에 있어 샌드박스 완화가 필요
-        return [
-            "codex", "exec", "--sandbox", "danger-full-access", prompt,
-        ]
+        cmd = ["codex", "exec", "--sandbox", "danger-full-access"]
+        if model is not None:
+            cmd += ["-m", model]
+        return cmd + [prompt]
     raise ValueError(f"알 수 없는 AI 제공자: {provider!r}")
 
 

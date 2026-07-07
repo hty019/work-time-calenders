@@ -71,6 +71,24 @@ def set_ai_provider(provider: str) -> None:
     save_config(cfg)
 
 
+def get_ai_model(provider: str) -> str | None:
+    """제공자별 선택 모델. None 이면 CLI 기본 설정 사용."""
+    models = load_config().get("ai_models")
+    if isinstance(models, dict) and isinstance(models.get(provider), str):
+        return models[provider]
+    return None
+
+
+def set_ai_model(provider: str, model: str | None) -> None:
+    cfg = load_config()
+    models = cfg.get("ai_models")
+    if not isinstance(models, dict):
+        models = {}
+    models[provider] = model
+    cfg["ai_models"] = models
+    save_config(cfg)
+
+
 def get_window_pos() -> tuple[int, int] | None:
     pos = load_config().get("window_pos")
     if isinstance(pos, list) and len(pos) == 2:

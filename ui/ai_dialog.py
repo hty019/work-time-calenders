@@ -22,6 +22,7 @@ import config
 from core import timeutil
 from core.ai_cli import (
     INSTALL_GUIDES,
+    MODEL_CHOICES,
     PROVIDER_LABELS,
     build_prompt,
     build_run_command,
@@ -123,11 +124,14 @@ def open_ai_dialog(
     provider_combo.setCurrentIndex(
         _PROVIDER_KEYS.index(config.get_ai_provider())
     )
+    model_combo = QComboBox()
+    model_combo.setStyle(QStyleFactory.create("Fusion"))
     check_btn = QPushButton("연동 확인")
     status_label = QLabel("")
     status_label.setWordWrap(True)
     provider_row.addWidget(QLabel("AI"))
     provider_row.addWidget(provider_combo, stretch=1)
+    provider_row.addWidget(model_combo, stretch=1)
     provider_row.addWidget(check_btn)
     layout.addLayout(provider_row)
     layout.addWidget(status_label)
@@ -175,12 +179,33 @@ def open_ai_dialog(
     def _provider() -> str:
         return _PROVIDER_KEYS[provider_combo.currentIndex()]
 
-    def _remember_provider() -> None:
+    def _current_model() -> str | None:
+        return MODEL_CHOICES[_provider()][model_combo.currentIndex()][1]
+
+    def _reload_models() -> None:
+        """제공자에 맞는 모델 목록으로 갱신하고 저장된 선택을 복원."""
+        saved = config.get_ai_model(_provider())
+        model_combo.blockSignals(True)
+        model_combo.clear()
+        selected = 0
+        for i, (label, value) in enumerate(MODEL_CHOICES[_provider()]):
+            model_combo.addItem(label)
+            if value == saved:
+                selected = i
+        model_combo.setCurrentIndex(selected)
+        model_combo.blockSignals(False)
+
+    def _on_provider_changed() -> None:
         config.set_ai_provider(_provider())
+        _reload_models()
 
     provider_combo.currentIndexChanged.connect(
-        lambda _i: _remember_provider()
+        lambda _i: _on_provider_changed()
     )
+    model_combo.currentIndexChanged.connect(
+        lambda _i: config.set_ai_model(_provider(), _current_model())
+    )
+    _reload_models()
 
     def _set_status(text: str, ok: bool) -> None:
         color = theme.FG_ACTUAL_DONE if ok else theme.FG_RANGE_WARN
@@ -249,7 +274,9 @@ def open_ai_dialog(
             instruction, timeutil.today_str(timeutil.now()), workctl_cmd
         )
         provider = _provider()
-        cmd = build_run_command(provider, prompt, workctl_cmd)
+        cmd = build_run_command(
+            provider, prompt, workctl_cmd, model=_current_model()
+        )
         instruction_edit.setReadOnly(True)  # 실행 중 재입력 방지
         progress.start()
         log_view.clear()

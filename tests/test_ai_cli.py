@@ -89,3 +89,21 @@ def test_format_stream_event_passthrough():
     assert format_stream_event(PROVIDER_CODEX, "working...") == "working..."
     # claude 라도 JSON 이 아닌 라인(경고 등)은 그대로 노출
     assert format_stream_event(PROVIDER_CLAUDE, "Warning: x") == "Warning: x"
+
+
+def test_build_run_command_with_model_override():
+    cmd = build_run_command(
+        PROVIDER_CLAUDE, "PROMPT", "python workctl.py", model="haiku"
+    )
+    assert cmd[cmd.index("--model") + 1] == "haiku"
+    cmd = build_run_command(
+        PROVIDER_CODEX, "PROMPT", "python workctl.py", model="gpt-5.1-codex"
+    )
+    assert cmd[cmd.index("-m") + 1] == "gpt-5.1-codex"
+
+
+def test_build_run_command_default_model_omits_flag():
+    cmd = build_run_command(PROVIDER_CLAUDE, "PROMPT", "python workctl.py")
+    assert "--model" not in cmd
+    cmd = build_run_command(PROVIDER_CODEX, "PROMPT", "python workctl.py")
+    assert "-m" not in cmd
