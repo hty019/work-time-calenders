@@ -115,11 +115,23 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self._month_label)
         toolbar.addAction(nxt)
         toolbar.addWidget(spacer)
-        toolbar.addAction(ai_action)
-        toolbar.addSeparator()
         toolbar.addAction(help_action)
         toolbar.addSeparator()
         toolbar.addAction(self._api_key_action)
+        toolbar.addSeparator()
+        toolbar.addAction(ai_action)
+        # AI 버튼은 보라 배경·볼드로 강조 (ID 셀렉터로 이 버튼에만 적용)
+        ai_button = toolbar.widgetForAction(ai_action)
+        ai_button.setObjectName("aiButton")
+        ai_button.setStyleSheet(f"""
+        #aiButton {{
+            background-color: {theme.BG_AI_BUTTON};
+            font-weight: bold;
+        }}
+        #aiButton:hover {{
+            background-color: {theme.BG_AI_BUTTON_HOVER};
+        }}
+        """)
         toolbar.addSeparator()
         toolbar.addAction(self._vacation_action)
         toolbar.addSeparator()
