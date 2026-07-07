@@ -52,14 +52,14 @@ class WidgetWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(_MARGIN_H, _MARGIN_V, _MARGIN_H, _MARGIN_V)
 
-        # 헤더는 우측 정렬 버튼만 (상태 정보는 하단 상태 라인이 담당)
+        # 헤더: [전체] 좌측 / [✕] 우측 (상태 정보는 하단 상태 라인이 담당)
         top = QHBoxLayout()
         expand = QPushButton("전체")
         expand.clicked.connect(lambda: self._cb.on_switch_mode())
         close = QPushButton("✕")
         close.clicked.connect(lambda: self._cb.on_close())
-        top.addStretch(1)
         top.addWidget(expand)
+        top.addStretch(1)
         top.addWidget(close)
         layout.addLayout(top)
 
