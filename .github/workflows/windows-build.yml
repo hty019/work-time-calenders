@@ -1,0 +1,63 @@
+# Windows 설치 프로그램 빌드
+#
+# - 수동 실행(workflow_dispatch): Actions 아티팩트로 setup.exe 업로드
+# - v* 태그 푸시: GitHub Release 생성 후 setup.exe 첨부
+name: windows-build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: 테스트
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest -q
+
+      - name: 버전 결정 (태그 v1.2.3 → 1.2.3, 그 외 0.0.0)
+        id: version
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $env:GITHUB_REF_NAME -replace '^v', ''
+          } else { '0.0.0' }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: 실행 파일 빌드 (PyInstaller)
+        run: pyinstaller packaging/work-widget.spec --noconfirm
+
+      - name: 설치 프로그램 빌드 (Inno Setup)
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
+            /DAppVersion=${{ steps.version.outputs.version }} `
+            packaging\installer.iss
+
+      - name: 아티팩트 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: work-widget-setup-${{ steps.version.outputs.version }}
+          path: packaging/Output/*.exe
+
+      - name: 릴리스 생성 (태그 빌드만)
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release create $env:GITHUB_REF_NAME (Get-Item packaging/Output/*.exe).FullName `
+            --title "work-widget $env:GITHUB_REF_NAME" --generate-notes
