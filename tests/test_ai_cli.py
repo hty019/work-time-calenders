@@ -274,3 +274,88 @@ def test_login_terminal_command_windows():
     cmd = login_terminal_command(PROVIDER_CODEX, platform="win32")
     assert cmd[0] == "cmd"
     assert any("codex login" in part for part in cmd)
+
+
+# --- GUI 런처(최소 PATH)에서 CLI 를 찾기 위한 PATH 보강 ---
+
+
+def _no_versions(_path):
+    raise FileNotFoundError
+
+
+def test_cli_search_dirs_macos_common_locations():
+    from core.ai_cli import cli_search_dirs
+
+    dirs = cli_search_dirs(
+        "darwin", "/Users/u", environ={}, listdir=_no_versions
+    )
+    assert "/opt/homebrew/bin" in dirs
+    assert "/usr/local/bin" in dirs
+    assert "/Users/u/.local/bin" in dirs
+    assert "/Users/u/.npm-global/bin" in dirs
+
+
+def test_cli_search_dirs_picks_latest_nvm_version():
+    import os
+
+    from core.ai_cli import cli_search_dirs
+
+    nvm_base = os.path.join("/Users/u", ".nvm", "versions", "node")
+
+    def listdir(path):
+        assert path == nvm_base
+        return ["v18.20.3", "v20.11.1", "not-a-version"]
+
+    dirs = cli_search_dirs("darwin", "/Users/u", environ={}, listdir=listdir)
+    assert os.path.join(nvm_base, "v20.11.1", "bin") in dirs
+    assert os.path.join(nvm_base, "v18.20.3", "bin") not in dirs
+
+
+def test_cli_search_dirs_windows_npm_appdata():
+    import os
+
+    from core.ai_cli import cli_search_dirs
+
+    appdata = "C:\\Users\\u\\AppData\\Roaming"
+    dirs = cli_search_dirs(
+        "win32", "C:\\Users\\u", environ={"APPDATA": appdata},
+        listdir=_no_versions,
+    )
+    assert os.path.join(appdata, "npm") in dirs
+
+
+def test_augmented_path_appends_only_missing_existing_dirs():
+    from core.ai_cli import augmented_path
+
+    result = augmented_path(
+        "/usr/bin:/bin",
+        ["/opt/homebrew/bin", "/no/such/dir", "/usr/bin"],
+        pathsep=":",
+        isdir=lambda d: d != "/no/such/dir",
+    )
+    # 존재하는 미포함 디렉토리만 뒤에 덧붙이고, 기존 순서는 유지
+    assert result == "/usr/bin:/bin:/opt/homebrew/bin"
+
+
+def test_augmented_path_empty_current():
+    from core.ai_cli import augmented_path
+
+    result = augmented_path(
+        "", ["/opt/homebrew/bin"], pathsep=":", isdir=lambda _d: True
+    )
+    assert result == "/opt/homebrew/bin"
+
+
+def test_extend_lookup_path_updates_environ(monkeypatch, tmp_path):
+    import os
+
+    from core import ai_cli
+
+    extra = tmp_path / "bin"
+    extra.mkdir()
+    monkeypatch.setenv("PATH", "/usr/bin")
+    monkeypatch.setattr(
+        ai_cli, "cli_search_dirs", lambda *a, **k: [str(extra)]
+    )
+    ai_cli.extend_lookup_path()
+    assert os.environ["PATH"] == "/usr/bin" + os.pathsep + str(extra)

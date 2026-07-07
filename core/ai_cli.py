@@ -52,6 +52,70 @@ def version_command(provider: str) -> list[str]:
     return [_BINARIES[provider], "--version"]
 
 
+def _latest_nvm_bin(home: str, listdir) -> str | None:
+    """nvm 설치본 중 최신 node 버전의 bin 디렉토리. 없으면 None."""
+    base = os.path.join(home, ".nvm", "versions", "node")
+    try:
+        names = listdir(base)
+    except OSError:
+        return None
+
+    def parse(name: str) -> tuple[int, ...] | None:
+        try:
+            return tuple(int(part) for part in name.lstrip("v").split("."))
+        except ValueError:
+            return None
+
+    versions = [(v, n) for n in names if (v := parse(n)) is not None]
+    if not versions:
+        return None
+    return os.path.join(base, max(versions)[1], "bin")
+
+
+def cli_search_dirs(
+    platform: str, home: str, environ, listdir=os.listdir
+) -> list[str]:
+    """npm 계열 CLI(claude·codex)가 설치되는 잘 알려진 디렉토리 후보.
+
+    Finder·설치본으로 실행된 GUI 앱은 셸 PATH 를 물려받지 못해(launchd
+    최소 PATH) 전역 CLI 를 찾지 못한다. 이 후보들을 PATH 에 보강한다.
+    """
+    if platform.startswith("win"):
+        appdata = environ.get("APPDATA")
+        return [os.path.join(appdata, "npm")] if appdata else []
+    dirs = [
+        "/opt/homebrew/bin",  # macOS Apple Silicon homebrew
+        "/usr/local/bin",     # macOS Intel homebrew·시스템 node
+        os.path.join(home, ".local", "bin"),
+        os.path.join(home, ".npm-global", "bin"),
+    ]
+    nvm_bin = _latest_nvm_bin(home, listdir)
+    if nvm_bin is not None:
+        dirs.append(nvm_bin)
+    return dirs
+
+
+def augmented_path(
+    current: str, dirs: list[str], pathsep: str = os.pathsep,
+    isdir=os.path.isdir,
+) -> str:
+    """현재 PATH 뒤에, 실재하는 미포함 디렉토리만 덧붙인 새 PATH 를 반환."""
+    existing = current.split(pathsep) if current else []
+    additions = [d for d in dirs if d not in existing and isdir(d)]
+    return pathsep.join(existing + additions)
+
+
+def extend_lookup_path() -> None:
+    """프로세스 PATH 에 CLI 설치 폴더를 보강한다(앱 시작 시 1회).
+
+    QProcess 의 실행 파일 탐색, shutil.which, 자식 프로세스의
+    'env node' 해석이 모두 os.environ PATH 를 쓰므로 여기서 한 번
+    갱신하면 전부 반영된다.
+    """
+    dirs = cli_search_dirs(sys.platform, os.path.expanduser("~"), os.environ)
+    os.environ["PATH"] = augmented_path(os.environ.get("PATH", ""), dirs)
+
+
 # 로그인(인증) 상태 판정 결과
 AUTH_READY = "ready"        # 로그인 완료 — 실행 가능
 AUTH_LOGGED_OUT = "logged_out"  # CLI 는 있으나 로그인 필요
