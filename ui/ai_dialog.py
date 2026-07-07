@@ -8,10 +8,10 @@ from __future__ import annotations
 import sys
 from typing import Callable
 
-from PySide6.QtCore import QProcess
+from PySide6.QtCore import QProcess, Qt
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QHBoxLayout, QLabel, QMessageBox, QPushButton,
-    QStyleFactory, QTextEdit, QVBoxLayout,
+    QComboBox, QDialog, QHBoxLayout, QLabel, QMessageBox, QProgressBar,
+    QPushButton, QStyleFactory, QTextEdit, QVBoxLayout,
 )
 
 import config
@@ -28,13 +28,29 @@ from ui import theme
 _PROVIDER_KEYS = list(PROVIDER_LABELS.keys())
 
 
+class _InstructionEdit(QTextEdit):
+    """Enter=실행, Shift+Enter=줄바꿈으로 동작하는 지시문 입력 박스."""
+
+    def __init__(self, on_submit) -> None:
+        super().__init__()
+        self._on_submit = on_submit
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        is_enter = event.key() in (Qt.Key_Return, Qt.Key_Enter)
+        if is_enter and not (event.modifiers() & Qt.ShiftModifier):
+            self._on_submit()
+            return
+        super().keyPressEvent(event)
+
+
 def open_ai_dialog(
     parent, workdir: str, on_applied: Callable[[], None]
 ) -> None:
     """AI 연동 다이얼로그를 연다. 실행 완료 시 on_applied 로 갱신 통지."""
     dlg = QDialog(parent)
     dlg.setWindowTitle("AI 연동")
-    dlg.setMinimumSize(theme.AI_DIALOG_MIN_WIDTH, theme.AI_DIALOG_MIN_HEIGHT)
+    # 처음에는 로그를 숨겨 최소 높이로 시작하고, 실행 시 확장한다
+    dlg.setMinimumWidth(theme.AI_DIALOG_MIN_WIDTH)
     layout = QVBoxLayout(dlg)
 
     workctl_cmd = f"{sys.executable} {workdir}/workctl.py"
@@ -56,22 +72,31 @@ def open_ai_dialog(
     layout.addLayout(provider_row)
     layout.addWidget(status_label)
 
-    instruction_edit = QTextEdit()
+    close_btn = QPushButton("닫기")
+    close_btn.clicked.connect(dlg.reject)
+    run_btn = QPushButton("실행")
+
+    instruction_edit = _InstructionEdit(lambda: run_btn.click())
     instruction_edit.setPlaceholderText(
         "예) 다음 주 월~수 실 계획을 6시간으로 바꾸고 금요일에 반차 넣어줘"
+        " (Enter=실행, Shift+Enter=줄바꿈)"
     )
     instruction_edit.setFixedHeight(theme.AI_INSTRUCTION_HEIGHT)
     layout.addWidget(instruction_edit)
 
+    # 실행 중 표시용 불확정(indeterminate) 로딩 바
+    progress = QProgressBar()
+    progress.setRange(0, 0)
+    progress.setTextVisible(False)
+    progress.setVisible(False)
+    layout.addWidget(progress)
+
     log_view = QTextEdit()
     log_view.setReadOnly(True)
-    log_view.setPlaceholderText("실행 로그가 여기에 표시됩니다.")
+    log_view.setVisible(False)  # 첫 화면에서는 숨김 → 실행 시 표시
     layout.addWidget(log_view, stretch=1)
 
     buttons = QHBoxLayout()
-    close_btn = QPushButton("닫기")
-    close_btn.clicked.connect(dlg.reject)
-    run_btn = QPushButton("실행")
     buttons.addWidget(close_btn)
     buttons.addWidget(run_btn)
     layout.addLayout(buttons)
@@ -125,6 +150,10 @@ def open_ai_dialog(
         )
         cmd = build_run_command(_provider(), prompt, workctl_cmd)
         run_btn.setEnabled(False)
+        progress.setVisible(True)
+        if not log_view.isVisible():
+            log_view.setVisible(True)
+            dlg.resize(dlg.width(), theme.AI_DIALOG_MIN_HEIGHT)
         log_view.setPlainText(f"{PROVIDER_LABELS[_provider()]} 실행 중…\n")
 
         proc = QProcess(dlg)
@@ -139,6 +168,7 @@ def open_ai_dialog(
             _append_output()
             done = "완료" if proc.exitCode() == 0 else f"실패 (exit {proc.exitCode()})"
             log_view.insertPlainText(f"\n--- {done} ---\n")
+            progress.setVisible(False)
             run_btn.setEnabled(True)
             on_applied()  # 변경사항을 캘린더에 반영
 
@@ -149,6 +179,7 @@ def open_ai_dialog(
                 log_view.insertPlainText(
                     "\nCLI 실행 실패 — [연동 확인] 으로 설치 상태를 점검하세요.\n"
                 ),
+                progress.setVisible(False),
                 run_btn.setEnabled(True),
             )
         )
