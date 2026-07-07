@@ -189,20 +189,34 @@ def open_ai_dialog(
             )
         )
 
-    # 실행 완료(검토) 상태에서만 활성화되는 'r' = 입력모드 복귀 단축키.
-    # 입력 중에는 비활성이라 일반 타이핑('r')을 가로채지 않는다.
-    reset_shortcut = QShortcut(QKeySequence("R"), dlg)
-    reset_shortcut.setEnabled(False)
+    # 실행 완료(검토) 상태에서만 활성화되는 입력모드 복귀 단축키.
+    # 한글 자판(ㄱ)도 함께 등록하고, 입력 중에는 비활성이라 일반
+    # 타이핑을 가로채지 않는다.
+    reset_shortcuts = [
+        QShortcut(QKeySequence(key), dlg) for key in ("R", "ㄱ")
+    ]
+    for shortcut in reset_shortcuts:
+        shortcut.setEnabled(False)
+
+    def _set_reset_enabled(enabled: bool) -> None:
+        for shortcut in reset_shortcuts:
+            shortcut.setEnabled(enabled)
 
     def _reset_for_new_input() -> None:
-        reset_shortcut.setEnabled(False)
+        _set_reset_enabled(False)
+        run_btn.setVisible(True)
         run_btn.setEnabled(True)
         instruction_edit.setReadOnly(False)
         instruction_edit.clear()
         log_view.clear()
+        log_view.setVisible(False)  # 첫 화면과 동일한 최소 높이로 복귀
+        QTimer.singleShot(
+            0, lambda: dlg.resize(dlg.width(), dlg.sizeHint().height())
+        )
         instruction_edit.setFocus()
 
-    reset_shortcut.activated.connect(_reset_for_new_input)
+    for shortcut in reset_shortcuts:
+        shortcut.activated.connect(_reset_for_new_input)
 
     def handle_run() -> None:
         instruction = instruction_edit.toPlainText().strip()
@@ -213,7 +227,7 @@ def open_ai_dialog(
             instruction, timeutil.today_str(timeutil.now()), workctl_cmd
         )
         cmd = build_run_command(_provider(), prompt, workctl_cmd)
-        run_btn.setEnabled(False)
+        run_btn.setVisible(False)  # 실행 중에는 [닫기]만 노출
         progress.start()
         if not log_view.isVisible():
             log_view.setVisible(True)
@@ -235,9 +249,9 @@ def open_ai_dialog(
                 f"\n--- {done} ---\n재입력 시, 'r'을 눌러 입력모드로 돌아가세요.\n"
             )
             progress.stop()
-            # 결과 검토 상태 — 'r' 로 입력모드 복귀
+            # 결과 검토 상태 — 'r'/'ㄱ' 로 입력모드 복귀
             instruction_edit.setReadOnly(True)
-            reset_shortcut.setEnabled(True)
+            _set_reset_enabled(True)
             on_applied()  # 변경사항을 캘린더에 반영
 
         proc.readyReadStandardOutput.connect(_append_output)
@@ -248,7 +262,7 @@ def open_ai_dialog(
                     "\nCLI 실행 실패 — [연동 확인] 으로 설치 상태를 점검하세요.\n"
                 ),
                 progress.stop(),
-                run_btn.setEnabled(True),
+                run_btn.setVisible(True),
             )
         )
         proc.start(cmd[0], cmd[1:])
