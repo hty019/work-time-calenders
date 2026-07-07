@@ -78,7 +78,7 @@ class _DayCellWidget(QFrame):
     def __init__(
         self,
         cell: DayCell,
-        on_click: Callable[[str], None],
+        on_click: Callable[[str, bool], None],
         on_double_click: Callable[[str], None],
         is_selected: bool = False,
         is_dimmed: bool = False,
@@ -88,7 +88,6 @@ class _DayCellWidget(QFrame):
         self._date = cell.date
         self._on_click = on_click
         self._on_double_click = on_double_click
-        self._interactive = not is_dimmed
         self.setMinimumSize(theme.CELL_MIN_WIDTH, theme.CELL_MIN_HEIGHT)
         # 배경은 주말(연한 갈색)/기본, 오늘은 밝은 파랑 테두리로 강조.
         # 호버 시 주황 테두리 — 평상시에도 투명 2px 테두리를 깔아 두어
@@ -265,18 +264,26 @@ class _DayCellWidget(QFrame):
         return format_hms(cell.work_seconds), theme.FG_TIME
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt override)
-        if self._date is not None and self._interactive:
-            self._on_click(self._date)
+        if self._date is None:
+            return
+        # macOS 에서 Cmd 는 Qt.ControlModifier 로 매핑된다
+        multi = bool(event.modifiers() & Qt.ControlModifier)
+        self._on_click(self._date, multi)
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 (Qt override)
-        if self._date is not None and self._interactive:
-            self._on_double_click(self._date)
+        if self._date is None:
+            return
+        if event.modifiers() & Qt.ControlModifier:
+            # Cmd+연속 클릭은 두 번째 토글로 처리 (수정 다이얼로그 방지)
+            self._on_click(self._date, True)
+            return
+        self._on_double_click(self._date)
 
 
 class CalendarWidget(QWidget):
     def __init__(
         self,
-        on_day_click: Callable[[str], None],
+        on_day_click: Callable[[str, bool], None],
         on_weekday_click: Callable[[int], None],
         on_day_double_click: Callable[[str], None],
     ) -> None:
@@ -335,9 +342,10 @@ class CalendarWidget(QWidget):
         selected_date: str | None = None,
         multi_selected: set[str] | None = None,
     ) -> None:
-        """multi_selected 가 주어지면 다중 선택 모드로 렌더링한다.
+        """multi_selected 가 주어지면 다중 선택 상태로 렌더링한다.
 
-        다중 선택 모드에서는 퇴근 완료 셀을 흐리게(선택 불가) 표시한다.
+        다중 선택 중에는 퇴근 완료 셀을 흐리게(일괄 수정 제외 안내) 표시한다.
+        흐린 셀도 일반 클릭(선택 초기화)은 가능하다.
         """
         multi_mode = multi_selected is not None
         self._clear()

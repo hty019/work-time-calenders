@@ -314,10 +314,16 @@ class StatusPanel(QWidget):
             if w is not None:
                 w.deleteLater()
 
-    def _render_buttons(self, status: WorkStatus, kind: str) -> None:
-        """오늘: [수정][퇴근/퇴근 취소] · 과거/미래: [수정][오늘]."""
+    def _render_buttons(
+        self, status: WorkStatus, kind: str, multi_count: int = 1
+    ) -> None:
+        """오늘: [수정][퇴근/퇴근 취소] · 과거/미래: [수정][오늘].
+
+        다중 선택(2일 이상) 시 수정 버튼 라벨은 '(N) 수정'.
+        """
         self._clear_buttons()
-        edit = QPushButton("수정")
+        label = "수정" if multi_count <= 1 else f"({multi_count}) 수정"
+        edit = QPushButton(label)
         edit.clicked.connect(lambda: self._on_edit())
         self._buttons.addWidget(edit)
         if kind == KIND_TODAY:
@@ -340,10 +346,12 @@ class StatusPanel(QWidget):
         status: WorkStatus,
         leave: YearLeaveSummary,
         detail: DayDetail | None = None,
+        multi_count: int = 1,
     ) -> None:
         """월 요약 + 선택 날짜(detail) 상세를 렌더링한다.
 
         detail 이 None 이면 오늘 기준으로 동작한다.
+        multi_count 는 다중 선택된 일 수 (수정 버튼 라벨에 반영).
         """
         self._required.setText(
             f"법정 기준   {_fmt_hours(summary.required_minutes)}"
@@ -388,7 +396,7 @@ class StatusPanel(QWidget):
         if (memo or "") != self._memo_box.toPlainText():
             self._memo_box.setPlainText(memo or "")
         self._memo_box.setVisible(bool(memo))
-        self._render_buttons(status, kind)
+        self._render_buttons(status, kind, multi_count)
 
     def _render_today_detail(
         self,

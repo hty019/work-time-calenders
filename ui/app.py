@@ -61,9 +61,8 @@ class AppController:
         now = timeutil.now()
         self._view_year, self._view_month = now.year, now.month
         self._selected_date = timeutil.today_str(now)
-        # 다중 선택 계획 수정 모드 상태
-        self._plan_edit_mode = False
-        self._plan_edit_dates: set[str] = set()
+        # Cmd+클릭 다중 선택 날짜 (선택 순서 유지, 2일 이상일 때만 사용)
+        self._multi_dates: list[str] = []
 
         callbacks = MainWindowCallbacks(
             on_clock_out=self._handle_clock_out,
@@ -71,8 +70,7 @@ class AppController:
             on_select_day=self._handle_select_day,
             on_edit_day=self._handle_edit_day,
             on_edit_weekday=self._handle_edit_weekday,
-            on_toggle_plan_edit=self._handle_toggle_plan_edit,
-            on_cancel_plan_edit=self._handle_cancel_plan_edit,
+            on_clear_selection=self._handle_clear_selection,
             on_prev_month=self._handle_prev_month,
             on_next_month=self._handle_next_month,
             on_switch_mode=self._handle_switch_mode,
@@ -123,11 +121,12 @@ class AppController:
         detail = build_day_detail(
             self._storage, self._plans, holidays, self._selected_date, today
         )
+        multi = (
+            set(self._multi_dates) if len(self._multi_dates) >= 2 else None
+        )
         self._window.render(
             year, month, status, grid, summary, leave, detail,
-            plan_edit_dates=(
-                self._plan_edit_dates if self._plan_edit_mode else None
-            ),
+            multi_dates=multi,
         )
         self._render_widget(summary, status)
 
@@ -219,37 +218,68 @@ class AppController:
             self._window.show()
         self._refresh()
 
-    def _handle_select_day(self, date: str) -> None:
-        """셀 클릭 = 선택. 상세는 STATUS 패널에 표시된다.
+    def _is_clocked_out(self, date: str) -> bool:
+        rec = self._storage.get(date)
+        return rec is not None and rec.clock_out is not None
 
-        다중 선택 계획 수정 모드에서는 대상 날짜 토글로 동작한다.
+    def _handle_select_day(self, date: str, multi: bool = False) -> None:
+        """셀 클릭 = 선택 (STATUS 는 마지막 선택 일자 표시).
+
+        Cmd+클릭(multi)은 다중 선택 토글로 동작한다.
         """
-        if self._plan_edit_mode:
-            rec = self._storage.get(date)
-            if rec is not None and rec.clock_out is not None:
-                return  # 퇴근 완료일은 선택 불가 (셀도 비활성)
-            self._plan_edit_dates ^= {date}
-            self._refresh()
+        if multi:
+            self._toggle_multi_date(date)
+        else:
+            self._multi_dates = []
+            self._selected_date = date
+        self._refresh()
+
+    def _toggle_multi_date(self, date: str) -> None:
+        """Cmd+클릭 토글. 퇴근 완료일은 일괄 수정 불가라 선택에서 제외."""
+        if self._is_clocked_out(date):
             return
-        self._selected_date = date
+        dates = list(self._multi_dates)
+        if not dates:
+            # 단일 선택 상태에서 시작: 기존 선택 일자를 시드로 포함
+            if (
+                self._selected_date != date
+                and not self._is_clocked_out(self._selected_date)
+            ):
+                dates = [self._selected_date]
+        if date in dates:
+            dates.remove(date)
+        else:
+            dates.append(date)
+        if dates:
+            self._selected_date = dates[-1]
+        # 1일 이하로 줄면 단일 선택으로 복귀
+        self._multi_dates = dates if len(dates) >= 2 else []
+
+    def _handle_clear_selection(self) -> None:
+        """ESC: 다중 선택 해제 (마지막 선택 일자는 유지)."""
+        if not self._multi_dates:
+            return
+        self._multi_dates = []
         self._refresh()
 
     def _handle_go_today(self) -> None:
-        """[오늘]: 선택·캘린더를 오늘/현재 월로 복귀."""
+        """[오늘]: 선택·캘린더를 오늘/현재 월로 복귀 (다중 선택 해제)."""
         now = timeutil.now()
         self._selected_date = timeutil.today_str(now)
+        self._multi_dates = []
         self._view_year, self._view_month = now.year, now.month
         self._refresh()
 
     def _handle_edit_day(self, date: str) -> None:
         """셀 더블 클릭 = 해당 날짜 선택 후 곧바로 수정 다이얼로그."""
-        if self._plan_edit_mode:
-            return  # 다중 선택 모드에서는 더블 클릭 수정을 막는다
         self._selected_date = date
         self._handle_edit_selected()
 
     def _handle_edit_selected(self) -> None:
-        """[수정]: 선택 날짜를 수정 다이얼로그(수정 모드)로 연다."""
+        """[수정]: 단일 선택은 상세 다이얼로그, 다중 선택은 일괄 수정."""
+        if len(self._multi_dates) >= 2:
+            self._open_bulk_plan_edit_dialog()
+            return
         date = self._selected_date
         rec = self._storage.get(date)
         holidays = self._holidays.get_holidays(self._view_year, self._view_month)
@@ -351,27 +381,8 @@ class AppController:
         )
         self._refresh()
 
-    def _handle_toggle_plan_edit(self) -> None:
-        """[계획 수정]: 모드 진입 → 셀 토글 선택 → 재클릭 시 적용(0일이면 취소)."""
-        if not self._plan_edit_mode:
-            self._plan_edit_mode = True
-            self._plan_edit_dates = set()
-            self._refresh()
-            return
-        if not self._plan_edit_dates:
-            self._handle_cancel_plan_edit()
-            return
-        self._open_bulk_plan_edit_dialog()
-
-    def _handle_cancel_plan_edit(self) -> None:
-        if not self._plan_edit_mode:
-            return
-        self._plan_edit_mode = False
-        self._plan_edit_dates = set()
-        self._refresh()
-
     def _open_bulk_plan_edit_dialog(self) -> None:
-        dates = sorted(self._plan_edit_dates)
+        dates = sorted(self._multi_dates)
 
         def apply(minutes, rng) -> None:
             for date in dates:
@@ -403,9 +414,8 @@ class AppController:
             on_apply_vacation=apply_vacation,
         )
         if applied:
-            self._handle_cancel_plan_edit()  # 적용 완료 → 모드 종료
-        else:
-            self._refresh()  # 취소 → 선택 유지한 채 모드 계속
+            self._multi_dates = []  # 적용 완료 → 단일 선택으로 복귀
+        self._refresh()
 
     def _handle_manage_vacation(self) -> None:
         year = timeutil.now().year  # 캘린더 표시 월과 무관하게 올해 기준
