@@ -1,8 +1,15 @@
 from core.ai_cli import (
+    AUTH_LOGGED_OUT,
+    AUTH_READY,
+    AUTH_UNKNOWN,
     PROVIDER_CLAUDE,
     PROVIDER_CODEX,
+    auth_status_command,
     build_prompt,
     build_run_command,
+    login_command,
+    login_terminal_command,
+    parse_auth_status,
     version_command,
 )
 
@@ -107,3 +114,46 @@ def test_build_run_command_default_model_omits_flag():
     assert "--model" not in cmd
     cmd = build_run_command(PROVIDER_CODEX, "PROMPT", "python workctl.py")
     assert "-m" not in cmd
+
+
+def test_auth_status_command_per_provider():
+    assert auth_status_command(PROVIDER_CLAUDE) == ["claude", "auth", "status"]
+    assert auth_status_command(PROVIDER_CODEX) == ["codex", "login", "status"]
+
+
+def test_login_command_per_provider():
+    assert login_command(PROVIDER_CLAUDE) == ["claude", "auth", "login"]
+    assert login_command(PROVIDER_CODEX) == ["codex", "login"]
+
+
+def test_parse_auth_status_claude():
+    import json
+
+    logged_in = json.dumps({"loggedIn": True, "email": "a@b.c"})
+    assert parse_auth_status(PROVIDER_CLAUDE, 0, logged_in) == AUTH_READY
+    logged_out = json.dumps({"loggedIn": False})
+    assert parse_auth_status(PROVIDER_CLAUDE, 0, logged_out) == AUTH_LOGGED_OUT
+    # auth 서브커맨드가 없는 구버전 등 — JSON 이 아니면 판정 불가
+    assert parse_auth_status(PROVIDER_CLAUDE, 1, "error") == AUTH_UNKNOWN
+
+
+def test_parse_auth_status_codex():
+    assert parse_auth_status(
+        PROVIDER_CODEX, 0, "Logged in using ChatGPT"
+    ) == AUTH_READY
+    assert parse_auth_status(
+        PROVIDER_CODEX, 1, "Not logged in"
+    ) == AUTH_LOGGED_OUT
+    assert parse_auth_status(PROVIDER_CODEX, 0, "???") == AUTH_UNKNOWN
+
+
+def test_login_terminal_command_macos():
+    cmd = login_terminal_command(PROVIDER_CLAUDE, platform="darwin")
+    assert cmd[0] == "osascript"
+    assert any("claude auth login" in part for part in cmd)
+
+
+def test_login_terminal_command_windows():
+    cmd = login_terminal_command(PROVIDER_CODEX, platform="win32")
+    assert cmd[0] == "cmd"
+    assert any("codex login" in part for part in cmd)

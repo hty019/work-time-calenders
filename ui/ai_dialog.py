@@ -21,12 +21,18 @@ from PySide6.QtWidgets import (
 import config
 from core import timeutil
 from core.ai_cli import (
+    AUTH_LOGGED_OUT,
+    AUTH_READY,
     INSTALL_GUIDES,
     MODEL_CHOICES,
     PROVIDER_LABELS,
+    auth_status_command,
     build_prompt,
     build_run_command,
     format_stream_event,
+    login_command,
+    login_terminal_command,
+    parse_auth_status,
     version_command,
 )
 from ui import theme
@@ -127,12 +133,16 @@ def open_ai_dialog(
     model_combo = QComboBox()
     model_combo.setStyle(QStyleFactory.create("Fusion"))
     check_btn = QPushButton("연동 확인")
+    # 로그인이 필요할 때만 노출되는 버튼 (새 터미널에서 대화형 로그인)
+    login_btn = QPushButton("로그인")
+    login_btn.setVisible(False)
     status_label = QLabel("")
     status_label.setWordWrap(True)
     provider_row.addWidget(QLabel("AI"))
     provider_row.addWidget(provider_combo, stretch=1)
     provider_row.addWidget(model_combo, stretch=1)
     provider_row.addWidget(check_btn)
+    provider_row.addWidget(login_btn)
     layout.addLayout(provider_row)
     layout.addWidget(status_label)
 
@@ -198,6 +208,7 @@ def open_ai_dialog(
     def _on_provider_changed() -> None:
         config.set_ai_provider(_provider())
         _reload_models()
+        handle_check()  # 제공자별 로그인 상태를 다시 확인
 
     provider_combo.currentIndexChanged.connect(
         lambda _i: _on_provider_changed()
@@ -212,29 +223,88 @@ def open_ai_dialog(
         status_label.setStyleSheet(f"color:{color};")
         status_label.setText(text)
 
-    def handle_check() -> None:
-        """CLI 설치 여부 확인. 미설치면 설치·로그인 방법 안내."""
-        provider = _provider()
+    def _check_version_fallback(provider: str) -> None:
+        """로그인 상태를 판정 못하면(구버전 등) 설치 여부라도 확인한다."""
         proc = QProcess(dlg)
-        proc.start(version_command(provider)[0], version_command(provider)[1:])
 
         def _done(_code, _status) -> None:
             out = bytes(proc.readAllStandardOutput()).decode(errors="replace")
             if proc.exitCode() == 0 and out.strip():
-                _set_status(f"연동 가능: {out.strip()}", ok=True)
+                _set_status(
+                    f"설치됨: {out.strip()} — 로그인 상태를 확인할 수 없습니다."
+                    " 실행이 인증 오류로 실패하면 [로그인] 을 누르세요.",
+                    ok=True,
+                )
+                login_btn.setVisible(True)
             else:
                 _set_status(
                     f"CLI 를 찾지 못했습니다. {INSTALL_GUIDES[provider]}",
                     ok=False,
                 )
+                login_btn.setVisible(False)
 
         proc.finished.connect(_done)
         proc.errorOccurred.connect(
-            lambda _e: _set_status(
-                f"CLI 를 찾지 못했습니다. {INSTALL_GUIDES[provider]}",
-                ok=False,
+            lambda _e: (
+                _set_status(
+                    f"CLI 를 찾지 못했습니다. {INSTALL_GUIDES[provider]}",
+                    ok=False,
+                ),
+                login_btn.setVisible(False),
             )
         )
+        proc.start(version_command(provider)[0], version_command(provider)[1:])
+
+    def handle_check() -> None:
+        """CLI 설치·로그인 상태 확인. 미로그인이면 [로그인] 버튼을 노출한다."""
+        provider = _provider()
+        proc = QProcess(dlg)
+        proc.setProcessChannelMode(QProcess.MergedChannels)
+        args = auth_status_command(provider)
+
+        def _done(_code, _status) -> None:
+            out = bytes(proc.readAllStandardOutput()).decode(errors="replace")
+            status = parse_auth_status(provider, proc.exitCode(), out)
+            if status == AUTH_READY:
+                _set_status("로그인 완료 — AI 실행이 가능합니다.", ok=True)
+                login_btn.setVisible(False)
+            elif status == AUTH_LOGGED_OUT:
+                _set_status(
+                    "로그인이 필요합니다. [로그인] 을 눌러 진행하세요.",
+                    ok=False,
+                )
+                login_btn.setVisible(True)
+            else:
+                # auth 상태를 못 읽으면(미지원 등) 설치 여부로 대체 확인
+                _check_version_fallback(provider)
+
+        proc.finished.connect(_done)
+        # 바이너리 미설치 시 finished 는 오지 않으므로 여기서 설치 안내
+        proc.errorOccurred.connect(
+            lambda _e: _check_version_fallback(provider)
+        )
+        proc.start(args[0], args[1:])
+        proc.closeWriteChannel()
+
+    def handle_login() -> None:
+        """새 터미널에서 대화형 로그인(브라우저 OAuth)을 시작한다."""
+        provider = _provider()
+        cmd = login_terminal_command(provider)
+        # PySide6 는 (성공여부, pid) 튜플을 돌려주므로 첫 값만 본다
+        started, _pid = QProcess.startDetached(cmd[0], cmd[1:])
+        if started:
+            _set_status(
+                "새 터미널에서 로그인을 진행하세요. 완료 후 [연동 확인] 을"
+                " 다시 누르면 상태가 갱신됩니다.",
+                ok=True,
+            )
+        else:
+            manual = " ".join(login_command(provider))
+            _set_status(
+                f"터미널을 열지 못했습니다. 직접 터미널에서 '{manual}' 를"
+                " 실행해 로그인하세요.",
+                ok=False,
+            )
 
     # 실행 완료(검토) 상태에서만 활성화되는 입력모드 복귀 단축키.
     # 한글 자판(ㄱ)도 함께 등록하고, 입력 중에는 비활성이라 일반
@@ -344,5 +414,6 @@ def open_ai_dialog(
     dlg.finished.connect(lambda _result: _kill_running())
 
     check_btn.clicked.connect(handle_check)
+    login_btn.clicked.connect(handle_login)
     handle_check()  # 열릴 때 연동 상태 자동 확인
     dlg.exec()

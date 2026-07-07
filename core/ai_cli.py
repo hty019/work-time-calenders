@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import sys
 
 PROVIDER_CLAUDE = "claude"
 PROVIDER_CODEX = "codex"
@@ -44,6 +45,77 @@ MODEL_CHOICES: dict[str, list[tuple[str, str | None]]] = {
 def version_command(provider: str) -> list[str]:
     """설치 여부 확인용 명령."""
     return [_BINARIES[provider], "--version"]
+
+
+# 로그인(인증) 상태 판정 결과
+AUTH_READY = "ready"        # 로그인 완료 — 실행 가능
+AUTH_LOGGED_OUT = "logged_out"  # CLI 는 있으나 로그인 필요
+AUTH_UNKNOWN = "unknown"    # 판정 불가(구버전·미지원 등) — 설치 여부로 대체
+
+
+def auth_status_command(provider: str) -> list[str]:
+    """로그인 상태 조회 명령. 브라우저·TTY 없이 결과만 반환한다."""
+    if provider == PROVIDER_CLAUDE:
+        return ["claude", "auth", "status"]
+    if provider == PROVIDER_CODEX:
+        return ["codex", "login", "status"]
+    raise ValueError(f"알 수 없는 AI 제공자: {provider!r}")
+
+
+def login_command(provider: str) -> list[str]:
+    """대화형 로그인 명령(브라우저 OAuth). 새 터미널에서 실행해야 한다."""
+    if provider == PROVIDER_CLAUDE:
+        return ["claude", "auth", "login"]
+    if provider == PROVIDER_CODEX:
+        return ["codex", "login"]
+    raise ValueError(f"알 수 없는 AI 제공자: {provider!r}")
+
+
+def parse_auth_status(provider: str, exit_code: int, output: str) -> str:
+    """auth 상태 명령의 출력으로 로그인 여부를 판정한다.
+
+    claude 는 JSON(loggedIn) 을, codex 는 텍스트 문구를 해석한다.
+    해석 불가 시 AUTH_UNKNOWN 을 돌려 설치 여부 검사로 대체하게 한다.
+    """
+    if provider == PROVIDER_CLAUDE:
+        try:
+            data = json.loads(output)
+        except (json.JSONDecodeError, TypeError):
+            return AUTH_UNKNOWN
+        if isinstance(data, dict) and "loggedIn" in data:
+            return AUTH_READY if data["loggedIn"] else AUTH_LOGGED_OUT
+        return AUTH_UNKNOWN
+    if provider == PROVIDER_CODEX:
+        low = (output or "").lower()
+        if "not logged in" in low or "not signed in" in low:
+            return AUTH_LOGGED_OUT
+        if exit_code == 0 and ("logged in" in low or "signed in" in low):
+            return AUTH_READY
+        return AUTH_UNKNOWN
+    return AUTH_UNKNOWN
+
+
+def login_terminal_command(
+    provider: str, platform: str | None = None
+) -> list[str]:
+    """로그인 명령을 새 터미널 창에서 실행하기 위한 OS별 명령.
+
+    로그인은 브라우저 OAuth 를 띄우고 콜백을 기다리므로, 창을 유지한 채
+    사용자가 완료할 수 있도록 별도 터미널에서 실행한다.
+    """
+    plat = platform if platform is not None else sys.platform
+    login = " ".join(login_command(provider))
+    if plat == "darwin":
+        return [
+            "osascript",
+            "-e", f'tell application "Terminal" to do script "{login}"',
+            "-e", 'tell application "Terminal" to activate',
+        ]
+    if plat.startswith("win"):
+        # 새 콘솔 창에서 실행하고 완료 후에도 창을 유지(/k)
+        return ["cmd", "/c", "start", "", "cmd", "/k", login]
+    # linux 등: 표준 터미널 에뮬레이터로 시도
+    return ["x-terminal-emulator", "-e", login]
 
 
 def build_prompt(instruction: str, today: str, workctl_cmd: str) -> str:
