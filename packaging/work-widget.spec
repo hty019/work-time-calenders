@@ -1,11 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller 빌드 스펙 (Windows 배포용).
+# PyInstaller 빌드 스펙 (Windows·macOS 공용).
 #
 # 사용법 (저장소 루트에서):
 #   pyinstaller packaging/work-widget.spec --noconfirm
 #
-# 결과: dist/work-widget/work-widget.exe (onedir — Qt 앱은 onefile 보다
-# 기동이 빠르고 백신 오탐이 적다)
+# 결과:
+#   Windows — dist/work-widget/work-widget.exe (onedir — Qt 앱은 onefile 보다
+#             기동이 빠르고 백신 오탐이 적다)
+#   macOS   — dist/work-widget.app (ad-hoc 서명 앱 번들)
+import sys
 
 a = Analysis(
     ["../main.py"],
@@ -42,3 +45,15 @@ coll = COLLECT(
     upx=False,
     name="work-widget",
 )
+
+if sys.platform == "darwin":
+    app = BUNDLE(
+        coll,
+        name="work-widget.app",
+        icon=None,
+        bundle_identifier="com.taeyeon.work-widget",
+        info_plist={
+            "CFBundleDisplayName": "work-widget",
+            "NSHighResolutionCapable": True,
+        },
+    )

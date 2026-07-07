@@ -6,3 +6,8 @@ venv/
 .venv/
 .pytest_cache/
 .DS_Store
+
+# 패키징 빌드 산출물
+build/
+dist/
+packaging/Output/

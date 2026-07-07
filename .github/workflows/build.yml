@@ -1,0 +1,122 @@
+# Windows 설치 프로그램(setup.exe)·macOS 디스크 이미지(dmg) 빌드
+#
+# - 수동 실행(workflow_dispatch): Actions 아티팩트로 업로드
+# - v* 태그 푸시: GitHub Release 생성 후 두 산출물 첨부
+name: build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# 릴리스 생성(gh release create)에 필요
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: 테스트
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest -q
+
+      - name: 버전 결정 (태그 v1.2.3 → 1.2.3, 그 외 0.0.0)
+        id: version
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $env:GITHUB_REF_NAME -replace '^v', ''
+          } else { '0.0.0' }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: 실행 파일 빌드 (PyInstaller)
+        run: pyinstaller packaging/work-widget.spec --noconfirm
+
+      - name: 설치 프로그램 빌드 (Inno Setup)
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
+            /DAppVersion=${{ steps.version.outputs.version }} `
+            packaging\installer.iss
+
+      - name: 아티팩트 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-setup
+          path: packaging/Output/*.exe
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: 테스트
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest -q
+
+      - name: 버전 결정 (태그 v1.2.3 → 1.2.3, 그 외 0.0.0)
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 앱 번들 빌드 (PyInstaller)
+        run: pyinstaller packaging/work-widget.spec --noconfirm
+
+      - name: DMG 생성
+        run: |
+          mkdir -p dmg_root packaging/Output
+          cp -R "dist/work-widget.app" dmg_root/
+          ln -s /Applications dmg_root/Applications
+          hdiutil create -volname "work-widget" -srcfolder dmg_root -ov \
+            -format UDZO \
+            "packaging/Output/work-widget-${{ steps.version.outputs.version }}.dmg"
+
+      - name: 아티팩트 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: packaging/Output/*.dmg
+
+  release:
+    needs: [windows, macos]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 아티팩트 수집
+        uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: 릴리스 생성
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" assets/* \
+            -R "$GITHUB_REPOSITORY" \
+            --title "work-widget $GITHUB_REF_NAME" --generate-notes
