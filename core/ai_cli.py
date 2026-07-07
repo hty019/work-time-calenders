@@ -1,0 +1,73 @@
+"""로컬 AI CLI(Claude Code·Codex) 연동 — 명령·프롬프트 구성 (Qt 비의존)."""
+from __future__ import annotations
+
+PROVIDER_CLAUDE = "claude"
+PROVIDER_CODEX = "codex"
+
+PROVIDER_LABELS = {
+    PROVIDER_CLAUDE: "Claude (Claude Code)",
+    PROVIDER_CODEX: "ChatGPT (Codex CLI)",
+}
+
+# 미설치 시 사용자에게 안내할 설치·로그인 방법
+INSTALL_GUIDES = {
+    PROVIDER_CLAUDE: (
+        "npm install -g @anthropic-ai/claude-code 설치 후 "
+        "터미널에서 'claude' 실행 → /login 으로 로그인"
+    ),
+    PROVIDER_CODEX: (
+        "npm install -g @openai/codex 설치 후 "
+        "터미널에서 'codex login' 으로 로그인"
+    ),
+}
+
+_BINARIES = {PROVIDER_CLAUDE: "claude", PROVIDER_CODEX: "codex"}
+
+
+def version_command(provider: str) -> list[str]:
+    """설치 여부 확인용 명령."""
+    return [_BINARIES[provider], "--version"]
+
+
+def build_prompt(instruction: str, today: str, workctl_cmd: str) -> str:
+    """AI 에게 전달할 지시문. workctl 사용법과 안전 규칙을 포함한다."""
+    return f"""당신은 macOS 근무시간 트래커의 데이터 편집 도우미입니다.
+오늘 날짜: {today}
+
+날짜별 기록의 조회·수정은 반드시 아래 명령만 사용하세요:
+  {workctl_cmd} show DATE [--to DATE]        # 기록 JSON 조회
+  {workctl_cmd} set-plan DATE MINUTES        # 실 계획(분) 설정
+  {workctl_cmd} clear-plan DATE              # 실 계획 해제(기본값)
+  {workctl_cmd} set-recog DATE HH:MM HH:MM   # (가)계획 범위 설정
+  {workctl_cmd} clear-recog DATE
+  {workctl_cmd} set-vacation DATE MINUTES [--start HH:MM]  # 120/240/360/480
+  {workctl_cmd} clear-vacation DATE
+  {workctl_cmd} set-memo DATE "TEXT"
+  {workctl_cmd} clear-memo DATE
+
+규칙:
+- 출퇴근 시각(실적)은 절대 수정하지 마세요. 위 명령 외 다른 방법으로
+  데이터 파일(DB)에 접근하지 마세요.
+- 수정 전 show 로 현재 값을 확인하고, 명령이 오류를 반환하면 지시를
+  임의로 우회하지 말고 오류 내용을 보고하세요.
+- 완료 후 변경 내역을 한국어로 간단히 요약해 출력하세요.
+
+사용자 지시: {instruction}"""
+
+
+def build_run_command(
+    provider: str, prompt: str, workctl_cmd: str
+) -> list[str]:
+    """제공자별 헤드리스 실행 명령을 구성한다."""
+    if provider == PROVIDER_CLAUDE:
+        # workctl 호출만 자동 허용 — 그 외 도구는 헤드리스에서 거부됨
+        return [
+            "claude", "-p", prompt,
+            "--allowedTools", f"Bash({workctl_cmd}:*)",
+        ]
+    if provider == PROVIDER_CODEX:
+        # DB 가 홈 디렉터리(작업 폴더 밖)에 있어 샌드박스 완화가 필요
+        return [
+            "codex", "exec", "--sandbox", "danger-full-access", prompt,
+        ]
+    raise ValueError(f"알 수 없는 AI 제공자: {provider!r}")

@@ -57,6 +57,20 @@ def set_service_key(key: str) -> None:
     save_config(cfg)
 
 
+def get_ai_provider() -> str:
+    """AI 연동 제공자 (claude | codex). 기본 claude."""
+    provider = load_config().get("ai_provider")
+    return provider if provider in ("claude", "codex") else "claude"
+
+
+def set_ai_provider(provider: str) -> None:
+    if provider not in ("claude", "codex"):
+        raise ValueError(f"알 수 없는 AI 제공자: {provider!r}")
+    cfg = load_config()
+    cfg["ai_provider"] = provider
+    save_config(cfg)
+
+
 def get_window_pos() -> tuple[int, int] | None:
     pos = load_config().get("window_pos")
     if isinstance(pos, list) and len(pos) == 2:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime
+import os
 import sys
 
 from PySide6.QtCore import QTimer
@@ -23,6 +24,7 @@ from core.stats import build_month_summary
 from core.storage import Storage
 from core.vacation import Vacation, VacationService, YearLeaveSummary
 from ui import theme
+from ui.ai_dialog import open_ai_dialog
 from ui.api_key_dialog import open_api_key_dialog
 from ui.calendar_widget import SELECT_RANGE, SELECT_SINGLE, SELECT_TOGGLE
 from ui.day_dialog import open_day_dialog
@@ -82,6 +84,7 @@ class AppController:
             on_go_today=self._handle_go_today,
             on_register_api_key=self._handle_register_api_key,
             on_show_help=lambda: open_help_dialog(self._window),
+            on_open_ai=self._handle_open_ai,
         )
         self._window = MainWindow(callbacks)
         self._window.set_api_key_registered(
@@ -310,6 +313,13 @@ class AppController:
             start_in_edit=True,
         )
         self._refresh()
+
+    def _handle_open_ai(self) -> None:
+        """[AI]: 로컬 AI CLI 로 자연어 기록 편집 다이얼로그를 연다."""
+        workdir = os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__))
+        )
+        open_ai_dialog(self._window, workdir, on_applied=self._refresh)
 
     def _handle_register_api_key(self) -> None:
         """공휴일 API 인증키 등록 다이얼로그를 연다."""

@@ -41,6 +41,7 @@ class MainWindowCallbacks:
     on_go_today: Callable[[], None]
     on_register_api_key: Callable[[], None]
     on_show_help: Callable[[], None]
+    on_open_ai: Callable[[], None]
 
 
 def _dot_icon(color: str) -> QIcon:
@@ -100,6 +101,8 @@ class MainWindow(QMainWindow):
         switch.triggered.connect(lambda: self._cb.on_switch_mode())
         help_action = QAction("도움말", self)
         help_action.triggered.connect(lambda: self._cb.on_show_help())
+        ai_action = QAction("AI", self)
+        ai_action.triggered.connect(lambda: self._cb.on_open_ai())
         # 공휴일 API 키 등록·교체 버튼 — 등록 상태를 색 점으로 표시
         self._api_key_action = QAction("공휴일 API 키", self)
         self._api_key_action.triggered.connect(
@@ -112,6 +115,8 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self._month_label)
         toolbar.addAction(nxt)
         toolbar.addWidget(spacer)
+        toolbar.addAction(ai_action)
+        toolbar.addSeparator()
         toolbar.addAction(help_action)
         toolbar.addSeparator()
         toolbar.addAction(self._api_key_action)
