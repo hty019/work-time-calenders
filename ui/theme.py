@@ -50,6 +50,9 @@ STATUS_PANEL_WIDTH = 260
 # 공휴일 API 키 등록 다이얼로그 최소 폭 (인증키가 길어 넉넉히)
 API_KEY_DIALOG_MIN_WIDTH = 460
 TOOLBAR_DOT_ICON_PX = 12  # 툴바 상태 점 아이콘 크기
+TOOLBAR_EDGE_PAD_PX = 8   # 툴바 좌우 가장자리 여백
+TOOLBAR_BTN_PAD_V_PX = 4  # 툴바 버튼 상하 패딩
+TOOLBAR_BTN_PAD_H_PX = 8  # 툴바 버튼 좌우 패딩 (균일)
 
 # 휴가 관리 다이얼로그 최소 크기
 VACATION_DIALOG_MIN_WIDTH = 460
@@ -84,4 +87,8 @@ def base_stylesheet() -> str:
                    padding: 8px 14px; border-radius: 6px; font-weight: bold; }}
     QPushButton:hover {{ background-color: {BG_HOVER}; }}
     QLabel {{ background: transparent; }}
+    QToolBar {{ padding: 0 {TOOLBAR_EDGE_PAD_PX}px; }}
+    QToolButton {{ background: transparent; border: none; border-radius: 6px;
+                   padding: {TOOLBAR_BTN_PAD_V_PX}px {TOOLBAR_BTN_PAD_H_PX}px; }}
+    QToolButton:hover {{ background-color: {BG_HOVER}; }}
     """
