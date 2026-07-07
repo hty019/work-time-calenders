@@ -12,7 +12,9 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=[],
+    # zoneinfo 가 tzdata 를 동적 임포트하므로 정적 분석에 잡히지 않는다.
+    # 명시해 두면 hooks-contrib 의 tzdata 훅이 존 데이터 파일까지 수집한다.
+    hiddenimports=["tzdata"],
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
