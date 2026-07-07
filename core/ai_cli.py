@@ -36,9 +36,12 @@ MODEL_CHOICES: dict[str, list[tuple[str, str | None]]] = {
         ("Opus (고성능)", "opus"),
     ],
     PROVIDER_CODEX: [
+        # ChatGPT 계정에서는 -codex·-pro 계열이 막혀(API 과금 전용) 범용
+        # 모델만 노출한다. 확실치 않으면 '기본 설정'(계정 기본 모델)을 쓴다.
         ("기본 설정", None),
-        ("gpt-5.1-codex", "gpt-5.1-codex"),
-        ("gpt-5.1-codex-mini", "gpt-5.1-codex-mini"),
+        ("GPT-5.4 Mini (빠름·경제적)", "gpt-5.4-mini"),
+        ("GPT-5.4 (균형)", "gpt-5.4"),
+        ("GPT-5.5 (고성능)", "gpt-5.5"),
     ],
 }
 
