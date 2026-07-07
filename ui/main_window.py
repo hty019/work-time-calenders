@@ -20,13 +20,7 @@ from ui import theme
 from ui.calendar_widget import CalendarWidget
 from ui.status_panel import StatusPanel
 
-_STATUS_DOT = "●"
 _VACATION_DEFAULT_LABEL = "휴가 관리"
-_STATUS_COLORS = {
-    WorkStatus.WORKING: theme.FG_WORKING,
-    WorkStatus.CLOCKED_OUT: theme.FG_MUTED,
-    WorkStatus.NOT_CLOCKED_IN: theme.FG_INCOMPLETE,
-}
 
 
 @dataclass
@@ -79,7 +73,6 @@ class MainWindow(QMainWindow):
         self._month_label = QLabel("  ")
         nxt = QAction("▶", self)
         nxt.triggered.connect(lambda: self._cb.on_next_month())
-        self._status_label = QLabel("")
         self._vacation_action = QAction(_VACATION_DEFAULT_LABEL, self)
         self._vacation_action.triggered.connect(
             lambda: self._cb.on_manage_vacation()
@@ -91,14 +84,12 @@ class MainWindow(QMainWindow):
         self._api_key_action.triggered.connect(
             lambda: self._cb.on_register_api_key()
         )
-        # 좌측: 월 이동·상태 / 우측: 공휴일 API 키·휴가 관리·위젯 모드
+        # 좌측: 월 이동 / 우측: 공휴일 API 키·휴가 관리·위젯 모드
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         toolbar.addAction(prev)
         toolbar.addWidget(self._month_label)
         toolbar.addAction(nxt)
-        toolbar.addSeparator()
-        toolbar.addWidget(self._status_label)
         toolbar.addWidget(spacer)
         toolbar.addAction(self._api_key_action)
         toolbar.addSeparator()
@@ -142,8 +133,6 @@ class MainWindow(QMainWindow):
         detail: DayDetail | None = None,
     ) -> None:
         self._month_label.setText(f"  {year}년 {month}월  ")
-        self._status_label.setText(f"{_STATUS_DOT} {status.value}")
-        self._status_label.setStyleSheet(f"color:{_STATUS_COLORS[status]};")
         self._calendar.render_grid(
             grid, selected_date=detail.date if detail else None
         )
