@@ -174,3 +174,17 @@ def test_verify_service_key_parse_error_mentions_key_check():
     ok, msg = holidays_mod.verify_service_key("KEY", 2026, 7, fetcher=fetcher)
     assert ok is False
     assert "인증키" in msg
+
+
+def test_verify_service_key_calls_api_only_once(monkeypatch):
+    """키 테스트는 재시도 없이 단일 호출로 즉시 결과를 보여야 한다."""
+    calls = []
+
+    def fake_get(url, params=None, timeout=None):
+        calls.append(1)
+        return _FakeResponse(401)
+
+    monkeypatch.setattr(holidays_mod.requests, "get", fake_get)
+    ok, msg = holidays_mod.verify_service_key("KEY", 2026, 7)
+    assert ok is False
+    assert len(calls) == 1

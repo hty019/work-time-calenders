@@ -42,7 +42,8 @@ def _parse_response(resp: requests.Response) -> list[dict]:
     return raw if isinstance(raw, list) else [raw]
 
 
-def _http_fetch(service_key: str, year: int, month: int) -> list[dict]:
+def _fetch_once(service_key: str, year: int, month: int) -> list[dict]:
+    """재시도 없는 단일 API 호출."""
     params = {
         "serviceKey": service_key,
         "solYear": str(year),
@@ -50,13 +51,15 @@ def _http_fetch(service_key: str, year: int, month: int) -> list[dict]:
         "_type": "json",
         "numOfRows": "100",
     }
+    resp = requests.get(_API_URL, params=params, timeout=_HTTP_TIMEOUT_SECONDS)
+    return _parse_response(resp)
+
+
+def _http_fetch(service_key: str, year: int, month: int) -> list[dict]:
     last_exc: Exception | None = None
     for attempt in range(_MAX_ATTEMPTS):
         try:
-            resp = requests.get(
-                _API_URL, params=params, timeout=_HTTP_TIMEOUT_SECONDS
-            )
-            return _parse_response(resp)
+            return _fetch_once(service_key, year, month)
         except requests.RequestException as exc:
             # 게이트웨이의 간헐적 401 등 일시적 실패는 재시도한다.
             last_exc = exc
@@ -73,10 +76,11 @@ def verify_service_key(
 ) -> tuple[bool, str]:
     """인증키로 단건 조회를 수행해 (성공 여부, 안내 메시지) 를 반환.
 
+    사용자가 결과를 기다리는 테스트 용도이므로 재시도 없이 1회만 호출한다.
     잘못된 키는 게이트웨이가 200 + XML 오류 본문을 주는 경우가 많아
     JSON 해석 실패(ValueError)를 키 오류 안내로 매핑한다.
     """
-    fetcher = fetcher or _http_fetch
+    fetcher = fetcher or _fetch_once
     try:
         items = fetcher(service_key, year, month)
     except (ValueError, KeyError, TypeError):
