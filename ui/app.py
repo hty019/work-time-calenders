@@ -160,7 +160,7 @@ class AppController:
             vacation=vacation_line(detail),
             state_html=state_rich_text(state_text, state_key),
         )
-        self._widget.render(status, today_info)
+        self._widget.render(today_info)
 
     def _ms_until_next_minute(self) -> int:
         now = timeutil.now()

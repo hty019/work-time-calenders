@@ -10,15 +10,8 @@ from PySide6.QtWidgets import (
 )
 
 import config
-from core.attendance import WorkStatus
 from ui import theme
 
-_STATUS_DOT = "●"
-_STATUS_COLORS = {
-    WorkStatus.WORKING: theme.FG_WORKING,
-    WorkStatus.CLOCKED_OUT: theme.FG_MUTED,
-    WorkStatus.NOT_CLOCKED_IN: theme.FG_INCOMPLETE,
-}
 _MARGIN_H = 12   # 좌우 여백(px)
 _MARGIN_V = 10   # 상하 여백(px)
 _BORDER_RADIUS = 8  # 모서리 둥글기(px)
@@ -59,13 +52,12 @@ class WidgetWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(_MARGIN_H, _MARGIN_V, _MARGIN_H, _MARGIN_V)
 
+        # 헤더는 우측 정렬 버튼만 (상태 정보는 하단 상태 라인이 담당)
         top = QHBoxLayout()
-        self._status = QLabel()
         expand = QPushButton("전체")
         expand.clicked.connect(lambda: self._cb.on_switch_mode())
         close = QPushButton("✕")
         close.clicked.connect(lambda: self._cb.on_close())
-        top.addWidget(self._status)
         top.addStretch(1)
         top.addWidget(expand)
         top.addWidget(close)
@@ -89,9 +81,7 @@ class WidgetWindow(QWidget):
                   self._stay, self._remaining, self._vacation, self._state):
             layout.addWidget(w)
 
-    def render(self, status: WorkStatus, today: TodayInfo) -> None:
-        self._status.setText(f"{_STATUS_DOT} {status.value}")
-        self._status.setStyleSheet(f"color:{_STATUS_COLORS[status]};")
+    def render(self, today: TodayInfo) -> None:
         self._clock_in.setText(today.clock_in)
         self._expected.setText(today.expected)
         self._plan_range.setText(today.plan_range)
