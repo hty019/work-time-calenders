@@ -294,16 +294,17 @@ class StatusPanel(QWidget):
         self._expected_sub.setVisible(False)
 
         # 순서: 출근 → 퇴근 예정 → 계획 퇴근 안내 → 체류 → 남은 → 휴가
-        #       → 상태 → 메모
+        #       → 상태. 메모는 stretch 아래 = 버튼 바로 위에 고정
         for w in (self._title, self._required, self._max, self._planned,
                   self._recog_planned, self._actual, self._leave,
                   self._progress_caption, self._progress,
                   self._clock_in, self._expected, self._expected_sub,
                   self._stay, self._remaining, self._vacation,
-                  self._state, self._memo_box):
+                  self._state):
             layout.addWidget(w)
 
         layout.addStretch(1)
+        layout.addWidget(self._memo_box)
         self._buttons = QHBoxLayout()
         layout.addLayout(self._buttons)
 
