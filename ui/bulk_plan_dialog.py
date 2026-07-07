@@ -37,7 +37,7 @@ def open_bulk_plan_dialog(
     # macOS 기본 정책은 입력란을 sizeHint 로 고정 — 폭을 따라 늘어나게 함
     form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
     plan_edit = QLineEdit()
-    plan_edit.setPlaceholderText(f"분 단위 (비우면 기본 {default_minutes}분으로 초기화)")
+    plan_edit.setPlaceholderText(f"기본값:{default_minutes}")
     recog_start_edit = QLineEdit()
     recog_start_edit.setPlaceholderText("HH:MM (비우면 미설정)")
     recog_end_edit = QLineEdit()
