@@ -6,6 +6,7 @@ from typing import Callable
 
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QToolBar, QLabel,
+    QSizePolicy, QToolButton,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
@@ -86,16 +87,23 @@ class MainWindow(QMainWindow):
         self._api_key_action.triggered.connect(
             lambda: self._cb.on_register_api_key()
         )
+        # 좌측: 월 이동·상태 / 우측: 공휴일 API 키·휴가 관리·위젯 모드
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         toolbar.addAction(prev)
         toolbar.addWidget(self._month_label)
         toolbar.addAction(nxt)
         toolbar.addSeparator()
         toolbar.addWidget(self._status_label)
+        toolbar.addWidget(spacer)
+        toolbar.addAction(self._api_key_action)
         toolbar.addSeparator()
         toolbar.addAction(self._vacation_action)
         toolbar.addSeparator()
-        toolbar.addAction(self._api_key_action)
         toolbar.addAction(switch)
+        # 메뉴 버튼 호버 시 손가락 커서
+        for button in toolbar.findChildren(QToolButton):
+            button.setCursor(Qt.PointingHandCursor)
 
         central = QWidget()
         layout = QHBoxLayout(central)
