@@ -24,6 +24,28 @@ MAX_PLAN_MINUTES = 24 * 60
 _MEMO_CAPTION_GAP_PX = 2  # 메모 캡션과 박스 사이 간격
 _COMBO_ARROW_AREA_PX = 24  # 콤보 드롭다운 버튼 영역 폭
 
+
+class _MemoEdit(QTextEdit):
+    """메모 입력 박스. Enter=저장, Cmd+Enter=줄바꿈.
+
+    다른 입력란과 달리 QTextEdit 는 Enter 를 줄바꿈으로 삼키므로,
+    저장 단축키를 살리기 위해 키 처리를 재정의한다.
+    """
+
+    def __init__(self, on_submit: Callable[[], None], parent=None) -> None:
+        super().__init__(parent)
+        self._on_submit = on_submit
+
+    def keyPressEvent(self, event) -> None:
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            # macOS 에서 Cmd 는 Qt.ControlModifier 로 매핑된다
+            if event.modifiers() & Qt.ControlModifier:
+                self.insertPlainText("\n")
+            else:
+                self._on_submit()
+            return
+        super().keyPressEvent(event)
+
 # 휴가 콤보 항목: (표시 문구, 분). 없음은 None.
 VACATION_CHOICES: list[tuple[str, Optional[int]]] = [
     ("없음", None),
@@ -234,8 +256,8 @@ def open_day_dialog(
     memo_view.setStyleSheet(memo_style)
     memo_view.document().setDocumentMargin(0)
     memo_view.setFixedHeight(theme.DAY_DIALOG_MEMO_HEIGHT)
-    # 수정: 여러 줄 입력
-    memo_edit = QTextEdit()
+    # 수정: 여러 줄 입력 (Enter=저장, Cmd+Enter=줄바꿈)
+    memo_edit = _MemoEdit(lambda: handle_save())
     memo_edit.setPlainText(initial_memo)
     memo_edit.setPlaceholderText("근무 내용·주요 안건 (비우면 메모 삭제)")
     memo_edit.setStyleSheet(memo_style)
@@ -267,6 +289,11 @@ def open_day_dialog(
     edit_btn = QPushButton("수정")
     cancel_btn = QPushButton("취소")
     save_btn = QPushButton("저장")
+    # Enter 로 저장되도록 저장 버튼을 기본 버튼으로 지정하고,
+    # 다른 버튼이 포커스 상태에서 Enter 를 가로채지 않게 한다
+    save_btn.setDefault(True)
+    for _btn in (close_btn, edit_btn, cancel_btn):
+        _btn.setAutoDefault(False)
     buttons.addWidget(close_btn)
     buttons.addWidget(cancel_btn)
     buttons.addWidget(edit_btn)
