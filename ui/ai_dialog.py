@@ -116,8 +116,11 @@ def open_ai_dialog(
     layout = QVBoxLayout(dlg)
 
     # 허용 패턴(접두사 일치)과 AI 가 실행할 명령이 정확히 같아지도록
-    # 콘솔 python·정슬래시로 표준화한 접두사를 쓴다
-    workctl_cmd = workctl_command_prefix(sys.executable, workdir)
+    # 콘솔 python·정슬래시로 표준화한 접두사를 쓴다. 패키징 앱은
+    # python 이 없으므로 실행 파일의 workctl 서브커맨드를 쓴다.
+    workctl_cmd = workctl_command_prefix(
+        sys.executable, workdir, frozen=getattr(sys, "frozen", False)
+    )
     running_procs: list[QProcess] = []
 
     provider_row = QHBoxLayout()

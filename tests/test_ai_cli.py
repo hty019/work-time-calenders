@@ -126,6 +126,46 @@ def test_workctl_command_prefix_outside_workdir_uses_absolute():
     assert "\\" not in got
 
 
+def test_workctl_command_prefix_frozen_uses_exe_subcommand():
+    from core.ai_cli import workctl_command_prefix
+
+    got = workctl_command_prefix(
+        "/Applications/work-widget.app/Contents/MacOS/work-widget",
+        "/Users/u",
+        frozen=True,
+    )
+    # 패키징 앱은 workctl.py 대신 실행 파일의 workctl 서브커맨드를 쓴다
+    assert got == (
+        "/Applications/work-widget.app/Contents/MacOS/work-widget workctl"
+    )
+
+
+def test_workctl_command_prefix_frozen_quotes_spaced_windows_path():
+    from core.ai_cli import workctl_command_prefix
+
+    got = workctl_command_prefix(
+        "C:\\Program Files\\work-widget\\work-widget.exe",
+        "C:\\Users\\u",
+        frozen=True,
+    )
+    # 공백 경로는 인용하고, Bash 실행에 맞춰 정슬래시로 통일
+    assert got == '"C:/Program Files/work-widget/work-widget.exe" workctl'
+
+
+def test_allowed_tool_patterns_quoted_absolute_skips_dot_variant():
+    from core.ai_cli import allowed_tool_patterns
+
+    pats = allowed_tool_patterns(
+        '"C:/Program Files/work-widget/work-widget.exe" workctl'
+    )
+    assert (
+        'Bash("C:/Program Files/work-widget/work-widget.exe" workctl:*)'
+        in pats
+    )
+    # 인용된 절대 경로에는 './' 변형을 만들지 않는다
+    assert not any('./"' in p for p in pats)
+
+
 def test_build_prompt_contains_context_and_rules():
     prompt = build_prompt("수요일 계획 6시간으로", "2026-07-07", "python workctl.py")
     assert "2026-07-07" in prompt

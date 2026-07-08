@@ -316,9 +316,14 @@ class AppController:
 
     def _handle_open_ai(self) -> None:
         """[AI]: 로컬 AI CLI 로 자연어 기록 편집 다이얼로그를 연다."""
-        workdir = os.path.dirname(
-            os.path.dirname(os.path.abspath(__file__))
-        )
+        if getattr(sys, "frozen", False):
+            # 패키징 앱 — __file__ 은 번들 내부라 작업 폴더로 부적합.
+            # workctl 서브커맨드는 cwd 와 무관하므로 홈으로 통일한다.
+            workdir = os.path.expanduser("~")
+        else:
+            workdir = os.path.dirname(
+                os.path.dirname(os.path.abspath(__file__))
+            )
         open_ai_dialog(self._window, workdir, on_applied=self._refresh)
 
     def _handle_register_api_key(self) -> None:

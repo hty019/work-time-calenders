@@ -17,7 +17,9 @@ a = Analysis(
     datas=[],
     # zoneinfo 가 tzdata 를 동적 임포트하므로 정적 분석에 잡히지 않는다.
     # 명시해 두면 hooks-contrib 의 tzdata 훅이 존 데이터 파일까지 수집한다.
-    hiddenimports=["tzdata"],
+    # workctl 은 main.py 의 함수 내부 임포트라 명시해 확실히 포함시킨다
+    # ('<실행파일> workctl ...' 서브커맨드용).
+    hiddenimports=["tzdata", "workctl"],
     hookspath=[],
     runtime_hooks=[],
     excludes=[],

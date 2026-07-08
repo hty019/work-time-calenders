@@ -191,16 +191,27 @@ def login_terminal_command(
     return ["x-terminal-emulator", "-e", login]
 
 
-def workctl_command_prefix(executable: str, workdir: str) -> str:
-    """workctl.py 호출용 명령 접두사를 만든다.
+def workctl_command_prefix(
+    executable: str, workdir: str, frozen: bool = False
+) -> str:
+    """workctl 호출용 명령 접두사를 만든다.
 
-    두 가지를 보정한다:
+    frozen(PyInstaller 패키징 앱)이면 python 이 없으므로 실행 파일의
+    'workctl' 서브커맨드를 쓴다(main.py 가 GUI 대신 CLI 로 위임).
+    공백 경로는 인용하고, Bash 실행에 맞춰 구분자를 '/' 로 통일한다.
+
+    개발 실행(비 frozen)은 두 가지를 보정한다:
     - GUI 런처(pythonw)로 앱이 떠도 workctl 은 콘솔 python 으로 실행해야
       stdout(조회 결과·오류)을 받는다. pythonw → python 으로 바꾼다.
     - AI(claude)는 Bash 에서 경로를 정슬래시로 바꿔 실행하므로, 자동 승인
       되도록 --allowedTools 패턴과 정확히 일치시키려면 경로 구분자를 '/'
       로 통일해야 한다.
     """
+    if frozen:
+        exe = executable.replace("\\", "/")
+        if " " in exe:
+            exe = f'"{exe}"'
+        return f"{exe} workctl"
     exe = executable
     for suffix, replacement in (("pythonw.exe", "python.exe"), ("pythonw", "python")):
         if exe.endswith(suffix):
@@ -259,8 +270,10 @@ def allowed_tool_patterns(workctl_cmd: str) -> list[str]:
     호출이라 도메인 안전 범위(오직 workctl) 안이다.
     """
     prefixes = [workctl_cmd]
-    looks_absolute = workctl_cmd.startswith("/") or (
-        len(workctl_cmd) > 1 and workctl_cmd[1] == ":"
+    # 인용된 경로("C:/Program Files/...")도 절대 경로로 판정한다
+    unquoted = workctl_cmd.lstrip('"')
+    looks_absolute = unquoted.startswith("/") or (
+        len(unquoted) > 1 and unquoted[1] == ":"
     )
     if not workctl_cmd.startswith("./") and not looks_absolute:
         prefixes.append(f"./{workctl_cmd}")
