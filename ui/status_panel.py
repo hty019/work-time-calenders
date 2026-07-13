@@ -168,6 +168,11 @@ def past_lines(detail: DayDetail) -> list[str]:
     ]
 
 
+def past_plan_line(detail: DayDetail) -> str:
+    """과거 일자 실 계획 시간 라인 (근무 시간 위에 표시)."""
+    return f"실 계획: {format_hm(detail.planned_minutes)}"
+
+
 def work_line(detail: DayDetail) -> str | None:
     """과거 일자 근무 시간 라인. 퇴근 완료가 아니면 None(숨김)."""
     if detail.clock_out_hm is None or detail.work_seconds is None:
@@ -318,6 +323,9 @@ class StatusPanel(QWidget):
             f"color:{theme.FG_MUTED}; font-size:{_SUB_FONT_PX}px;"
         )
         self._expected_sub.setVisible(False)
+        # 과거 일자 실 계획 라인 (근무 시간 위, 일반 스타일). 과거일에만 표시.
+        self._past_plan = QLabel()
+        self._past_plan.setVisible(False)
 
         # 순서: 출근 → 퇴근 예정 → 계획 퇴근 안내 → 체류 → 남은 → 휴가
         #       → 상태. 메모는 stretch 아래 = 버튼 바로 위에 고정
@@ -325,8 +333,8 @@ class StatusPanel(QWidget):
                   self._recog_planned, self._actual, self._leave,
                   self._progress_caption, self._progress,
                   self._clock_in, self._expected, self._expected_sub,
-                  self._stay, self._remaining, self._vacation,
-                  self._state):
+                  self._past_plan, self._stay, self._remaining,
+                  self._vacation, self._state):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -465,12 +473,16 @@ class StatusPanel(QWidget):
         sub = plan_range_line(detail) if detail is not None else None
         self._expected_sub.setText(sub or "")
         self._expected_sub.setVisible(bool(sub))
+        self._past_plan.setVisible(False)  # 과거 전용 라인 숨김
 
     def _render_past_detail(self, detail: DayDetail) -> None:
         in_line, out_line, plan_line = past_lines(detail)
         self._clock_in.setText(in_line)
         self._expected.setText(out_line)
         self._expected_sub.setVisible(False)
+        # 근무 시간 위에 실 계획 라인 표시 (일반 스타일)
+        self._past_plan.setText(past_plan_line(detail))
+        self._past_plan.setVisible(True)
         # 퇴근 완료일은 퇴근 시간과 계획 시간 사이에 근무 시간을 끼워 넣는다.
         # 라벨은 기본 색, 값만 녹색(셀 근로 인정시간 강조와 동일) 처리
         work = work_line(detail)
@@ -489,6 +501,7 @@ class StatusPanel(QWidget):
         self._clock_in.setText(plan_line)
         self._expected.setText(recog_line)
         self._expected_sub.setVisible(False)
+        self._past_plan.setVisible(False)  # 과거 전용 라인 숨김
         self._stay.setVisible(False)
         self._remaining.setVisible(False)
         self._state.setVisible(False)

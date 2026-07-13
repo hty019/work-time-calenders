@@ -290,6 +290,12 @@ def test_past_lines_without_data():
     ]
 
 
+def test_past_plan_line_formats_planned_minutes():
+    from ui.status_panel import past_plan_line
+    assert past_plan_line(_detail(planned_minutes=480)) == "실 계획: 8h 0m"
+    assert past_plan_line(_detail(planned_minutes=0)) == "실 계획: 0h 0m"
+
+
 def test_future_lines():
     from ui.status_panel import future_lines
     d = _detail(
