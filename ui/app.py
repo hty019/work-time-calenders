@@ -22,6 +22,7 @@ from core.recognition import (
 )
 from core.stats import build_month_summary
 from core.storage import Storage
+from core.calendar_nav import resolve_nav_base, step_within_month
 from core.vacation import Vacation, VacationService, YearLeaveSummary
 from ui import theme
 from ui.ai_dialog import open_ai_dialog
@@ -82,6 +83,7 @@ class AppController:
             on_manage_vacation=self._handle_manage_vacation,
             on_edit_selected=self._handle_edit_selected,
             on_go_today=self._handle_go_today,
+            on_navigate=self._handle_navigate,
             on_register_api_key=self._handle_register_api_key,
             on_show_help=lambda: open_help_dialog(self._window),
             on_open_ai=self._handle_open_ai,
@@ -279,6 +281,19 @@ class AppController:
         self._selected_date = timeutil.today_str(now)
         self._multi_dates = []
         self._view_year, self._view_month = now.year, now.month
+        self._refresh()
+
+    def _handle_navigate(self, delta_days: int, extend: bool) -> None:
+        """화살표 키: 선택 일자를 방향 이동(Shift 면 범위 확장)."""
+        today = timeutil.today_str(timeutil.now())
+        selected, multi = _navigate_selection(
+            self._selected_date, self._multi_dates,
+            self._view_year, self._view_month, today, delta_days, extend,
+        )
+        if selected == self._selected_date and multi == self._multi_dates:
+            return  # 경계 no-op — 불필요한 갱신 방지
+        self._selected_date = selected
+        self._multi_dates = multi
         self._refresh()
 
     def _handle_edit_day(self, date: str) -> None:
@@ -490,6 +505,36 @@ class AppController:
         self._show_mode(config.get_last_mode())
         self._timer.start(self._ms_until_next_minute())
         self._app.exec()
+
+
+def _navigate_selection(
+    selected_date: str,
+    multi_dates: list[str],
+    year: int,
+    month: int,
+    today: str,
+    delta_days: int,
+    extend: bool,
+) -> tuple[str, list[str]]:
+    """화살표 이동 후의 (선택 일자, 다중 선택 목록)을 계산한다(순수 함수).
+
+    선택 일자가 보는 달에 없으면 첫 입력은 기준일(오늘/1일)만 선택한다.
+    경계를 벗어나면 아무 변화 없이 현재 상태를 그대로 돌려준다.
+    extend 면 마지막 선택부터 목표까지 사이 일자를 기존 선택에 합친다.
+    """
+    base, should_move = resolve_nav_base(selected_date, year, month, today)
+    if not should_move:
+        return base, []
+    target = step_within_month(base, delta_days, year, month)
+    if target is None:
+        return selected_date, multi_dates  # 경계 no-op
+    if not extend:
+        return target, []
+    dates = list(multi_dates)
+    for d in _date_range(base, target):
+        if d not in dates:
+            dates.append(d)
+    return target, (dates if len(dates) >= 2 else [])
 
 
 def _date_range(start: str, end: str) -> list[str]:

@@ -15,6 +15,12 @@ from PySide6.QtGui import (
 
 from core.attendance import WorkStatus
 from core.calendar_model import DayCell
+from core.calendar_nav import (
+    DELTA_DOWN,
+    DELTA_LEFT,
+    DELTA_RIGHT,
+    DELTA_UP,
+)
 from core.day_detail import DayDetail
 from core.stats import MonthSummary
 from core.vacation import YearLeaveSummary
@@ -39,6 +45,7 @@ class MainWindowCallbacks:
     on_manage_vacation: Callable[[], None]
     on_edit_selected: Callable[[], None]
     on_go_today: Callable[[], None]
+    on_navigate: Callable[[int, bool], None]  # (일수 델타, Shift 확장 여부)
     on_register_api_key: Callable[[], None]
     on_show_help: Callable[[], None]
     on_open_ai: Callable[[], None]
@@ -93,6 +100,21 @@ class MainWindow(QMainWindow):
             QKeySequence(Qt.Key_Space), self,
             activated=lambda: self._cb.on_go_today(),
         )
+        # 화살표 = 선택 일자 방향 이동, Shift+화살표 = 범위 확장 이동
+        for key, delta in (
+            (Qt.Key_Left, DELTA_LEFT),
+            (Qt.Key_Right, DELTA_RIGHT),
+            (Qt.Key_Up, DELTA_UP),
+            (Qt.Key_Down, DELTA_DOWN),
+        ):
+            QShortcut(
+                QKeySequence(key), self,
+                activated=lambda d=delta: self._cb.on_navigate(d, False),
+            )
+            QShortcut(
+                QKeySequence(Qt.ShiftModifier | key), self,
+                activated=lambda d=delta: self._cb.on_navigate(d, True),
+            )
         self._vacation_action = QAction(_VACATION_DEFAULT_LABEL, self)
         self._vacation_action.triggered.connect(
             lambda: self._cb.on_manage_vacation()
