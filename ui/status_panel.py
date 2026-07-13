@@ -228,17 +228,36 @@ def leave_line(leave: YearLeaveSummary) -> str:
     return f"연차   {remaining} / {total}"
 
 
+def _balance_suffix(balance_seconds: int) -> str:
+    """실 계획 대비 여유(+, 녹색)/부족(−, 빨강) 병기 조각. 0은 muted (±0)."""
+    if balance_seconds == 0:
+        return f'<span style="color:{theme.FG_MUTED};">(±0)</span>'
+    sign = "+" if balance_seconds > 0 else "-"
+    color = theme.FG_SURPLUS if balance_seconds > 0 else theme.FG_DEFICIT
+    amount = format_hm(abs(balance_seconds) // _SECONDS_PER_MINUTE)
+    return f'<span style="color:{color};">({sign}{amount})</span>'
+
+
 def progress_caption(
-    pct: int, level: ProgressLevel, actual_seconds: int, required_minutes: int
+    pct: int,
+    level: ProgressLevel,
+    actual_seconds: int,
+    required_minutes: int,
+    balance_seconds: int,
 ) -> str:
-    """진행률 바 상단 캡션. 법정 이내면 진행도 %, 초과면 +초과시간(h)."""
+    """진행률 바 상단 캡션. 법정 이내면 진행도 %, 초과면 +초과시간(h).
+
+    끝에 완료 과거일 실 계획 대비 여유/부족분을 색상과 함께 병기한다.
+    """
     if level is ProgressLevel.NORMAL:
-        return f"근로 시간 진행도: {pct}%"
-    over_hours = (
-        actual_seconds // _SECONDS_PER_HOUR
-        - required_minutes // _MINUTES_PER_HOUR
-    )
-    return f"초과 근로 진행: +{over_hours}h"
+        base = f"근로 시간 진행도: {pct}%"
+    else:
+        over_hours = (
+            actual_seconds // _SECONDS_PER_HOUR
+            - required_minutes // _MINUTES_PER_HOUR
+        )
+        base = f"초과 근로 진행: +{over_hours}h"
+    return f"{base} {_balance_suffix(balance_seconds)}"
 
 
 class StatusPanel(QWidget):
@@ -387,7 +406,8 @@ class StatusPanel(QWidget):
         self._progress.setStyleSheet(_progress_style(level))
         self._progress_caption.setText(
             progress_caption(
-                pct, level, summary.actual_seconds, summary.required_minutes
+                pct, level, summary.actual_seconds, summary.required_minutes,
+                summary.plan_balance_seconds,
             )
         )
         kind = detail.kind if detail is not None else KIND_TODAY

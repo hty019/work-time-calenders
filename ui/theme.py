@@ -28,6 +28,8 @@ FG_RANGE_WARN = "#ffd166"     # 인정 범위 이탈 경고 (노랑)
 FG_VACATION = "#c084fc"       # 휴가 표시 (연보라)
 FG_DONE_TODAY = "#4ade80"     # 금일 근로 시간 달성 (녹색)
 FG_OVERDUE = "#fb923c"        # 계획 퇴근 초과·미퇴근 경고 (주황)
+FG_SURPLUS = "#4ade80"        # 실 계획 대비 여유 (녹색)
+FG_DEFICIT = "#ff5a5a"        # 실 계획 대비 부족 (빨강)
 BORDER_GRAY = "#5f6670"       # 입력란·박스 테두리 (회색, FG_MUTED 보다 어두움)
 
 FONT_FAMILY = "Helvetica"

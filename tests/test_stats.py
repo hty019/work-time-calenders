@@ -1,7 +1,12 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from core.stats import ProgressLevel, build_month_summary, progress_state
+from core.stats import (
+    ProgressLevel,
+    build_month_summary,
+    plan_balance_seconds,
+    progress_state,
+)
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -474,3 +479,121 @@ def test_expected_none_when_plan_zero():
         FakePlan(9600, 0), 2026, 7, {}, datetime(2026, 7, 4, 12, tzinfo=KST),
     )
     assert s.expected_clock_out is None
+
+
+# --- 실 계획 대비 누적 여유/부족분 (plan_balance_seconds) --------------------
+
+
+class MapStorage:
+    """날짜별 출퇴근 기록·휴가를 매핑으로 조회하는 테스트용 스토리지."""
+
+    def __init__(self, recs=None, vacs=None):
+        self._recs = recs or {}
+        self._vacs = vacs or {}
+
+    def get(self, date):
+        return self._recs.get(date)
+
+    def get_vacation(self, date):
+        return self._vacs.get(date)
+
+
+class MapPlan:
+    """날짜별 실 계획(분)을 매핑으로 조회하는 테스트용 계획 서비스."""
+
+    def __init__(self, effective):
+        self._eff = effective
+
+    def effective_minutes(self, date, holidays):
+        return self._eff.get(date, 0)
+
+
+def test_plan_balance_surplus_over_completed_days():
+    # 07-01·07-02 각 계획 8h, 실제 9h 근무 → +2h. 오늘(07-03) 제외.
+    recs = {
+        "2026-07-01": Rec("x", "y", 9 * 3600),
+        "2026-07-02": Rec("x", "y", 9 * 3600),
+    }
+    plan = MapPlan({"2026-07-01": 480, "2026-07-02": 480, "2026-07-03": 480})
+    bal = plan_balance_seconds(
+        MapStorage(recs), plan, {}, 2026, 7, "2026-07-03"
+    )
+    assert bal == 2 * 3600
+
+
+def test_plan_balance_deficit_when_worked_less():
+    # 07-01 계획 8h, 실제 7h → -1h.
+    recs = {"2026-07-01": Rec("x", "y", 7 * 3600)}
+    plan = MapPlan({"2026-07-01": 480})
+    bal = plan_balance_seconds(
+        MapStorage(recs), plan, {}, 2026, 7, "2026-07-02"
+    )
+    assert bal == -1 * 3600
+
+
+def test_plan_balance_missing_record_counts_full_plan_as_deficit():
+    # 과거 평일 계획 8h, 출근 기록 없음 → 실제 0 → -8h.
+    plan = MapPlan({"2026-07-01": 480})
+    bal = plan_balance_seconds(
+        MapStorage(), plan, {}, 2026, 7, "2026-07-02"
+    )
+    assert bal == -8 * 3600
+
+
+def test_plan_balance_vacation_counts_as_work():
+    # 1day 휴가일: 계획 8h vs 휴가 8h(근로 인정) → 상쇄 0.
+    vacs = {"2026-07-01": (480, None, None)}
+    plan = MapPlan({"2026-07-01": 480})
+    bal = plan_balance_seconds(
+        MapStorage(vacs=vacs), plan, {}, 2026, 7, "2026-07-02"
+    )
+    assert bal == 0
+
+
+def test_plan_balance_excludes_today_and_future():
+    # 오늘(07-02) 계획 8h 미기록은 제외. 07-01 만 집계(+0).
+    recs = {"2026-07-01": Rec("x", "y", 8 * 3600)}
+    plan = MapPlan({"2026-07-01": 480, "2026-07-02": 480})
+    bal = plan_balance_seconds(
+        MapStorage(recs), plan, {}, 2026, 7, "2026-07-02"
+    )
+    assert bal == 0
+
+
+def test_plan_balance_weekend_zero_plan_no_effect():
+    # 주말(계획 0)·미기록 → 기여 0.
+    plan = MapPlan({})  # 모든 날 계획 0
+    bal = plan_balance_seconds(
+        MapStorage(), plan, {}, 2026, 7, "2026-07-10"
+    )
+    assert bal == 0
+
+
+def test_plan_balance_future_month_zero():
+    # 미래 달(모든 날 today 이후) → 대상 없음 → 0.
+    plan = MapPlan({"2026-08-01": 480})
+    bal = plan_balance_seconds(
+        MapStorage(), plan, {}, 2026, 8, "2026-07-13"
+    )
+    assert bal == 0
+
+
+def test_plan_balance_past_month_counts_all_days():
+    # 과거 달(모든 날 today 이전) → 전량 집계. 06-01 계획 8h, 실제 10h → +2h.
+    recs = {"2026-06-01": Rec("x", "y", 10 * 3600)}
+    plan = MapPlan({"2026-06-01": 480})
+    bal = plan_balance_seconds(
+        MapStorage(recs), plan, {}, 2026, 6, "2026-07-13"
+    )
+    assert bal == 2 * 3600
+
+
+def test_build_month_summary_wires_plan_balance():
+    # build_month_summary 가 plan_balance_seconds 필드를 채운다.
+    # 07-01 계획 8h, 실제 9h 근무, 오늘 07-02 → +1h.
+    rec = Rec("2026-07-01T09:00:00+09:00", "2026-07-01T19:00:00+09:00", 9 * 3600)
+    s = build_month_summary(
+        FakeStorage(rec), FakeAttendance(),
+        FakePlan(9600, 480), 2026, 7, {}, datetime(2026, 7, 2, 12, tzinfo=KST),
+    )
+    assert s.plan_balance_seconds == 1 * 3600

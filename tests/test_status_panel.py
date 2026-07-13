@@ -177,28 +177,55 @@ def test_remaining_line_dash_without_expectation():
 
 
 def test_caption_normal_shows_percent():
-    # 법정 기준 이내: 진행도 퍼센트 표시
+    # 법정 기준 이내: 진행도 퍼센트 + 여유/부족분 병기
     text = progress_caption(
-        56, ProgressLevel.NORMAL, 100 * 3600, 177 * 60
+        56, ProgressLevel.NORMAL, 100 * 3600, 177 * 60, 0
     )
-    assert text == "근로 시간 진행도: 56%"
+    assert text.startswith("근로 시간 진행도: 56% ")
 
 
 def test_caption_over_shows_exceeded_hours():
-    # 법정 기준 초과: +초과시간(h) 표시 (분 버림)
+    # 법정 기준 초과: +초과시간(h) 표시 (분 버림) + 여유/부족분 병기
     text = progress_caption(
-        78, ProgressLevel.OVER, 180 * 3600 + 30 * 60, 177 * 60
+        78, ProgressLevel.OVER, 180 * 3600 + 30 * 60, 177 * 60, 0
     )
-    assert text == "초과 근로 진행: +3h"
+    assert text.startswith("초과 근로 진행: +3h ")
 
 
 def test_caption_critical_and_exceeded_also_show_hours():
     assert progress_caption(
-        86, ProgressLevel.CRITICAL, 198 * 3600, 177 * 60
-    ) == "초과 근로 진행: +21h"
+        86, ProgressLevel.CRITICAL, 198 * 3600, 177 * 60, 0
+    ).startswith("초과 근로 진행: +21h ")
     assert progress_caption(
-        100, ProgressLevel.EXCEEDED, 231 * 3600, 177 * 60
-    ) == "초과 근로 진행: +54h"
+        100, ProgressLevel.EXCEEDED, 231 * 3600, 177 * 60, 0
+    ).startswith("초과 근로 진행: +54h ")
+
+
+def test_caption_surplus_green_with_sign():
+    # 여유(+): 녹색 색상 + '+Hh Mm' 병기
+    text = progress_caption(
+        56, ProgressLevel.NORMAL, 100 * 3600, 177 * 60, 2 * 3600 + 30 * 60
+    )
+    assert "(+2h 30m)" in text
+    assert theme.FG_SURPLUS in text
+
+
+def test_caption_deficit_red_with_sign():
+    # 부족(−): 빨강 색상 + '-Hh Mm' 병기
+    text = progress_caption(
+        56, ProgressLevel.NORMAL, 100 * 3600, 177 * 60, -(1 * 3600 + 15 * 60)
+    )
+    assert "(-1h 15m)" in text
+    assert theme.FG_DEFICIT in text
+
+
+def test_caption_zero_balance_neutral():
+    # 0: 부호 없이 muted (±0)
+    text = progress_caption(
+        56, ProgressLevel.NORMAL, 100 * 3600, 177 * 60, 0
+    )
+    assert "(±0)" in text
+    assert theme.FG_MUTED in text
 
 
 # --- 선택 날짜(과거/미래) 표시 ----------------------------------------------
