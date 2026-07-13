@@ -351,6 +351,7 @@ def test_work_line_with_gap_surplus_green():
     )
     html = work_line_with_gap(d)
     assert "근무 시간" in html and "8h 30m" in html
+    assert theme.FG_DATE in html  # 근무 시간 값은 흰색
     assert "(+0h 30m)" in html
     assert theme.FG_SURPLUS in html
 

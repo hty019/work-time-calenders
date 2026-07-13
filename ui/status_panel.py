@@ -188,7 +188,8 @@ def work_line_with_gap(detail: DayDetail) -> str | None:
     """
     if detail.clock_out_hm is None or detail.work_seconds is None:
         return None
-    base = state_rich_text(work_line(detail), "normal")
+    # 근무 시간 값은 흰색 고정, 색상은 괄호 안 갭 값에만 적용.
+    base = f'<span style="color:{theme.FG_DATE};">{work_line(detail)}</span>'
     work_minutes = detail.work_seconds // _SECONDS_PER_MINUTE
     gap_seconds = (work_minutes - detail.planned_minutes) * _SECONDS_PER_MINUTE
     return f"{base} {_balance_suffix(gap_seconds)}"
