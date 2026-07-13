@@ -180,6 +180,20 @@ def work_line(detail: DayDetail) -> str | None:
     return f"근무 시간: {_fmt_seconds(detail.work_seconds)}"
 
 
+def work_line_with_gap(detail: DayDetail) -> str | None:
+    """근무 시간 라인 HTML + 실 계획 대비 갭 병기(여유 녹색/부족 빨강/0 muted).
+
+    갭은 표시 근무(분) − 실 계획(분)으로 계산해 표기 값과 어긋나지 않게 한다.
+    퇴근 완료가 아니면 None(숨김).
+    """
+    if detail.clock_out_hm is None or detail.work_seconds is None:
+        return None
+    base = state_rich_text(work_line(detail), "normal")
+    work_minutes = detail.work_seconds // _SECONDS_PER_MINUTE
+    gap_seconds = (work_minutes - detail.planned_minutes) * _SECONDS_PER_MINUTE
+    return f"{base} {_balance_suffix(gap_seconds)}"
+
+
 def future_lines(detail: DayDetail) -> list[str]:
     """미래 일자 표시 라인: 실 계획(분), (가)계획 범위."""
     recog_range = (
@@ -484,14 +498,14 @@ class StatusPanel(QWidget):
         self._past_plan.setText(past_plan_line(detail))
         self._past_plan.setVisible(True)
         # 퇴근 완료일은 퇴근 시간과 계획 시간 사이에 근무 시간을 끼워 넣는다.
-        # 라벨은 기본 색, 값만 녹색(셀 근로 인정시간 강조와 동일) 처리
-        work = work_line(detail)
+        # 값은 녹색(셀 근로 인정시간 강조와 동일), 뒤에 실 계획 대비 갭 병기.
+        work_html = work_line_with_gap(detail)
         self._stay.setText(
-            state_rich_text(work, "normal") if work is not None else plan_line
+            work_html if work_html is not None else plan_line
         )
         self._stay.setVisible(True)
         self._remaining.setText(plan_line)
-        self._remaining.setVisible(work is not None)
+        self._remaining.setVisible(work_html is not None)
         state_text, state_key = past_state_display(detail)
         self._state.setText(state_rich_text(state_text, state_key))
         self._state.setVisible(True)

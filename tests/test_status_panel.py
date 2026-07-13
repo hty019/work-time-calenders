@@ -340,4 +340,49 @@ def test_work_line_for_clocked_out_past_day():
 def test_work_line_hidden_without_clock_out_or_seconds():
     from ui.status_panel import work_line
     assert work_line(_detail(has_record=True)) is None
-    assert work_line(_detail(clock_out_hm="18:00", has_record=True)) is None
+
+
+def test_work_line_with_gap_surplus_green():
+    # 실 계획 8h, 근무 8h30m → +30m (녹색)
+    from ui.status_panel import work_line_with_gap
+    d = _detail(
+        clock_out_hm="18:30", work_seconds=8 * 3600 + 30 * 60,
+        planned_minutes=480, has_record=True,
+    )
+    html = work_line_with_gap(d)
+    assert "근무 시간" in html and "8h 30m" in html
+    assert "(+0h 30m)" in html
+    assert theme.FG_SURPLUS in html
+
+
+def test_work_line_with_gap_deficit_red():
+    # 실 계획 8h, 근무 7h → -1h (빨강)
+    from ui.status_panel import work_line_with_gap
+    d = _detail(
+        clock_out_hm="16:00", work_seconds=7 * 3600,
+        planned_minutes=480, has_record=True,
+    )
+    html = work_line_with_gap(d)
+    assert "근무 시간" in html and "7h 0m" in html
+    assert "(-1h 0m)" in html
+    assert theme.FG_DEFICIT in html
+
+
+def test_work_line_with_gap_zero_neutral():
+    from ui.status_panel import work_line_with_gap
+    d = _detail(
+        clock_out_hm="18:00", work_seconds=8 * 3600,
+        planned_minutes=480, has_record=True,
+    )
+    html = work_line_with_gap(d)
+    assert "(±0)" in html
+    assert theme.FG_MUTED in html
+
+
+def test_work_line_with_gap_none_without_clock_out():
+    from ui.status_panel import work_line_with_gap
+    assert work_line_with_gap(_detail(has_record=True)) is None
+    # 퇴근 기록은 있으나 근무초가 없으면 숨김
+    assert work_line_with_gap(
+        _detail(clock_out_hm="18:00", has_record=True)
+    ) is None
