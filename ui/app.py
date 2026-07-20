@@ -116,6 +116,8 @@ class AppController:
             on_close=self._app.quit,
         ))
         self._mode = config.get_last_mode()
+        # 정상 종료 시 진행 중이면 자동 퇴근 저장 (강제 종료는 대상 아님)
+        self._app.aboutToQuit.connect(self._handle_app_exit)
 
     # --- 갱신 -----------------------------------------------------------
     def _refresh(self) -> None:
@@ -580,8 +582,17 @@ class AppController:
         self._service.recompute_work(work_date)
 
     # --- 실행 -----------------------------------------------------------
+    def _handle_app_exit(self) -> None:
+        """정상 종료 훅: 진행 중이면 자동 퇴근하고 재개용 마커를 남긴다."""
+        rec = self._service.auto_clock_out()
+        if rec is not None:
+            config.set_auto_clock_out_date(rec.work_date)
+
     def run(self) -> None:
         self._service.record_clock_in()  # 부팅 = 자동 출근 (기존 동작 유지)
+        # 직전 정상 종료가 자동 저장한 오늘 퇴근이면 취소해 근무 연속 재개
+        self._service.resume_auto_clock_out(config.get_auto_clock_out_date())
+        config.set_auto_clock_out_date(None)  # 마커 소비/무효화
         self._refresh()
         self._show_mode(config.get_last_mode())
         self._timer.start(self._ms_until_next_minute())
