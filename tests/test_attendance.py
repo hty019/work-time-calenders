@@ -242,3 +242,68 @@ def test_today_in_progress_seconds_none_when_not_active(tmp_path):
     svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
     svc.record_clock_out()
     assert svc.today_in_progress_seconds() is None
+
+
+def test_auto_clock_out_saves_when_working(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
+    rec = svc.auto_clock_out()
+    assert rec is not None
+    assert rec.clock_out == datetime(2026, 6, 30, 18, 0, tzinfo=KST).isoformat()
+    assert rec.work_seconds == 8 * 3600
+    assert svc.today_status() is WorkStatus.CLOCKED_OUT
+
+
+def test_auto_clock_out_noop_when_not_clocked_in(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 18, 0, tzinfo=KST))
+    assert svc.auto_clock_out() is None
+    assert svc._storage.get("2026-06-30") is None  # 기록 생성 안 함
+
+
+def test_auto_clock_out_noop_when_already_clocked_out(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 17, 0, tzinfo=KST)
+    svc.record_clock_out()  # 수동 퇴근 17:00
+    svc._clock = lambda: datetime(2026, 6, 30, 19, 0, tzinfo=KST)
+    assert svc.auto_clock_out() is None
+    # 기존 퇴근 시각을 덮어쓰지 않는다
+    assert svc._storage.get("2026-06-30").clock_out == datetime(
+        2026, 6, 30, 17, 0, tzinfo=KST
+    ).isoformat()
+
+
+def test_resume_cancels_when_marker_is_today(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
+    svc.auto_clock_out()
+    svc._clock = lambda: datetime(2026, 6, 30, 19, 0, tzinfo=KST)
+    rec = svc.resume_auto_clock_out("2026-06-30")
+    assert rec is not None
+    assert rec.clock_out is None
+    assert svc.today_status() is WorkStatus.WORKING
+
+
+def test_resume_noop_when_no_clock_out(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()  # 진행 중, 퇴근 없음
+    assert svc.resume_auto_clock_out("2026-06-30") is None
+    assert svc.today_status() is WorkStatus.WORKING
+
+
+def test_resume_noop_when_marker_other_day(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._clock = lambda: datetime(2026, 6, 30, 18, 0, tzinfo=KST)
+    svc.auto_clock_out()
+    # 마커가 어제라면 오늘 퇴근을 재개하지 않는다
+    assert svc.resume_auto_clock_out("2026-06-29") is None
+    assert svc.today_status() is WorkStatus.CLOCKED_OUT
+
+
+def test_resume_noop_when_marker_none(tmp_path):
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 18, 0, tzinfo=KST))
+    svc.record_clock_in()
+    assert svc.resume_auto_clock_out(None) is None

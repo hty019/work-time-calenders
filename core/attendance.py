@@ -73,6 +73,31 @@ class AttendanceService:
         self._storage.upsert(rec)
         return rec
 
+    def auto_clock_out(self) -> Attendance | None:
+        """진행 중(WORKING)일 때만 현재 시각으로 퇴근 저장. 그 외 None.
+
+        미출근(기록 없음)·이미 퇴근(수동 포함)이면 건드리지 않는다.
+        정상 종료 훅에서 호출해 근무 기록이 진행 중인 채 방치되지 않게 한다.
+        """
+        now = self._clock()
+        date = timeutil.today_str(now)
+        existing = self._storage.get(date)
+        if existing is None or existing.clock_out is not None:
+            return None
+        return self.record_clock_out()
+
+    def resume_auto_clock_out(self, marker_date: str | None) -> Attendance | None:
+        """marker_date 가 오늘이고 오늘 퇴근 기록이 있으면 취소해 재개.
+
+        그 외(마커 없음·다른 날·이미 진행 중)에는 아무것도 하지 않고 None.
+        자동 종료로 저장된 퇴근만 되돌리기 위해 호출측이 마커를 전달한다.
+        """
+        now = self._clock()
+        date = timeutil.today_str(now)
+        if marker_date != date:
+            return None
+        return self.cancel_clock_out()
+
     def edit(
         self, work_date: str, clock_in_iso: str, clock_out_iso: str | None
     ) -> Attendance:
