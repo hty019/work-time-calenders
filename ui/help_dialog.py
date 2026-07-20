@@ -120,6 +120,9 @@ _PAGES: list[tuple[str, str]] = [
         <li><b>Cmd+E</b> — 선택 일자 수정 ([수정] 버튼과 동일)</li>
         <li><b>Space</b> — 오늘 날짜·현재 월로 복귀</li>
         <li><b>ESC</b> — 다중 선택 해제</li>
+        <li><b>Cmd/Ctrl+C</b> — 단일 선택 일자의 실 계획·(가)계획 복사</li>
+        <li><b>Cmd/Ctrl+V</b> — 복사한 계획을 선택 일자(단일·다중)에 붙여넣기</li>
+        <li><b>Cmd/Ctrl+Z</b> — 마지막 일자 변경 되돌리기(단일 단계)</li>
         </ul>
         """,
     ),

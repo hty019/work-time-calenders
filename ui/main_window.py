@@ -50,6 +50,8 @@ class MainWindowCallbacks:
     on_show_help: Callable[[], None]
     on_open_ai: Callable[[], None]
     on_undo: Callable[[], None]
+    on_copy_day: Callable[[], None]
+    on_paste_day: Callable[[], None]
 
 
 def _dot_icon(color: str) -> QIcon:
@@ -107,6 +109,17 @@ class MainWindow(QMainWindow):
             QKeySequence(Qt.MetaModifier | Qt.Key_Z),
         ):
             QShortcut(seq, self, activated=lambda: self._cb.on_undo())
+        # Cmd/Ctrl+C = 단일 일자 복사, Cmd/Ctrl+V = 붙여넣기
+        for seq in (
+            QKeySequence("Ctrl+C"),
+            QKeySequence(Qt.MetaModifier | Qt.Key_C),
+        ):
+            QShortcut(seq, self, activated=lambda: self._cb.on_copy_day())
+        for seq in (
+            QKeySequence("Ctrl+V"),
+            QKeySequence(Qt.MetaModifier | Qt.Key_V),
+        ):
+            QShortcut(seq, self, activated=lambda: self._cb.on_paste_day())
         # 화살표 = 선택 일자 방향 이동, Shift+화살표 = 범위 확장 이동
         for key, delta in (
             (Qt.Key_Left, DELTA_LEFT),

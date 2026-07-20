@@ -6,7 +6,7 @@ import os
 import sys
 
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 import config
 from core import timeutil
@@ -99,6 +99,8 @@ class AppController:
             on_show_help=lambda: open_help_dialog(self._window),
             on_open_ai=self._handle_open_ai,
             on_undo=self._handle_undo,
+            on_copy_day=self._handle_copy_day,
+            on_paste_day=self._handle_paste_day,
         )
         self._window = MainWindow(callbacks)
         self._window.set_api_key_registered(
@@ -224,6 +226,35 @@ class AppController:
         for state in self._undo:
             restore_day(self._storage, self._recog, self._vacations, state)
         self._undo = None
+        self._refresh()
+
+    def _handle_copy_day(self) -> None:
+        """Cmd/Ctrl+C: 단일 선택 일자의 실계획·(가)계획을 복사 버퍼에 저장.
+
+        다중 선택 중에는 복사할 수 없다.
+        """
+        if len(self._multi_dates) >= 2:
+            QMessageBox.warning(
+                self._window, "복사", "복수 일자는 복사할 수 없습니다."
+            )
+            return
+        date = self._selected_date
+        year, month = int(date[:4]), int(date[5:7])
+        holidays = self._holidays.get_holidays(year, month)
+        self._clipboard = DayPlanClipboard(
+            plan_minutes=self._plans.effective_minutes(date, holidays),
+            recog=self._recog.get(date),
+        )
+
+    def _handle_paste_day(self) -> None:
+        """Cmd/Ctrl+V: 복사 버퍼를 대상 일자(단일/다중)에 그대로 붙여넣기."""
+        if self._clipboard is None:
+            return
+        clipboard = self._clipboard
+        dates = paste_targets(self._selected_date, self._multi_dates)
+        self._with_undo(dates, lambda: apply_clipboard(
+            self._storage, self._recog, clipboard, dates
+        ))
         self._refresh()
 
     def _handle_clock_out(self) -> None:
