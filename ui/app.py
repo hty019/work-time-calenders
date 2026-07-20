@@ -42,6 +42,14 @@ from ui.status_panel import (
     vacation_line,
 )
 from ui.vacation_dialog import open_vacation_dialog
+from core.day_state import (
+    DayPlanClipboard,
+    DayState,
+    apply_clipboard,
+    paste_targets,
+    restore_day,
+    snapshot_day,
+)
 from ui.bulk_plan_dialog import open_bulk_plan_dialog
 from ui.widget_window import WidgetWindow, WidgetCallbacks, TodayInfo
 
@@ -69,6 +77,9 @@ class AppController:
         self._selected_date = timeutil.today_str(now)
         # Cmd+클릭 다중 선택 날짜 (선택 순서 유지, 2일 이상일 때만 사용)
         self._multi_dates: list[str] = []
+        # 복사 버퍼(단일 일자) · 마지막 변경 되돌리기 스냅샷(단일 단계)
+        self._clipboard: DayPlanClipboard | None = None
+        self._undo: list[DayState] | None = None
 
         callbacks = MainWindowCallbacks(
             on_clock_out=self._handle_clock_out,
@@ -87,6 +98,7 @@ class AppController:
             on_register_api_key=self._handle_register_api_key,
             on_show_help=lambda: open_help_dialog(self._window),
             on_open_ai=self._handle_open_ai,
+            on_undo=self._handle_undo,
         )
         self._window = MainWindow(callbacks)
         self._window.set_api_key_registered(
@@ -190,15 +202,45 @@ class AppController:
         self._timer.start(self._ms_until_next_minute())
 
     # --- 핸들러 ---------------------------------------------------------
+    def _snapshot(self, dates: list[str]) -> list[DayState]:
+        return [
+            snapshot_day(
+                self._storage, self._plans, self._recog, self._vacations, d
+            )
+            for d in dates
+        ]
+
+    def _with_undo(self, dates, operation) -> None:
+        """작업 전후 스냅샷을 비교해 실제 변경이 있으면 undo 슬롯에 저장."""
+        before = self._snapshot(dates)
+        operation()
+        if self._snapshot(dates) != before:
+            self._undo = before
+
+    def _handle_undo(self) -> None:
+        """Cmd/Ctrl+Z: 마지막 변경을 그 대상 일자에 한해 원복(단일 단계)."""
+        if self._undo is None:
+            return
+        for state in self._undo:
+            restore_day(self._storage, self._recog, self._vacations, state)
+        self._undo = None
+        self._refresh()
+
     def _handle_clock_out(self) -> None:
-        try:
-            self._service.record_clock_out()
-        except ValueError:
-            pass
+        today = timeutil.today_str(timeutil.now())
+
+        def op() -> None:
+            try:
+                self._service.record_clock_out()
+            except ValueError:
+                pass
+
+        self._with_undo([today], op)
         self._refresh()
 
     def _handle_cancel_clock_out(self) -> None:
-        self._service.cancel_clock_out()
+        today = timeutil.today_str(timeutil.now())
+        self._with_undo([today], lambda: self._service.cancel_clock_out())
         self._refresh()
 
     def _handle_prev_month(self) -> None:
@@ -309,7 +351,7 @@ class AppController:
         date = self._selected_date
         rec = self._storage.get(date)
         holidays = self._holidays.get_holidays(self._view_year, self._view_month)
-        open_day_dialog(
+        self._with_undo([date], lambda: open_day_dialog(
             self._window,
             date,
             rec.clock_in if rec else None,
@@ -326,7 +368,7 @@ class AppController:
             memo=self._storage.get_memo(date),
             on_save_memo=self._storage.set_memo,
             start_in_edit=True,
-        )
+        ))
         self._refresh()
 
     def _handle_open_ai(self) -> None:
@@ -409,14 +451,14 @@ class AppController:
             f"이번 달 {name} {len(target_dates)}일에 일괄 적용됩니다.<br/>"
             f'<span style="color:{theme.FG_MUTED};">(과거일자 제외)</span>'
         )
-        open_bulk_plan_dialog(
+        self._with_undo(target_dates, lambda: open_bulk_plan_dialog(
             self._window,
             f"{name} 계획 일괄 수정",
             info,
             config.get_default_daily_minutes(),
             apply,
             self._validate_bulk_range(target_dates),
-        )
+        ))
         self._refresh()
 
     def _open_bulk_plan_edit_dialog(self) -> None:
@@ -442,16 +484,21 @@ class AppController:
                 # 휴가 변경은 저장된 근무초에 영향 → 즉시 재계산
                 self._service.recompute_work(date)
 
-        applied = open_bulk_plan_dialog(
-            self._window,
-            "선택 일자 계획 일괄 수정",
-            f"선택한 {len(dates)}일에 일괄 적용됩니다.",
-            config.get_default_daily_minutes(),
-            apply,
-            self._validate_bulk_range(dates),
-            on_apply_vacation=apply_vacation,
-        )
-        if applied:
+        applied: list[bool] = []
+
+        def op() -> None:
+            applied.append(open_bulk_plan_dialog(
+                self._window,
+                "선택 일자 계획 일괄 수정",
+                f"선택한 {len(dates)}일에 일괄 적용됩니다.",
+                config.get_default_daily_minutes(),
+                apply,
+                self._validate_bulk_range(dates),
+                on_apply_vacation=apply_vacation,
+            ))
+
+        self._with_undo(dates, op)
+        if applied and applied[0]:
             self._multi_dates = []  # 적용 완료 → 단일 선택으로 복귀
         self._refresh()
 

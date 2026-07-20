@@ -49,6 +49,7 @@ class MainWindowCallbacks:
     on_register_api_key: Callable[[], None]
     on_show_help: Callable[[], None]
     on_open_ai: Callable[[], None]
+    on_undo: Callable[[], None]
 
 
 def _dot_icon(color: str) -> QIcon:
@@ -100,6 +101,12 @@ class MainWindow(QMainWindow):
             QKeySequence(Qt.Key_Space), self,
             activated=lambda: self._cb.on_go_today(),
         )
+        # Cmd+Z / Ctrl+Z = 마지막 일자 변경 되돌리기 (단일 단계)
+        for seq in (
+            QKeySequence("Ctrl+Z"),
+            QKeySequence(Qt.MetaModifier | Qt.Key_Z),
+        ):
+            QShortcut(seq, self, activated=lambda: self._cb.on_undo())
         # 화살표 = 선택 일자 방향 이동, Shift+화살표 = 범위 확장 이동
         for key, delta in (
             (Qt.Key_Left, DELTA_LEFT),
