@@ -68,3 +68,18 @@ def test_ai_model_roundtrip_per_provider(tmp_path, monkeypatch):
     assert cfg.get_ai_model("codex") is None
     cfg.set_ai_model("claude", None)
     assert cfg.get_ai_model("claude") is None
+
+
+def test_auto_clock_out_date_roundtrip(tmp_path, monkeypatch):
+    cfg = load_config_module(tmp_path, monkeypatch)
+    assert cfg.get_auto_clock_out_date() is None  # 기본 없음
+    cfg.set_auto_clock_out_date("2026-06-30")
+    assert cfg.get_auto_clock_out_date() == "2026-06-30"
+
+
+def test_auto_clock_out_date_none_removes_key(tmp_path, monkeypatch):
+    cfg = load_config_module(tmp_path, monkeypatch)
+    cfg.set_auto_clock_out_date("2026-06-30")
+    cfg.set_auto_clock_out_date(None)
+    assert cfg.get_auto_clock_out_date() is None
+    assert "auto_clock_out_date" not in cfg.load_config()

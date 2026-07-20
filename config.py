@@ -126,3 +126,18 @@ def set_last_mode(mode: str) -> None:
     cfg = load_config()
     cfg["last_mode"] = mode
     save_config(cfg)
+
+
+def get_auto_clock_out_date() -> str | None:
+    """정상 종료 시 자동 저장한 퇴근의 날짜(YYYY-MM-DD). 없으면 None."""
+    return load_config().get("auto_clock_out_date")
+
+
+def set_auto_clock_out_date(date: str | None) -> None:
+    """자동 종료 퇴근 마커를 기록/해제한다. None 이면 키를 제거한다."""
+    cfg = load_config()
+    if date is None:
+        cfg.pop("auto_clock_out_date", None)
+    else:
+        cfg["auto_clock_out_date"] = date
+    save_config(cfg)
