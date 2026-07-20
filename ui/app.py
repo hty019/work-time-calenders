@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime
 import os
 import sys
+from typing import Callable
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox
@@ -13,6 +14,14 @@ from core import timeutil
 from core.attendance import AttendanceService
 from core.calendar_model import build_month_grid
 from core.day_detail import build_day_detail
+from core.day_state import (
+    DayPlanClipboard,
+    DayState,
+    apply_clipboard,
+    paste_targets,
+    restore_day,
+    snapshot_day,
+)
 from core.holidays import HolidayClient, verify_service_key
 from core.plan import PlanService, weekday_dates
 from core.recognition import (
@@ -42,14 +51,6 @@ from ui.status_panel import (
     vacation_line,
 )
 from ui.vacation_dialog import open_vacation_dialog
-from core.day_state import (
-    DayPlanClipboard,
-    DayState,
-    apply_clipboard,
-    paste_targets,
-    restore_day,
-    snapshot_day,
-)
 from ui.bulk_plan_dialog import open_bulk_plan_dialog
 from ui.widget_window import WidgetWindow, WidgetCallbacks, TodayInfo
 
@@ -212,7 +213,9 @@ class AppController:
             for d in dates
         ]
 
-    def _with_undo(self, dates, operation) -> None:
+    def _with_undo(
+        self, dates: list[str], operation: Callable[[], None]
+    ) -> None:
         """작업 전후 스냅샷을 비교해 실제 변경이 있으면 undo 슬롯에 저장."""
         before = self._snapshot(dates)
         operation()
