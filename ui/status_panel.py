@@ -13,6 +13,7 @@ from core.attendance import WorkStatus
 from core.calendar_model import format_hm
 from core.day_detail import DayDetail, KIND_PAST, KIND_TODAY
 from core.stats import MonthSummary, ProgressLevel, progress_state
+from core.timefmt import format_break
 from core.vacation import (
     FULL_DAY_MINUTES,
     YearLeaveSummary,
@@ -223,6 +224,13 @@ def vacation_line(detail: DayDetail) -> str | None:
     return f"휴가: {hours}h"
 
 
+def break_line(detail: DayDetail) -> str | None:
+    """임의 휴게 라인. 미설정이면 None(숨김)."""
+    if detail.break_minutes is None:
+        return None
+    return f"휴게 시간: {format_break(detail.break_minutes)}"
+
+
 def past_state_display(detail: DayDetail) -> tuple[str, str]:
     """과거 일자 상태 라인 (문구, 상태키).
 
@@ -325,6 +333,8 @@ class StatusPanel(QWidget):
         self._vacation = QLabel()   # 휴가 라인 (없으면 숨김, 연보라)
         self._vacation.setStyleSheet(f"color:{theme.FG_VACATION};")
         self._vacation.setVisible(False)
+        self._break = QLabel()      # 임의 휴게 라인 (없으면 숨김)
+        self._break.setVisible(False)
         # 당일 메모 박스: 테두리 사각형, 넘치면 스크롤(스크롤바 숨김)
         self._memo_box = QTextEdit()
         self._memo_box.setReadOnly(True)
@@ -349,7 +359,7 @@ class StatusPanel(QWidget):
                   self._progress_caption, self._progress,
                   self._clock_in, self._expected, self._expected_sub,
                   self._past_plan, self._stay, self._remaining,
-                  self._vacation, self._state):
+                  self._vacation, self._break, self._state):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -443,6 +453,9 @@ class StatusPanel(QWidget):
         vac_text = vacation_line(detail) if detail is not None else None
         self._vacation.setText(vac_text or "")
         self._vacation.setVisible(bool(vac_text))
+        brk_text = break_line(detail) if detail is not None else None
+        self._break.setText(brk_text or "")
+        self._break.setVisible(bool(brk_text))
         memo = detail.memo if detail is not None else None
         if (memo or "") != self._memo_box.toPlainText():
             self._memo_box.setPlainText(memo or "")

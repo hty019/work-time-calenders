@@ -387,3 +387,18 @@ def test_work_line_with_gap_none_without_clock_out():
     assert work_line_with_gap(
         _detail(clock_out_hm="18:00", has_record=True)
     ) is None
+
+
+def test_break_line_hidden_when_none():
+    from ui.status_panel import break_line
+    assert break_line(_detail()) is None
+
+
+def test_break_line_under_one_hour():
+    from ui.status_panel import break_line
+    assert break_line(_detail(break_minutes=45)) == "휴게 시간: 45m"
+
+
+def test_break_line_hours_and_minutes():
+    from ui.status_panel import break_line
+    assert break_line(_detail(break_minutes=90)) == "휴게 시간: 1h 30m"
