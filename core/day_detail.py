@@ -30,6 +30,7 @@ class DayDetail:
     vacation_start_hm: str | None = None  # 시간제 휴가 시작 "HH:MM"
     vacation_end_hm: str | None = None    # 시간제 휴가 종료 "HH:MM"
     work_seconds: int | None = None       # 저장된 순근로(초), 미퇴근이면 None
+    break_minutes: int | None = None      # 임의 휴게(분), 미설정이면 None
 
 
 def _classify(date: str, today: str) -> str:
@@ -78,4 +79,5 @@ def build_day_detail(
             else None
         ),
         work_seconds=rec.work_seconds if rec else None,
+        break_minutes=storage.get_extra_break(date),
     )

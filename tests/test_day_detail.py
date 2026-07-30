@@ -2,11 +2,14 @@ from core.day_detail import DayDetail, build_day_detail
 
 
 class FakeStorage:
-    def __init__(self, rec=None, recog=None, vacation=None, memo=None):
+    def __init__(
+        self, rec=None, recog=None, vacation=None, memo=None, extra_break=None
+    ):
         self._rec = rec
         self._recog = recog
         self._vacation = vacation
         self._memo = memo
+        self._extra_break = extra_break
 
     def get(self, date):
         return self._rec
@@ -19,6 +22,9 @@ class FakeStorage:
 
     def get_memo(self, date):
         return self._memo
+
+    def get_extra_break(self, date):
+        return self._extra_break
 
 
 class FakePlan:
@@ -138,3 +144,12 @@ def test_work_seconds_from_record():
 
 def test_work_seconds_none_without_record():
     assert _build("2026-07-01").work_seconds is None
+
+
+def test_break_minutes_from_storage():
+    d = _build("2026-07-01", FakeStorage(extra_break=45))
+    assert d.break_minutes == 45
+
+
+def test_break_minutes_none_when_unset():
+    assert _build("2026-07-01").break_minutes is None
