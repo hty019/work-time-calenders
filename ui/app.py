@@ -401,6 +401,8 @@ class AppController:
             on_save_recognition=self._handle_save_recognition,
             vacation=self._vacations.get(date),
             on_save_vacation=self._handle_save_vacation,
+            break_minutes=self._storage.get_extra_break(date),
+            on_save_break=self._handle_save_break,
             memo=self._storage.get_memo(date),
             on_save_memo=self._storage.set_memo,
             start_in_edit=True,
@@ -579,6 +581,14 @@ class AppController:
         else:
             self._vacations.set(work_date, vacation)
         # 휴가 변경은 저장된 근무초에 영향 → 즉시 재계산
+        self._service.recompute_work(work_date)
+
+    def _handle_save_break(self, work_date: str, minutes: int | None) -> None:
+        if minutes is None:
+            self._storage.clear_extra_break(work_date)
+        else:
+            self._storage.set_extra_break(work_date, minutes)
+        # 휴게 변경은 저장된 근무초에 영향 → 즉시 재계산
         self._service.recompute_work(work_date)
 
     # --- 실행 -----------------------------------------------------------

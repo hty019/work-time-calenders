@@ -1,6 +1,7 @@
 import pytest
 
 from core.timefmt import build_iso
+from ui.day_dialog import parse_break_input
 
 
 def test_build_iso_ok():
@@ -68,3 +69,23 @@ def test_memo_display_full_text_or_dash():
     assert memo_display("주간 회의\n배포 준비") == "주간 회의\n배포 준비"
     assert memo_display("") == "-"
     assert memo_display(None) == "-"
+
+
+def test_parse_break_empty_is_none():
+    assert parse_break_input("") is None
+    assert parse_break_input("  ") is None
+
+
+def test_parse_break_zero_is_none():
+    assert parse_break_input("0") is None
+
+
+def test_parse_break_minutes():
+    assert parse_break_input("45") == 45
+    assert parse_break_input("90") == 90
+
+
+def test_parse_break_invalid_raises():
+    for bad in ("abc", "-5", "1441", "1.5"):
+        with pytest.raises(ValueError):
+            parse_break_input(bad)

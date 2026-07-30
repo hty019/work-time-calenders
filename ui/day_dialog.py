@@ -16,11 +16,12 @@ from core.recognition import (
     minutes_to_hhmm,
     validate_range_against_plan,
 )
-from core.timefmt import build_iso
+from core.timefmt import build_iso, format_break
 from core.vacation import FULL_DAY_MINUTES, Vacation, build_vacation
 from ui import theme
 
 MAX_PLAN_MINUTES = 24 * 60
+MAX_BREAK_MINUTES = 24 * 60
 _MEMO_CAPTION_GAP_PX = 2  # 메모 캡션과 박스 사이 간격
 _COMBO_ARROW_AREA_PX = 24  # 콤보 드롭다운 버튼 영역 폭
 
@@ -72,6 +73,24 @@ def parse_recognition_inputs(
     return RecognitionRange(
         hhmm_to_minutes(start_text), hhmm_to_minutes(end_text)
     )
+
+
+def parse_break_input(text: str) -> Optional[int]:
+    """휴게(분) 입력 파싱. 비우거나 0 이면 None(해제), 오류 시 ValueError."""
+    text = text.strip()
+    if not text:
+        return None
+    if not text.isdigit():
+        raise ValueError("휴게는 0 이상 정수(분)여야 합니다.")
+    minutes = int(text)
+    if minutes > MAX_BREAK_MINUTES:
+        raise ValueError("휴게는 하루 24시간을 넘을 수 없습니다.")
+    return minutes if minutes > 0 else None
+
+
+def break_display(minutes: Optional[int]) -> str:
+    """보기 모드 휴게 텍스트. 미설정이면 '-'."""
+    return format_break(minutes) if minutes is not None else "-"
 
 
 def time_display(hhmm: str) -> str:
@@ -132,6 +151,8 @@ def open_day_dialog(
     on_save_vacation: Optional[
         Callable[[str, Optional[Vacation]], None]
     ] = None,
+    break_minutes: Optional[int] = None,
+    on_save_break: Optional[Callable[[str, Optional[int]], None]] = None,
     memo: Optional[str] = None,
     on_save_memo: Optional[Callable[[str, str], None]] = None,
     start_in_edit: bool = False,
@@ -180,6 +201,7 @@ def open_day_dialog(
         if vacation is None or vacation.start_min is None
         else minutes_to_hhmm(vacation.start_min)
     )
+    initial_break_text = "" if break_minutes is None else str(break_minutes)
     initial_memo = memo or ""
 
     # --- 보기(read-only) 모드: 입력란 없이 텍스트 요약 ---
@@ -197,6 +219,7 @@ def open_day_dialog(
     )
     view_form.addRow("(가)계획", QLabel(recognition_display(recog_range)))
     view_form.addRow("휴가", QLabel(vacation_display(vacation)))
+    view_form.addRow("휴게", QLabel(break_display(break_minutes)))
 
     # --- 수정 모드: 입력 폼 ---
     edit_widget = QWidget()
@@ -224,6 +247,8 @@ def open_day_dialog(
     vacation_start_edit = QLineEdit(initial_vac_start)
     vacation_start_edit.setPlaceholderText("HH:MM (시간제 휴가만)")
     vacation_start_label = QLabel("휴가 시작")
+    break_edit = QLineEdit(initial_break_text)
+    break_edit.setPlaceholderText("분 단위 (비우면 없음)")
     form.addRow("출근", in_edit)
     form.addRow("퇴근", out_edit)
     form.addRow("실 계획(분)", plan_edit)
@@ -231,6 +256,7 @@ def open_day_dialog(
     form.addRow("(가)계획 종료", recog_end_edit)
     form.addRow("휴가", vacation_combo)
     form.addRow(vacation_start_label, vacation_start_edit)
+    form.addRow("휴게(분)", break_edit)
 
     # 보기/수정 폼은 표시 여부로 전환하고, 전환 시 다이얼로그 크기를
     # 현재 모드 내용에 딱 맞게 재계산한다 (예약 공간·잔여 여백 없음)
@@ -371,12 +397,21 @@ def open_day_dialog(
                 QMessageBox.warning(dlg, "입력 오류", str(exc))
                 return
 
-        # 4) 검증 통과 → 계획·인정 범위·휴가·메모 저장
+        # 3.5) 임의 휴게 파싱 (비우거나 0 → 해제)
+        try:
+            new_break = parse_break_input(break_edit.text())
+        except ValueError as exc:
+            QMessageBox.warning(dlg, "입력 오류", str(exc))
+            return
+
+        # 4) 검증 통과 → 계획·인정 범위·휴가·휴게·메모 저장
         on_save_plan(work_date, minutes)
         if on_save_recognition is not None:
             on_save_recognition(work_date, rng)
         if on_save_vacation is not None:
             on_save_vacation(work_date, new_vacation)
+        if on_save_break is not None:
+            on_save_break(work_date, new_break)
         if on_save_memo is not None:
             on_save_memo(work_date, memo_edit.toPlainText())
 
