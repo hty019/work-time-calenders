@@ -307,3 +307,36 @@ def test_resume_noop_when_marker_none(tmp_path):
     svc = make_service(tmp_path, datetime(2026, 6, 30, 18, 0, tzinfo=KST))
     svc.record_clock_in()
     assert svc.resume_auto_clock_out(None) is None
+
+
+def test_clock_out_deducts_extra_break(tmp_path):
+    # 09:00~12:00 raw 3h (자동 휴게 없음) + 임의 휴게 30분 → 2h 30m
+    svc = make_service(tmp_path, datetime(2026, 7, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._storage.set_extra_break("2026-07-30", 30)
+    svc._clock = lambda: datetime(2026, 7, 30, 12, 0, tzinfo=KST)
+    rec = svc.record_clock_out()
+    assert rec.work_seconds == 3 * 3600 - 30 * 60
+
+
+def test_extra_break_floor_zero(tmp_path):
+    # raw 10분 < 임의 휴게 30분 → 0 (음수 금지)
+    svc = make_service(tmp_path, datetime(2026, 7, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._storage.set_extra_break("2026-07-30", 30)
+    svc._clock = lambda: datetime(2026, 7, 30, 9, 10, tzinfo=KST)
+    rec = svc.record_clock_out()
+    assert rec.work_seconds == 0
+
+
+def test_recompute_work_applies_extra_break(tmp_path):
+    # 퇴근 확정 후 휴게를 설정하고 재계산하면 차감이 반영된다
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.edit(
+        "2026-06-29",
+        "2026-06-29T09:00:00+09:00",
+        "2026-06-29T18:00:00+09:00",
+    )
+    svc._storage.set_extra_break("2026-06-29", 45)
+    rec = svc.recompute_work("2026-06-29")
+    assert rec.work_seconds == 8 * 3600 - 45 * 60  # 자동 60분 + 임의 45분

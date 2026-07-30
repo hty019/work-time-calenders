@@ -34,7 +34,16 @@ class AttendanceService:
         return rec
 
     def _work_seconds(self, date: str, clock_in, clock_out) -> int:
-        """휴가를 반영한 근무 초 (모든 쓰기 경로 공통).
+        """휴가·임의 휴게를 반영한 근무 초 (모든 쓰기 경로 공통).
+
+        임의 휴게는 자동 임계-정지 휴게와 별도로 추가 차감한다 (하한 0).
+        """
+        base = self._base_work_seconds(date, clock_in, clock_out)
+        extra_minutes = self._storage.get_extra_break(date) or 0
+        return max(0, base - extra_minutes * 60)
+
+    def _base_work_seconds(self, date: str, clock_in, clock_out) -> int:
+        """휴가만 반영한 근무 초.
 
         1day 휴가일은 출퇴근을 무시하고 근로 0 (인정은 휴가 8h 로 고정).
         시간제 휴가는 겹치는 구간을 제외한다.
