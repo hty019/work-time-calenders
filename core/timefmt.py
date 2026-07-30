@@ -5,6 +5,17 @@ import re
 
 _HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 _KST_OFFSET = "+09:00"
+_MINUTES_PER_HOUR = 60
+
+
+def format_break(minutes: int) -> str:
+    """임의 휴게 표기. 1h 미만 '45m', 1h 이상 '1h 30m', 정시는 '1h'."""
+    if minutes < _MINUTES_PER_HOUR:
+        return f"{minutes}m"
+    hours, rest = divmod(minutes, _MINUTES_PER_HOUR)
+    if rest == 0:
+        return f"{hours}h"
+    return f"{hours}h {rest}m"
 
 
 def build_iso(work_date: str, hhmm: str) -> str:
