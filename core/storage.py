@@ -61,6 +61,13 @@ CREATE TABLE IF NOT EXISTS memo (
 )
 """
 
+_CREATE_EXTRA_BREAK_SQL = """
+CREATE TABLE IF NOT EXISTS extra_break (
+    work_date TEXT PRIMARY KEY,
+    minutes   INTEGER NOT NULL
+)
+"""
+
 
 class Storage:
     def __init__(self, db_path: str) -> None:
@@ -73,6 +80,7 @@ class Storage:
         self._conn.execute(_CREATE_VACATION_SQL)
         self._conn.execute(_CREATE_ANNUAL_LEAVE_SQL)
         self._conn.execute(_CREATE_MEMO_SQL)
+        self._conn.execute(_CREATE_EXTRA_BREAK_SQL)
         self._conn.commit()
 
     def get(self, work_date: str) -> Attendance | None:
@@ -276,6 +284,38 @@ class Storage:
             (prefix + "%",),
         )
         return {r["work_date"]: r["content"] for r in cur.fetchall()}
+
+    def get_extra_break(self, work_date: str) -> int | None:
+        """해당 날짜의 임의 휴게(분). 없으면 None."""
+        cur = self._conn.execute(
+            "SELECT minutes FROM extra_break WHERE work_date = ?",
+            (work_date,),
+        )
+        row = cur.fetchone()
+        return int(row["minutes"]) if row is not None else None
+
+    def set_extra_break(self, work_date: str, minutes: int) -> None:
+        self._conn.execute(
+            "INSERT INTO extra_break (work_date, minutes) VALUES (?, ?) "
+            "ON CONFLICT(work_date) DO UPDATE SET minutes=excluded.minutes",
+            (work_date, minutes),
+        )
+        self._conn.commit()
+
+    def clear_extra_break(self, work_date: str) -> None:
+        self._conn.execute(
+            "DELETE FROM extra_break WHERE work_date = ?", (work_date,)
+        )
+        self._conn.commit()
+
+    def list_extra_break_month(self, year: int, month: int) -> dict[str, int]:
+        prefix = f"{year:04d}-{month:02d}-"
+        cur = self._conn.execute(
+            "SELECT work_date, minutes FROM extra_break "
+            "WHERE work_date LIKE ? ORDER BY work_date",
+            (prefix + "%",),
+        )
+        return {r["work_date"]: int(r["minutes"]) for r in cur.fetchall()}
 
     def get_annual_leave(self, year: int) -> int | None:
         """해당 연도 총 연차(분). 미설정이면 None."""

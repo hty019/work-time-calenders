@@ -164,3 +164,26 @@ def test_vacation_list_year(tmp_path):
         "2026-01-05": (480, None, None),
         "2026-07-01": (120, 900, 1020),
     }
+
+
+def test_extra_break_crud(tmp_path):
+    st = make_storage(tmp_path)
+    assert st.get_extra_break("2026-07-30") is None
+    st.set_extra_break("2026-07-30", 45)
+    assert st.get_extra_break("2026-07-30") == 45
+    st.set_extra_break("2026-07-30", 90)  # upsert 갱신
+    assert st.get_extra_break("2026-07-30") == 90
+    st.clear_extra_break("2026-07-30")
+    assert st.get_extra_break("2026-07-30") is None
+    st.clear_extra_break("2026-07-30")  # 없는 날짜 clear 는 무해
+
+
+def test_extra_break_list_month(tmp_path):
+    st = make_storage(tmp_path)
+    st.set_extra_break("2026-07-05", 30)
+    st.set_extra_break("2026-07-20", 60)
+    st.set_extra_break("2026-08-01", 15)  # 다른 달 제외 확인
+    assert st.list_extra_break_month(2026, 7) == {
+        "2026-07-05": 30,
+        "2026-07-20": 60,
+    }
