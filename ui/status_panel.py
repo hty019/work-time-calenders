@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from typing import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QVBoxLayout, QWidget, QLabel, QProgressBar, QPushButton, QHBoxLayout,
     QTextEdit,
@@ -28,6 +29,8 @@ _CAPTION_FONT_PX = 11
 _SUB_FONT_PX = 12
 _PROGRESS_BAR_HEIGHT_PX = 6  # 얇은 바 스타일 유지
 _PROGRESS_BAR_RADIUS_PX = 3
+_COPY_NOTICE_MS = 1500  # 복사 알림 표시 시간
+_COPY_NOTICE_TEXT = "✓ 클립보드에 복사됨"
 
 _PROGRESS_COLORS = {
     ProgressLevel.NORMAL: theme.BG_PROGRESS,
@@ -288,6 +291,27 @@ def progress_caption(
     return f"{base} {_balance_suffix(balance_seconds)}"
 
 
+class _CopyOnSelectMemo(QTextEdit):
+    """드래그 선택을 놓는 순간 선택 텍스트를 클립보드에 복사하는 메모 박스.
+
+    selectionChanged 는 드래그 중 연속 발화하므로 mouseReleaseEvent 시점에
+    1회만 복사하고 on_copied 로 알림을 위임한다.
+    """
+
+    def __init__(self, on_copied: Callable[[], None], parent=None) -> None:
+        super().__init__(parent)
+        self._on_copied = on_copied
+
+    def mouseReleaseEvent(self, event) -> None:
+        super().mouseReleaseEvent(event)
+        cursor = self.textCursor()
+        if not cursor.hasSelection():
+            return
+        # selectedText() 는 문단 구분자가 U+2029 로 남으므로 toPlainText 사용
+        QGuiApplication.clipboard().setText(cursor.selection().toPlainText())
+        self._on_copied()
+
+
 class StatusPanel(QWidget):
     def __init__(
         self,
@@ -336,13 +360,24 @@ class StatusPanel(QWidget):
         self._break = QLabel()      # 임의 휴게 라인 (없으면 숨김)
         self._break.setVisible(False)
         # 당일 메모 박스: 테두리 사각형, 넘치면 스크롤(스크롤바 숨김)
-        self._memo_box = QTextEdit()
+        self._memo_box = _CopyOnSelectMemo(self._show_copy_notice)
         self._memo_box.setReadOnly(True)
         self._memo_box.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._memo_box.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._memo_box.setMaximumHeight(theme.STATUS_MEMO_MAX_HEIGHT)
         self._memo_box.setStyleSheet(theme.memo_box_style())
         self._memo_box.setVisible(False)
+        # 복사 알림: 메모 드래그 복사 직후 잠시 표시 후 자동 숨김
+        self._copy_notice = QLabel(_COPY_NOTICE_TEXT)
+        self._copy_notice.setStyleSheet(
+            f"color:{theme.FG_MUTED}; font-size:{_CAPTION_FONT_PX}px;"
+        )
+        self._copy_notice.setVisible(False)
+        self._copy_timer = QTimer(self)
+        self._copy_timer.setSingleShot(True)
+        self._copy_timer.timeout.connect(
+            lambda: self._copy_notice.setVisible(False)
+        )
         self._expected_sub = QLabel()  # 회색 계획 퇴근 안내
         self._expected_sub.setStyleSheet(
             f"color:{theme.FG_MUTED}; font-size:{_SUB_FONT_PX}px;"
@@ -364,8 +399,14 @@ class StatusPanel(QWidget):
 
         layout.addStretch(1)
         layout.addWidget(self._memo_box)
+        layout.addWidget(self._copy_notice)
         self._buttons = QHBoxLayout()
         layout.addLayout(self._buttons)
+
+    def _show_copy_notice(self) -> None:
+        """복사 알림을 표시하고 일정 시간 뒤 숨긴다 (연속 복사 시 연장)."""
+        self._copy_notice.setVisible(True)
+        self._copy_timer.start(_COPY_NOTICE_MS)
 
     def _clear_buttons(self) -> None:
         while self._buttons.count():
