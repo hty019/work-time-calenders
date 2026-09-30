@@ -1,7 +1,7 @@
 import pytest
 
 from core.timefmt import build_iso
-from ui.day_dialog import parse_break_input
+from ui.day_dialog import parse_break_input, parse_extra_work_input
 
 
 def test_build_iso_ok():
@@ -89,3 +89,24 @@ def test_parse_break_invalid_raises():
     for bad in ("abc", "-5", "1441", "1.5"):
         with pytest.raises(ValueError):
             parse_break_input(bad)
+
+
+def test_parse_extra_work_empty_or_zero_is_none():
+    assert parse_extra_work_input("") is None
+    assert parse_extra_work_input("0") is None
+
+
+def test_parse_extra_work_minutes():
+    assert parse_extra_work_input("30") == 30
+
+
+def test_parse_extra_work_invalid_raises_with_label():
+    for bad in ("abc", "-5", "1441", "1.5"):
+        with pytest.raises(ValueError, match="추가 업무"):
+            parse_extra_work_input(bad)
+
+
+def test_extra_work_display_formats_or_dash():
+    from ui.day_dialog import extra_work_display
+    assert extra_work_display(None) == "-"
+    assert extra_work_display(90) == "1h 30m"

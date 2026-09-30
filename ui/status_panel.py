@@ -234,6 +234,13 @@ def break_line(detail: DayDetail) -> str | None:
     return f"휴게 시간: {format_break(detail.break_minutes)}"
 
 
+def extra_work_line(detail: DayDetail) -> str | None:
+    """추가 업무 라인. 미설정이면 None(숨김)."""
+    if detail.extra_work_minutes is None:
+        return None
+    return f"추가 업무: {format_break(detail.extra_work_minutes)}"
+
+
 def past_state_display(detail: DayDetail) -> tuple[str, str]:
     """과거 일자 상태 라인 (문구, 상태키).
 

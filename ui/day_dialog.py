@@ -21,7 +21,7 @@ from core.vacation import FULL_DAY_MINUTES, Vacation, build_vacation
 from ui import theme
 
 MAX_PLAN_MINUTES = 24 * 60
-MAX_BREAK_MINUTES = 24 * 60
+MAX_DAY_MINUTES_INPUT = 24 * 60  # 휴게·추가 업무 입력 상한
 _MEMO_CAPTION_GAP_PX = 2  # 메모 캡션과 박스 사이 간격
 _COMBO_ARROW_AREA_PX = 24  # 콤보 드롭다운 버튼 영역 폭
 
@@ -75,21 +75,36 @@ def parse_recognition_inputs(
     )
 
 
-def parse_break_input(text: str) -> Optional[int]:
-    """휴게(분) 입력 파싱. 비우거나 0 이면 None(해제), 오류 시 ValueError."""
+def _parse_day_minutes_input(text: str, label: str) -> Optional[int]:
+    """하루 단위 분 입력 파싱. 비우거나 0 이면 None(해제), 오류 시 ValueError."""
     text = text.strip()
     if not text:
         return None
     if not text.isdigit():
-        raise ValueError("휴게는 0 이상 정수(분)여야 합니다.")
+        raise ValueError(f"{label}는 0 이상 정수(분)여야 합니다.")
     minutes = int(text)
-    if minutes > MAX_BREAK_MINUTES:
-        raise ValueError("휴게는 하루 24시간을 넘을 수 없습니다.")
+    if minutes > MAX_DAY_MINUTES_INPUT:
+        raise ValueError(f"{label}는 하루 24시간을 넘을 수 없습니다.")
     return minutes if minutes > 0 else None
+
+
+def parse_break_input(text: str) -> Optional[int]:
+    """휴게(분) 입력 파싱. 비우거나 0 이면 None(해제), 오류 시 ValueError."""
+    return _parse_day_minutes_input(text, "휴게")
+
+
+def parse_extra_work_input(text: str) -> Optional[int]:
+    """추가 업무(분) 입력 파싱. 비우거나 0 이면 None(해제), 오류 시 ValueError."""
+    return _parse_day_minutes_input(text, "추가 업무")
 
 
 def break_display(minutes: Optional[int]) -> str:
     """보기 모드 휴게 텍스트. 미설정이면 '-'."""
+    return format_break(minutes) if minutes is not None else "-"
+
+
+def extra_work_display(minutes: Optional[int]) -> str:
+    """보기 모드 추가 업무 텍스트. 미설정이면 '-'."""
     return format_break(minutes) if minutes is not None else "-"
 
 

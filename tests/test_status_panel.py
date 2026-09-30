@@ -402,3 +402,14 @@ def test_break_line_under_one_hour():
 def test_break_line_hours_and_minutes():
     from ui.status_panel import break_line
     assert break_line(_detail(break_minutes=90)) == "휴게 시간: 1h 30m"
+
+
+def test_extra_work_line_hidden_when_none():
+    from ui.status_panel import extra_work_line
+    assert extra_work_line(_detail()) is None
+
+
+def test_extra_work_line_formats_minutes():
+    from ui.status_panel import extra_work_line
+    assert extra_work_line(_detail(extra_work_minutes=30)) == "추가 업무: 30m"
+    assert extra_work_line(_detail(extra_work_minutes=90)) == "추가 업무: 1h 30m"
