@@ -340,3 +340,37 @@ def test_recompute_work_applies_extra_break(tmp_path):
     svc._storage.set_extra_break("2026-06-29", 45)
     rec = svc.recompute_work("2026-06-29")
     assert rec.work_seconds == 8 * 3600 - 45 * 60  # 자동 60분 + 임의 45분
+
+
+def test_clock_out_adds_extra_work(tmp_path):
+    # 09:00~18:00 raw 9h → 자동 휴게 60분 차감 8h + 추가 업무 30분 → 8h 30m
+    svc = make_service(tmp_path, datetime(2026, 7, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._storage.set_extra_work("2026-07-30", 30)
+    svc._clock = lambda: datetime(2026, 7, 30, 18, 0, tzinfo=KST)
+    rec = svc.record_clock_out()
+    assert rec.work_seconds == 8 * 3600 + 30 * 60
+
+
+def test_extra_work_added_after_extra_break_floor(tmp_path):
+    # raw 10분 − 임의 휴게 30분 → 0 (하한) → 추가 업무 20분 가산 → 20분
+    svc = make_service(tmp_path, datetime(2026, 7, 30, 9, 0, tzinfo=KST))
+    svc.record_clock_in()
+    svc._storage.set_extra_break("2026-07-30", 30)
+    svc._storage.set_extra_work("2026-07-30", 20)
+    svc._clock = lambda: datetime(2026, 7, 30, 9, 10, tzinfo=KST)
+    rec = svc.record_clock_out()
+    assert rec.work_seconds == 20 * 60
+
+
+def test_recompute_work_applies_extra_work(tmp_path):
+    # 퇴근 확정 후 추가 업무를 설정하고 재계산하면 가산이 반영된다
+    svc = make_service(tmp_path, datetime(2026, 6, 30, 9, 0, tzinfo=KST))
+    svc.edit(
+        "2026-06-29",
+        "2026-06-29T09:00:00+09:00",
+        "2026-06-29T18:00:00+09:00",
+    )
+    svc._storage.set_extra_work("2026-06-29", 45)
+    rec = svc.recompute_work("2026-06-29")
+    assert rec.work_seconds == 8 * 3600 + 45 * 60
