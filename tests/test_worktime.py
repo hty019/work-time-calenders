@@ -10,9 +10,9 @@ def _t(h, m=0):
     return datetime(2026, 6, 30, h, m, tzinfo=KST)
 
 
-def test_under_9h_deducts_30min():
-    # 09:00 ~ 17:00 = 8시간 → 1차 휴게 30분 차감 = 7시간 30분
-    assert compute_work_seconds(_t(9), _t(17)) == 7 * 3600 + 30 * 60
+def test_under_9h_deducts_60min():
+    # 09:00 ~ 17:00 = 8시간 → 1차 휴게 60분 차감 = 7시간
+    assert compute_work_seconds(_t(9), _t(17)) == 7 * 3600
 
 
 def test_exactly_9h_deducts_60min():
@@ -30,21 +30,20 @@ def test_first_four_hours_count_fully():
     assert compute_work_seconds(_t(9, 0), _t(12, 59)) == 3 * 3600 + 59 * 60
 
 
-def test_first_break_freezes_at_four_hours():
-    # 4h ~ 4h30m 구간은 4시간 00분으로 고정
+def test_first_break_freezes_at_four_hours_for_one_hour():
+    # 4h ~ 5h 구간은 4시간 00분으로 고정
     assert compute_work_seconds(_t(9), _t(13, 0)) == 4 * 3600       # 4h00m
-    assert compute_work_seconds(_t(9), _t(13, 15)) == 4 * 3600      # 4h15m
     assert compute_work_seconds(_t(9), _t(13, 30)) == 4 * 3600      # 4h30m
-    # 4h31m 부터 4시간 01분으로 재개
-    assert compute_work_seconds(_t(9), _t(13, 31)) == 4 * 3600 + 60
+    assert compute_work_seconds(_t(9), _t(14, 0)) == 4 * 3600       # 5h00m
+    # 5h01m 부터 4시간 01분으로 재개
+    assert compute_work_seconds(_t(9), _t(14, 1)) == 4 * 3600 + 60
 
 
-def test_second_break_freezes_at_eight_hours():
-    # 누적 8h 도달 = raw 8h30m → 8h30m~9h 동안 8시간 00분 고정
-    assert compute_work_seconds(_t(9), _t(17, 30)) == 8 * 3600      # raw 8h30m
-    assert compute_work_seconds(_t(9), _t(17, 59)) == 8 * 3600      # raw 8h59m
-    # raw 9h01m 부터 8시간 01분으로 재개
-    assert compute_work_seconds(_t(9), _t(18, 1)) == 8 * 3600 + 60
+def test_no_break_at_eight_hours():
+    # 누적 8h 도달 시 휴게 없음 → raw − 60m 로 계속 누적
+    assert compute_work_seconds(_t(9), _t(17, 30)) == 7 * 3600 + 30 * 60  # raw 8h30m
+    assert compute_work_seconds(_t(9), _t(18, 0)) == 8 * 3600             # raw 9h
+    assert compute_work_seconds(_t(9), _t(18, 1)) == 8 * 3600 + 60        # raw 9h01m
 
 
 def test_third_break_freezes_at_twelve_hours():
@@ -74,37 +73,37 @@ from core.worktime import (
 
 def test_effective_work_subtracts_afternoon_vacation_overlap():
     # 출근 08:00, 퇴근 15:50, 휴가 15:00~17:00 → 겹침 50m
-    # raw 7h50m − 50m = 7h → 휴게 30m 차감 → 6h30m
+    # raw 7h50m − 50m = 7h → 휴게 60m 차감 → 6h
     net = effective_work_seconds(_t(8), _t(15, 50), 900, 1020)
-    assert net == 6 * 3600 + 30 * 60
+    assert net == 6 * 3600
 
 
 def test_effective_work_subtracts_morning_vacation():
-    # 휴가 09:00~11:00, 근로 08:00~17:00 → raw 9h − 2h = 7h → 6h30m
+    # 휴가 09:00~11:00, 근로 08:00~17:00 → raw 9h − 2h = 7h → 6h
     net = effective_work_seconds(_t(8), _t(17), 540, 660)
-    assert net == 6 * 3600 + 30 * 60
+    assert net == 6 * 3600
 
 
 def test_effective_work_subtracts_middle_vacation():
-    # 휴가 12:00~14:00, 근로 09:00~18:00 → raw 9h − 2h = 7h → 6h30m
+    # 휴가 12:00~14:00, 근로 09:00~18:00 → raw 9h − 2h = 7h → 6h
     net = effective_work_seconds(_t(9), _t(18), 720, 840)
-    assert net == 6 * 3600 + 30 * 60
+    assert net == 6 * 3600
 
 
 def test_effective_work_no_overlap_unchanged():
-    # 휴가 18:00~20:00, 근로 09:00~17:30 → 겹침 없음 → 기존과 동일 8h
+    # 휴가 18:00~20:00, 근로 09:00~17:30 → 겹침 없음 → 기존과 동일 7h30m
     net = effective_work_seconds(_t(9), _t(17, 30), 1080, 1200)
-    assert net == 8 * 3600
+    assert net == 7 * 3600 + 30 * 60
     # 휴가 구간 없음(None) → compute_work_seconds 와 동일
-    assert effective_work_seconds(_t(9), _t(17, 30)) == 8 * 3600
+    assert effective_work_seconds(_t(9), _t(17, 30)) == 7 * 3600 + 30 * 60
 
 
 def test_net_for_raw_applies_break_model():
     # 체류 시간에서 휴게 임계-정지 모델로 순근무 산출
     assert net_seconds_for_raw(3 * 3600) == 3 * 3600            # 휴게 없음
-    assert net_seconds_for_raw(4 * 3600 + 15 * 60) == 4 * 3600  # 1차 휴게 중
+    assert net_seconds_for_raw(4 * 3600 + 45 * 60) == 4 * 3600  # 1차 휴게 중
     assert net_seconds_for_raw(9 * 3600) == 8 * 3600            # 9h 체류 → 8h
-    assert net_seconds_for_raw(6 * 3600) == 5 * 3600 + 30 * 60  # 6h → 5h30m
+    assert net_seconds_for_raw(6 * 3600) == 5 * 3600            # 6h → 5h
     assert net_seconds_for_raw(0) == 0
     assert net_seconds_for_raw(-100) == 0
 
@@ -119,33 +118,33 @@ def test_raw_for_net_exactly_4h():
     assert raw_seconds_for_net(4 * 3600) == 4 * 3600
 
 
-def test_raw_for_net_between_4h_and_8h_adds_30m():
-    # 순근무 7h30m → 체류 8h (1차 휴게 30분 포함)
-    assert raw_seconds_for_net(7 * 3600 + 30 * 60) == 8 * 3600
+def test_raw_for_net_just_over_4h_adds_60m():
+    # 순근무 4h01m → 체류 5h01m (1차 휴게 60분 포함)
+    assert raw_seconds_for_net(4 * 3600 + 60) == 5 * 3600 + 60
+
+
+def test_raw_for_net_between_4h_and_8h_adds_60m():
+    # 순근무 7h30m → 체류 8h30m (1차 휴게 60분 포함)
+    assert raw_seconds_for_net(7 * 3600 + 30 * 60) == 8 * 3600 + 30 * 60
 
 
 def test_raw_for_net_exactly_8h_adds_60m():
-    # 순근무 8h → 체류 9h (2차 휴게까지 60분 포함)
+    # 순근무 8h → 체류 9h (8h 휴게 없음, 1차 60분만)
     assert raw_seconds_for_net(8 * 3600) == 8 * 3600 + 60 * 60
 
 
-def test_raw_for_net_just_under_8h_adds_30m():
-    # 순근무 7h59m → 체류 8h29m (아직 1차 휴게만)
-    assert raw_seconds_for_net(8 * 3600 - 60) == 8 * 3600 - 60 + 30 * 60
-
-
 def test_raw_for_net_over_8h_adds_60m():
-    # 순근무 10h → 체류 11h (2차 휴게까지 60분)
+    # 순근무 10h → 체류 11h (1차 휴게 60분)
     assert raw_seconds_for_net(10 * 3600) == 11 * 3600
 
 
 def test_raw_for_net_just_under_12h_adds_60m():
-    # 순근무 11h59m → 체류 12h59m (아직 2차 휴게 60분)
+    # 순근무 11h59m → 체류 12h59m (아직 1차 휴게 60분)
     assert raw_seconds_for_net(12 * 3600 - 60) == 12 * 3600 - 60 + 60 * 60
 
 
 def test_raw_for_net_exactly_12h_adds_90m():
-    # 순근무 12h → 체류 13h30m (3차 휴게까지 90분 포함)
+    # 순근무 12h → 체류 13h30m (12h 휴게까지 90분 포함)
     assert raw_seconds_for_net(12 * 3600) == 12 * 3600 + 90 * 60
 
 
@@ -160,7 +159,8 @@ def test_raw_for_net_roundtrips_with_compute():
     from zoneinfo import ZoneInfo
     kst = ZoneInfo("Asia/Seoul")
     base = datetime(2026, 6, 30, 9, 0, tzinfo=kst)
-    for net in (2 * 3600, 5 * 3600, 7 * 3600, 9 * 3600, 11 * 3600, 13 * 3600):
+    for net in (2 * 3600, 4 * 3600 + 60, 5 * 3600, 7 * 3600, 8 * 3600,
+                9 * 3600, 11 * 3600, 13 * 3600):
         raw = raw_seconds_for_net(net)
         out = base.fromtimestamp(base.timestamp() + raw, tz=kst)
         assert compute_work_seconds(base, out) == net

@@ -100,13 +100,13 @@ def test_recog_planned_sums_net_of_breaks():
     recog_month = {
         "2026-07-01": (540, 1080),  # 09:00~18:00 체류 9h → 순 8h
         "2026-07-02": (540, 780),   # 09:00~13:00 체류 4h → 순 4h (휴게 진입 직전)
-        "2026-07-03": (540, 900),   # 09:00~15:00 체류 6h → 순 5h30m
+        "2026-07-03": (540, 900),   # 09:00~15:00 체류 6h → 순 5h
     }
     s = build_month_summary(
         FakeStorage(recog_month=recog_month), FakeAttendance(),
         FakePlan(0, 0), 2026, 7, {}, datetime(2026, 7, 1, 12, tzinfo=KST),
     )
-    assert s.recog_planned_minutes == 480 + 240 + 330  # 1050
+    assert s.recog_planned_minutes == 480 + 240 + 300  # 1020
 
 
 def test_recog_planned_zero_when_no_ranges():
@@ -133,28 +133,28 @@ def test_actual_includes_vacation_minutes():
 
 def test_expected_reduced_by_afternoon_vacation():
     # 계획 8h, 오후 휴가 2h(15:00~17:00), 출근 08:00 → 남은 순근무 6h
-    # 체류 6h30m → 예상 14:30 (휴가 구간과 겹침 없음)
+    # 체류 7h → 예상 15:00 (휴가 구간과 겹침 없음)
     rec = Rec("2026-07-01T08:00:00+09:00", None)
     now = datetime(2026, 7, 1, 12, 0, tzinfo=KST)
     s = build_month_summary(
         FakeStorage(rec, vacation=(120, 900, 1020)), FakeAttendance(),
         FakePlan(9600, 480), 2026, 7, {}, now,
     )
-    assert s.expected_clock_out.hour == 14
-    assert s.expected_clock_out.minute == 30
+    assert s.expected_clock_out.hour == 15
+    assert s.expected_clock_out.minute == 0
 
 
 def test_expected_shifted_past_morning_vacation():
-    # 아침 휴가 09:00~11:00, 출근 08:00, 계획 8h → 남은 6h → 체류 6h30m
-    # 예상 구간이 휴가와 2h 겹침 → 16:30 으로 밀림
+    # 아침 휴가 09:00~11:00, 출근 08:00, 계획 8h → 남은 6h → 체류 7h
+    # 예상 구간이 휴가와 2h 겹침 → 17:00 으로 밀림
     rec = Rec("2026-07-01T08:00:00+09:00", None)
     now = datetime(2026, 7, 1, 12, 0, tzinfo=KST)
     s = build_month_summary(
         FakeStorage(rec, vacation=(120, 540, 660)), FakeAttendance(),
         FakePlan(9600, 480), 2026, 7, {}, now,
     )
-    assert s.expected_clock_out.hour == 16
-    assert s.expected_clock_out.minute == 30
+    assert s.expected_clock_out.hour == 17
+    assert s.expected_clock_out.minute == 0
 
 
 def test_expected_none_when_vacation_covers_plan():
