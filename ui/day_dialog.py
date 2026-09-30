@@ -168,6 +168,8 @@ def open_day_dialog(
     ] = None,
     break_minutes: Optional[int] = None,
     on_save_break: Optional[Callable[[str, Optional[int]], None]] = None,
+    extra_work_minutes: Optional[int] = None,
+    on_save_extra_work: Optional[Callable[[str, Optional[int]], None]] = None,
     memo: Optional[str] = None,
     on_save_memo: Optional[Callable[[str, str], None]] = None,
     start_in_edit: bool = False,
@@ -217,6 +219,9 @@ def open_day_dialog(
         else minutes_to_hhmm(vacation.start_min)
     )
     initial_break_text = "" if break_minutes is None else str(break_minutes)
+    initial_extra_work_text = (
+        "" if extra_work_minutes is None else str(extra_work_minutes)
+    )
     initial_memo = memo or ""
 
     # --- 보기(read-only) 모드: 입력란 없이 텍스트 요약 ---
@@ -235,6 +240,9 @@ def open_day_dialog(
     view_form.addRow("(가)계획", QLabel(recognition_display(recog_range)))
     view_form.addRow("휴가", QLabel(vacation_display(vacation)))
     view_form.addRow("휴게", QLabel(break_display(break_minutes)))
+    view_form.addRow(
+        "추가 업무", QLabel(extra_work_display(extra_work_minutes))
+    )
 
     # --- 수정 모드: 입력 폼 ---
     edit_widget = QWidget()
@@ -264,6 +272,8 @@ def open_day_dialog(
     vacation_start_label = QLabel("휴가 시작")
     break_edit = QLineEdit(initial_break_text)
     break_edit.setPlaceholderText("분 단위 (비우면 없음)")
+    extra_work_edit = QLineEdit(initial_extra_work_text)
+    extra_work_edit.setPlaceholderText("분 단위 (출퇴근과 무관하게 가산)")
     form.addRow("출근", in_edit)
     form.addRow("퇴근", out_edit)
     form.addRow("실 계획(분)", plan_edit)
@@ -272,6 +282,7 @@ def open_day_dialog(
     form.addRow("휴가", vacation_combo)
     form.addRow(vacation_start_label, vacation_start_edit)
     form.addRow("휴게(분)", break_edit)
+    form.addRow("추가 업무(분)", extra_work_edit)
 
     # 보기/수정 폼은 표시 여부로 전환하고, 전환 시 다이얼로그 크기를
     # 현재 모드 내용에 딱 맞게 재계산한다 (예약 공간·잔여 여백 없음)
@@ -412,14 +423,15 @@ def open_day_dialog(
                 QMessageBox.warning(dlg, "입력 오류", str(exc))
                 return
 
-        # 3.5) 임의 휴게 파싱 (비우거나 0 → 해제)
+        # 3.5) 임의 휴게·추가 업무 파싱 (비우거나 0 → 해제)
         try:
             new_break = parse_break_input(break_edit.text())
+            new_extra_work = parse_extra_work_input(extra_work_edit.text())
         except ValueError as exc:
             QMessageBox.warning(dlg, "입력 오류", str(exc))
             return
 
-        # 4) 검증 통과 → 계획·인정 범위·휴가·휴게·메모 저장
+        # 4) 검증 통과 → 계획·인정 범위·휴가·휴게·추가 업무·메모 저장
         on_save_plan(work_date, minutes)
         if on_save_recognition is not None:
             on_save_recognition(work_date, rng)
@@ -427,6 +439,8 @@ def open_day_dialog(
             on_save_vacation(work_date, new_vacation)
         if on_save_break is not None:
             on_save_break(work_date, new_break)
+        if on_save_extra_work is not None:
+            on_save_extra_work(work_date, new_extra_work)
         if on_save_memo is not None:
             on_save_memo(work_date, memo_edit.toPlainText())
 

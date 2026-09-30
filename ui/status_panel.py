@@ -366,6 +366,8 @@ class StatusPanel(QWidget):
         self._vacation.setVisible(False)
         self._break = QLabel()      # 임의 휴게 라인 (없으면 숨김)
         self._break.setVisible(False)
+        self._extra_work = QLabel()  # 추가 업무 라인 (없으면 숨김)
+        self._extra_work.setVisible(False)
         # 당일 메모 박스: 테두리 사각형, 넘치면 스크롤(스크롤바 숨김)
         self._memo_box = _CopyOnSelectMemo(self._show_copy_notice)
         self._memo_box.setReadOnly(True)
@@ -401,7 +403,8 @@ class StatusPanel(QWidget):
                   self._progress_caption, self._progress,
                   self._clock_in, self._expected, self._expected_sub,
                   self._past_plan, self._stay, self._remaining,
-                  self._vacation, self._break, self._state):
+                  self._vacation, self._break, self._extra_work,
+                  self._state):
             layout.addWidget(w)
 
         layout.addStretch(1)
@@ -504,6 +507,9 @@ class StatusPanel(QWidget):
         brk_text = break_line(detail) if detail is not None else None
         self._break.setText(brk_text or "")
         self._break.setVisible(bool(brk_text))
+        extra_text = extra_work_line(detail) if detail is not None else None
+        self._extra_work.setText(extra_text or "")
+        self._extra_work.setVisible(bool(extra_text))
         memo = detail.memo if detail is not None else None
         if (memo or "") != self._memo_box.toPlainText():
             self._memo_box.setPlainText(memo or "")
