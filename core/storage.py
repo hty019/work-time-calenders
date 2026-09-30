@@ -68,6 +68,13 @@ CREATE TABLE IF NOT EXISTS extra_break (
 )
 """
 
+_CREATE_EXTRA_WORK_SQL = """
+CREATE TABLE IF NOT EXISTS extra_work (
+    work_date TEXT PRIMARY KEY,
+    minutes   INTEGER NOT NULL
+)
+"""
+
 
 class Storage:
     def __init__(self, db_path: str) -> None:
@@ -81,6 +88,7 @@ class Storage:
         self._conn.execute(_CREATE_ANNUAL_LEAVE_SQL)
         self._conn.execute(_CREATE_MEMO_SQL)
         self._conn.execute(_CREATE_EXTRA_BREAK_SQL)
+        self._conn.execute(_CREATE_EXTRA_WORK_SQL)
         self._conn.commit()
 
     def get(self, work_date: str) -> Attendance | None:
@@ -305,6 +313,29 @@ class Storage:
     def clear_extra_break(self, work_date: str) -> None:
         self._conn.execute(
             "DELETE FROM extra_break WHERE work_date = ?", (work_date,)
+        )
+        self._conn.commit()
+
+    def get_extra_work(self, work_date: str) -> int | None:
+        """해당 날짜의 추가 업무(분). 없으면 None."""
+        cur = self._conn.execute(
+            "SELECT minutes FROM extra_work WHERE work_date = ?",
+            (work_date,),
+        )
+        row = cur.fetchone()
+        return int(row["minutes"]) if row is not None else None
+
+    def set_extra_work(self, work_date: str, minutes: int) -> None:
+        self._conn.execute(
+            "INSERT INTO extra_work (work_date, minutes) VALUES (?, ?) "
+            "ON CONFLICT(work_date) DO UPDATE SET minutes=excluded.minutes",
+            (work_date, minutes),
+        )
+        self._conn.commit()
+
+    def clear_extra_work(self, work_date: str) -> None:
+        self._conn.execute(
+            "DELETE FROM extra_work WHERE work_date = ?", (work_date,)
         )
         self._conn.commit()
 

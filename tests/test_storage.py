@@ -187,3 +187,15 @@ def test_extra_break_list_month(tmp_path):
         "2026-07-05": 30,
         "2026-07-20": 60,
     }
+
+
+def test_extra_work_crud(tmp_path):
+    st = make_storage(tmp_path)
+    assert st.get_extra_work("2026-07-30") is None
+    st.set_extra_work("2026-07-30", 30)
+    assert st.get_extra_work("2026-07-30") == 30
+    st.set_extra_work("2026-07-30", 60)  # upsert 갱신
+    assert st.get_extra_work("2026-07-30") == 60
+    st.clear_extra_work("2026-07-30")
+    assert st.get_extra_work("2026-07-30") is None
+    st.clear_extra_work("2026-07-30")  # 없는 날짜 clear 는 무해
