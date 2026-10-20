@@ -71,3 +71,81 @@ def test_resolve_base_falls_back_to_first_day():
     base, should_move = resolve_nav_base("2026-08-10", 2026, 9, "2026-07-13")
     assert base == "2026-09-01"
     assert should_move is False
+
+
+# --- 사각형 범위 선택 (rectangle_dates / rectangle_selection) -------------
+# 2026-07: 1일=수. 1주차 = 06-29(월)~07-05(일), 2주차 = 07-06(월)~07-12(일)
+
+
+def test_rectangle_same_weekday_two_weeks_selects_only_two():
+    from core.calendar_nav import rectangle_dates
+
+    assert rectangle_dates("2026-07-06", "2026-07-13", 2026, 7) == [
+        "2026-07-06", "2026-07-13",
+    ]
+
+
+def test_rectangle_two_by_two():
+    from core.calendar_nav import rectangle_dates
+
+    assert rectangle_dates("2026-07-06", "2026-07-14", 2026, 7) == [
+        "2026-07-06", "2026-07-07", "2026-07-13", "2026-07-14",
+    ]
+
+
+def test_rectangle_reverse_direction_same_result():
+    from core.calendar_nav import rectangle_dates
+
+    # 우하→좌상 방향도 같은 사각형
+    assert rectangle_dates("2026-07-14", "2026-07-06", 2026, 7) == [
+        "2026-07-06", "2026-07-07", "2026-07-13", "2026-07-14",
+    ]
+
+
+def test_rectangle_anti_diagonal():
+    from core.calendar_nav import rectangle_dates
+
+    # 1주차 일(07-12) → 2주차 토(07-18): 토·일 열 × 2행
+    assert rectangle_dates("2026-07-12", "2026-07-18", 2026, 7) == [
+        "2026-07-11", "2026-07-12", "2026-07-18", "2026-07-19",
+    ]
+
+
+def test_rectangle_same_row_is_contiguous_days():
+    from core.calendar_nav import rectangle_dates
+
+    assert rectangle_dates("2026-07-08", "2026-07-10", 2026, 7) == [
+        "2026-07-08", "2026-07-09", "2026-07-10",
+    ]
+
+
+def test_rectangle_excludes_days_outside_view_month():
+    from core.calendar_nav import rectangle_dates
+
+    # 1주차 월·화(06-29, 06-30)는 6월 → 보는 달(7월) 밖이라 제외
+    assert rectangle_dates("2026-07-01", "2026-07-06", 2026, 7) == [
+        "2026-07-01", "2026-07-06", "2026-07-07", "2026-07-08",
+    ]
+
+
+def test_rectangle_single_cell():
+    from core.calendar_nav import rectangle_dates
+
+    assert rectangle_dates("2026-07-06", "2026-07-06", 2026, 7) == [
+        "2026-07-06",
+    ]
+
+
+def test_rectangle_selection_unions_base():
+    from core.calendar_nav import rectangle_selection
+
+    assert rectangle_selection(
+        "2026-07-06", ["2026-07-20"], "2026-07-13", 2026, 7
+    ) == ["2026-07-06", "2026-07-13", "2026-07-20"]
+
+
+def test_rectangle_selection_single_cell_without_base_is_empty():
+    from core.calendar_nav import rectangle_selection
+
+    # 1일 이하 → 다중 선택 아님
+    assert rectangle_selection("2026-07-06", [], "2026-07-06", 2026, 7) == []
