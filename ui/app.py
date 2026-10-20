@@ -1,10 +1,9 @@
 """Qt 앱 조립·모드 전환·주기 갱신 컨트롤러."""
 from __future__ import annotations
 
-import datetime
 import os
 import sys
-from typing import Callable
+from typing import Callable, NamedTuple
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox
@@ -31,7 +30,11 @@ from core.recognition import (
 )
 from core.stats import build_month_summary
 from core.storage import Storage
-from core.calendar_nav import resolve_nav_base, step_within_month
+from core.calendar_nav import (
+    rectangle_selection,
+    resolve_nav_base,
+    step_within_month,
+)
 from core.vacation import Vacation, VacationService, YearLeaveSummary
 from ui import theme
 from ui.ai_dialog import open_ai_dialog
@@ -78,6 +81,10 @@ class AppController:
         self._selected_date = timeutil.today_str(now)
         # Cmd+클릭 다중 선택 날짜 (선택 순서 유지, 2일 이상일 때만 사용)
         self._multi_dates: list[str] = []
+        # Shift 사각형 선택의 고정 꼭짓점과, 그 시점의 기존 선택(합집합 기준).
+        # None 이면 다음 Shift 입력 때 현재 선택 일자를 앵커로 잡는다.
+        self._range_anchor: str | None = None
+        self._range_base: list[str] = []
         # 복사 버퍼(단일 일자) · 마지막 변경 되돌리기 스냅샷(단일 단계)
         self._clipboard: DayPlanClipboard | None = None
         self._undo: list[DayState] | None = None
@@ -308,16 +315,23 @@ class AppController:
     def _handle_select_day(self, date: str, mode: str = SELECT_SINGLE) -> None:
         """셀 클릭 = 선택 (STATUS 는 마지막 선택 일자 표시).
 
-        Cmd+클릭은 다중 선택 토글, Shift+클릭은 연속 범위 선택.
+        Cmd+클릭은 다중 선택 토글, Shift+클릭은 사각형 범위 선택.
         """
-        if mode == SELECT_TOGGLE:
-            self._toggle_multi_date(date)
-        elif mode == SELECT_RANGE:
+        if mode == SELECT_RANGE:
             self._select_range_to(date)
         else:
-            self._multi_dates = []
-            self._selected_date = date
+            self._reset_range_anchor()
+            if mode == SELECT_TOGGLE:
+                self._toggle_multi_date(date)
+            else:
+                self._multi_dates = []
+                self._selected_date = date
         self._refresh()
+
+    def _reset_range_anchor(self) -> None:
+        """Shift 이외의 선택 변경 → 다음 Shift 입력에서 앵커를 새로 잡는다."""
+        self._range_anchor = None
+        self._range_base = []
 
     def _toggle_multi_date(self, date: str) -> None:
         """Cmd+클릭 토글."""
@@ -335,22 +349,26 @@ class AppController:
         self._multi_dates = dates if len(dates) >= 2 else []
 
     def _select_range_to(self, date: str) -> None:
-        """Shift+클릭: 마지막 선택 일자부터 클릭 일자까지 연속 선택.
+        """Shift+클릭: 앵커~클릭 일자를 꼭짓점으로 하는 사각형 범위 선택.
 
-        기존 다중 선택에 범위를 합친다.
+        연속 Shift+클릭은 앵커를 유지한 채 사각형만 다시 그린다.
         """
-        dates = list(self._multi_dates)
-        for d in _date_range(self._selected_date, date):
-            if d not in dates:
-                dates.append(d)
+        anchor, base = _resolve_anchor(
+            self._range_anchor, self._range_base,
+            self._selected_date, self._multi_dates,
+        )
+        self._range_anchor, self._range_base = anchor, base
+        self._multi_dates = rectangle_selection(
+            anchor, base, date, self._view_year, self._view_month
+        )
         self._selected_date = date  # STATUS 는 마지막 클릭 일자 표시
-        self._multi_dates = dates if len(dates) >= 2 else []
 
     def _handle_clear_selection(self) -> None:
         """ESC: 다중 선택 해제 (마지막 선택 일자는 유지)."""
         if not self._multi_dates:
             return
         self._multi_dates = []
+        self._reset_range_anchor()
         self._refresh()
 
     def _handle_go_today(self) -> None:
@@ -358,25 +376,30 @@ class AppController:
         now = timeutil.now()
         self._selected_date = timeutil.today_str(now)
         self._multi_dates = []
+        self._reset_range_anchor()
         self._view_year, self._view_month = now.year, now.month
         self._refresh()
 
     def _handle_navigate(self, delta_days: int, extend: bool) -> None:
         """화살표 키: 선택 일자를 방향 이동(Shift 면 범위 확장)."""
         today = timeutil.today_str(timeutil.now())
-        selected, multi = _navigate_selection(
+        result = _navigate_selection(
             self._selected_date, self._multi_dates,
             self._view_year, self._view_month, today, delta_days, extend,
+            anchor=self._range_anchor, base=self._range_base,
         )
-        if selected == self._selected_date and multi == self._multi_dates:
+        self._range_anchor, self._range_base = result.anchor, result.base
+        if (result.selected == self._selected_date
+                and result.multi == self._multi_dates):
             return  # 경계 no-op — 불필요한 갱신 방지
-        self._selected_date = selected
-        self._multi_dates = multi
+        self._selected_date = result.selected
+        self._multi_dates = result.multi
         self._refresh()
 
     def _handle_edit_day(self, date: str) -> None:
         """셀 더블 클릭 = 해당 날짜 선택 후 곧바로 수정 다이얼로그."""
         self._selected_date = date
+        self._reset_range_anchor()
         self._handle_edit_selected()
 
     def _handle_edit_selected(self) -> None:
@@ -540,6 +563,7 @@ class AppController:
         self._with_undo(dates, op)
         if applied and applied[0]:
             self._multi_dates = []  # 적용 완료 → 단일 선택으로 복귀
+            self._reset_range_anchor()
         self._refresh()
 
     def _handle_manage_vacation(self) -> None:
@@ -621,6 +645,30 @@ class AppController:
         self._app.exec()
 
 
+class _NavResult(NamedTuple):
+    """화살표 이동 결과 선택 상태 (anchor/base 는 Shift 사각형 선택용)."""
+
+    selected: str
+    multi: list[str]
+    anchor: str | None
+    base: list[str]
+
+
+def _resolve_anchor(
+    anchor: str | None,
+    base: list[str],
+    selected_date: str,
+    multi_dates: list[str],
+) -> tuple[str, list[str]]:
+    """Shift 사각형 선택의 (앵커, 기준 선택)을 결정한다.
+
+    앵커가 없으면 현재 선택 일자를 앵커로, 나머지 다중 선택을 기준으로 삼는다.
+    """
+    if anchor is not None:
+        return anchor, list(base)
+    return selected_date, [d for d in multi_dates if d != selected_date]
+
+
 def _navigate_selection(
     selected_date: str,
     multi_dates: list[str],
@@ -629,38 +677,27 @@ def _navigate_selection(
     today: str,
     delta_days: int,
     extend: bool,
-) -> tuple[str, list[str]]:
-    """화살표 이동 후의 (선택 일자, 다중 선택 목록)을 계산한다(순수 함수).
+    anchor: str | None = None,
+    base: list[str] | None = None,
+) -> _NavResult:
+    """화살표 이동 후의 선택 상태를 계산한다(순수 함수).
 
     선택 일자가 보는 달에 없으면 첫 입력은 기준일(오늘/1일)만 선택한다.
     경계를 벗어나면 아무 변화 없이 현재 상태를 그대로 돌려준다.
-    extend 면 마지막 선택부터 목표까지 사이 일자를 기존 선택에 합친다.
+    extend 면 앵커~목표를 꼭짓점으로 하는 사각형을 기준 선택에 합친다.
     """
-    base, should_move = resolve_nav_base(selected_date, year, month, today)
+    base = base or []
+    start, should_move = resolve_nav_base(selected_date, year, month, today)
     if not should_move:
-        return base, []
-    target = step_within_month(base, delta_days, year, month)
-    if target is None:
-        return selected_date, multi_dates  # 경계 no-op
+        return _NavResult(start, [], None, [])
+    target = step_within_month(start, delta_days, year, month)
+    if target is None:  # 경계 no-op
+        return _NavResult(selected_date, multi_dates, anchor, base)
     if not extend:
-        return target, []
-    dates = list(multi_dates)
-    for d in _date_range(base, target):
-        if d not in dates:
-            dates.append(d)
-    return target, (dates if len(dates) >= 2 else [])
-
-
-def _date_range(start: str, end: str) -> list[str]:
-    """start 부터 end 까지(양 끝 포함) ISO 날짜 목록. 역방향도 지원."""
-    d1 = datetime.date.fromisoformat(start)
-    d2 = datetime.date.fromisoformat(end)
-    step = 1 if d2 >= d1 else -1
-    days = abs((d2 - d1).days)
-    return [
-        (d1 + datetime.timedelta(days=i * step)).isoformat()
-        for i in range(days + 1)
-    ]
+        return _NavResult(target, [], None, [])
+    anchor, base = _resolve_anchor(anchor, base, start, multi_dates)
+    multi = rectangle_selection(anchor, base, target, year, month)
+    return _NavResult(target, multi, anchor, base)
 
 
 def _prev_month(year: int, month: int) -> tuple[int, int]:
