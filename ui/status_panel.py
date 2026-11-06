@@ -199,6 +199,16 @@ def work_line_with_gap(detail: DayDetail) -> str | None:
     return f"{base} {_balance_suffix(gap_seconds)}"
 
 
+def today_tail_line(
+    remaining_seconds: int | None, detail: DayDetail | None
+) -> str:
+    """오늘 일자 마지막 라인: 퇴근 확정 시 근무 시간(갭 병기), 아니면 남은 시간."""
+    work_html = work_line_with_gap(detail) if detail is not None else None
+    if work_html is not None:
+        return work_html
+    return remaining_line(remaining_seconds)
+
+
 def future_lines(detail: DayDetail) -> list[str]:
     """미래 일자 표시 라인: 실 계획(분), (가)계획 범위."""
     recog_range = (
@@ -533,7 +543,9 @@ class StatusPanel(QWidget):
         )
         self._stay.setText(stay_line(summary.today_stay_seconds))
         self._stay.setVisible(True)
-        self._remaining.setText(remaining_line(summary.remaining_seconds))
+        self._remaining.setText(
+            today_tail_line(summary.remaining_seconds, detail)
+        )
         self._remaining.setVisible(True)
         recog_end_passed = (
             summary.today_recog_end_hm is not None and summary.recog_end_passed

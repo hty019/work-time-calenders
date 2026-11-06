@@ -413,3 +413,20 @@ def test_extra_work_line_formats_minutes():
     from ui.status_panel import extra_work_line
     assert extra_work_line(_detail(extra_work_minutes=30)) == "추가 업무: 30m"
     assert extra_work_line(_detail(extra_work_minutes=90)) == "추가 업무: 1h 30m"
+
+
+def test_today_tail_line_shows_work_after_clock_out():
+    # 오늘 퇴근 확정 시 '남은 시간' 대신 근무 시간(갭 병기)을 표시
+    from ui.status_panel import today_tail_line, work_line_with_gap
+    d = _detail(
+        kind="today", clock_out_hm="18:00", work_seconds=8 * 3600,
+        planned_minutes=480, has_record=True,
+    )
+    assert today_tail_line(-600, d) == work_line_with_gap(d)
+
+
+def test_today_tail_line_shows_remaining_while_working():
+    from ui.status_panel import today_tail_line
+    d = _detail(kind="today", clock_in_hm="09:00", has_record=True)
+    assert today_tail_line(3600, d) == remaining_line(3600)
+    assert today_tail_line(3600, None) == remaining_line(3600)
