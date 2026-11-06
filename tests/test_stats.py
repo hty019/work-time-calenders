@@ -590,10 +590,34 @@ def test_plan_balance_past_month_counts_all_days():
 
 def test_build_month_summary_wires_plan_balance():
     # build_month_summary 가 plan_balance_seconds 필드를 채운다.
-    # 07-01 계획 8h, 실제 9h 근무, 오늘 07-02 → +1h.
+    # FakeStorage 는 모든 날짜에 같은 퇴근 확정 기록(9h)을 돌려준다.
+    # 계획 8h, 07-01 + 퇴근 확정된 오늘 07-02 → +2h.
     rec = Rec("2026-07-01T09:00:00+09:00", "2026-07-01T19:00:00+09:00", 9 * 3600)
     s = build_month_summary(
         FakeStorage(rec), FakeAttendance(),
         FakePlan(9600, 480), 2026, 7, {}, datetime(2026, 7, 2, 12, tzinfo=KST),
     )
-    assert s.plan_balance_seconds == 1 * 3600
+    assert s.plan_balance_seconds == 2 * 3600
+
+
+def test_plan_balance_includes_today_once_clocked_out():
+    # 오늘(07-02) 퇴근 확정(계획 8h, 실제 7h46m) → 완료일로 포함해 -14m.
+    recs = {
+        "2026-07-01": Rec("x", "y", 8 * 3600),
+        "2026-07-02": Rec("x", "y", 8 * 3600 - 14 * 60),
+    }
+    plan = MapPlan({"2026-07-01": 480, "2026-07-02": 480})
+    bal = plan_balance_seconds(
+        MapStorage(recs), plan, {}, 2026, 7, "2026-07-02"
+    )
+    assert bal == -14 * 60
+
+
+def test_plan_balance_excludes_today_while_working():
+    # 오늘 출근만 하고 미퇴근(work_seconds None) → 제외.
+    recs = {"2026-07-02": Rec("x", None, None)}
+    plan = MapPlan({"2026-07-02": 480})
+    bal = plan_balance_seconds(
+        MapStorage(recs), plan, {}, 2026, 7, "2026-07-02"
+    )
+    assert bal == 0

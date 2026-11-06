@@ -59,23 +59,26 @@ def progress_state(
 def plan_balance_seconds(
     storage, plan_service, holidays, year: int, month: int, today: str
 ) -> int:
-    """완료된 과거 일자(오늘 이전)의 실제 근무 − 실 계획 누적 차이(초).
+    """완료된 일자(오늘 이전 + 퇴근 확정된 오늘)의 실제 근무 − 실 계획 누적 차이(초).
 
     여유는 양수, 부족은 음수. 실제 근무는 월 누적과 동일하게 휴가를 근로로
     합산하고(rec.work_seconds + 휴가분), 실 계획은 effective_minutes 기준이다.
     출근 기록이 없는 과거 평일은 실제 0 → 실 계획 전액이 부족분으로 잡힌다.
-    주말·공휴일은 실 계획 0 이라 영향이 없고, 오늘 및 미래는 집계에서 제외한다.
+    주말·공휴일은 실 계획 0 이라 영향이 없고, 미래는 집계에서 제외한다.
+    오늘은 퇴근 확정(clock_out 기록)된 경우에만 완료일로 포함한다.
     """
     last_day = calendar.monthrange(year, month)[1]
     balance = 0
     for day in range(1, last_day + 1):
         date = f"{year:04d}-{month:02d}-{day:02d}"
-        if date >= today:
+        if date > today:
+            continue
+        rec = storage.get(date)
+        if date == today and (rec is None or rec.clock_out is None):
             continue
         planned_seconds = (
             plan_service.effective_minutes(date, holidays) * _MINUTE_SECONDS
         )
-        rec = storage.get(date)
         actual_seconds = (rec.work_seconds or 0) if rec else 0
         vacation = storage.get_vacation(date)
         if vacation:
@@ -104,7 +107,7 @@ class MonthSummary:
     today_stay_seconds: int | None = None  # 출근 후 체류초(휴게 포함 경과)
     expected_basis_minutes: int | None = None  # 예상 퇴근 산정 기준 순근무 분
     today_clocked_out_early: bool | None = None  # 예상보다 이른 퇴근 여부
-    plan_balance_seconds: int = 0  # 완료 과거일 실 계획 대비 여유(+)/부족(−) 초
+    plan_balance_seconds: int = 0  # 완료일(퇴근한 오늘 포함) 계획 대비 여유(+)/부족(−) 초
 
 
 def build_month_summary(
