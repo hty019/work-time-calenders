@@ -1,7 +1,7 @@
 # work-widget
 
-macOS용 근무시간 트래커 (PySide6/Qt). 전체화면 캘린더 모드와 소형 위젯 모드를
-지원하며, 출퇴근 기록·계획 관리·월 현황 집계를 제공한다.
+macOS·Windows용 근무시간 트래커 (PySide6/Qt). 전체화면 캘린더 모드와 소형 위젯
+모드를 지원하며, 출퇴근 기록·계획 관리·월 현황 집계를 제공한다.
 
 ## 실행·테스트
 
@@ -13,6 +13,21 @@ macOS용 근무시간 트래커 (PySide6/Qt). 전체화면 캘린더 모드와 �
 - 시스템 python 이 아니라 반드시 `venv/` 를 사용한다.
 - GUI 렌더링은 헤드리스 환경에서 자동 검증이 불가하다. UI 변경 시 로직·임포트
   검증까지만 수행하고, 시각적 확인은 사용자에게 요청한다.
+
+## 크로스플랫폼 (Windows 호환)
+
+개발은 macOS 에서 하지만 Windows 설치본도 배포한다 (CI 가 windows 러너에서
+테스트·빌드). 다음을 지킨다:
+
+- OS 분기는 `platform` 인자를 받는 순수 함수로 만들어 두 OS 결과를 macOS 에서도
+  테스트한다 (예: `core/ai_cli.py`, `ui/theme.font_family_for`). 경로 조합은
+  호스트 OS 가 아닌 `ntpath`/`posixpath` 를 명시한다.
+- 외부 프로세스가 읽는 출력(workctl)은 UTF-8 고정 — Windows 파이프 기본은 cp949.
+- 종료 훅은 `aboutToQuit` 만으로 부족하다 (Windows 세션 종료 시 미호출).
+  `commitDataRequest` 에도 연결하고 훅은 멱등하게 유지한다.
+- `run.bat` 은 ASCII 만 사용 (cmd.exe 가 OEM 코드페이지로 읽어 한글이 깨짐).
+- Windows 자동 시작 Run 값 이름은 `install_autostart.RUN_VALUE_NAME` 과
+  `packaging/installer.iss` 가 일치해야 한다.
 
 ## 구조
 
