@@ -174,6 +174,12 @@ def test_build_prompt_contains_context_and_rules():
     assert "출퇴근" in prompt  # 출퇴근 수정 금지 규칙 명시
 
 
+def test_build_prompt_is_platform_neutral():
+    # Windows 에서 실행해도 AI 가 macOS 전용 명령을 가정하지 않도록
+    prompt = build_prompt("메모 추가", "2026-07-07", "python workctl.py")
+    assert "macOS" not in prompt
+
+
 def test_format_stream_event_claude_tool_use():
     import json
     from core.ai_cli import format_stream_event

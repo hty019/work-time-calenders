@@ -225,7 +225,7 @@ def workctl_command_prefix(
 
 def build_prompt(instruction: str, today: str, workctl_cmd: str) -> str:
     """AI 에게 전달할 지시문. workctl 사용법과 안전 규칙을 포함한다."""
-    return f"""당신은 macOS 근무시간 트래커의 데이터 편집 도우미입니다.
+    return f"""당신은 근무시간 트래커의 데이터 편집 도우미입니다.
 오늘 날짜: {today}
 
 날짜별 기록의 조회·수정은 반드시 아래 명령만 사용하세요:
