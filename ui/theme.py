@@ -1,6 +1,8 @@
 """Qt UI 공통 디자인 토큰 (기존 위젯 팔레트 계승)."""
 from __future__ import annotations
 
+import sys
+
 # 색상 — 회색 베이스 다크 테마
 BG_BASE = "#2b2d31"
 BG_ELEVATED = "#3a3d42"
@@ -32,7 +34,16 @@ FG_SURPLUS = "#4ade80"        # 실 계획 대비 여유 (녹색)
 FG_DEFICIT = "#ff5a5a"        # 실 계획 대비 부족 (빨강)
 BORDER_GRAY = "#5f6670"       # 입력란·박스 테두리 (회색, FG_MUTED 보다 어두움)
 
-FONT_FAMILY = "Helvetica"
+_FONT_DEFAULT = "Helvetica"
+_FONT_WINDOWS = "Malgun Gothic"  # Windows 기본 한글 UI 폰트 (Helvetica 없음)
+
+
+def font_family_for(platform: str) -> str:
+    """플랫폼별 앱 기본 폰트 패밀리."""
+    return _FONT_WINDOWS if platform.startswith("win") else _FONT_DEFAULT
+
+
+FONT_FAMILY = font_family_for(sys.platform)
 CELL_MIN_WIDTH = 96
 CELL_MIN_HEIGHT = 84
 
