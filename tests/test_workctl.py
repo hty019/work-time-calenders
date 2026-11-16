@@ -1,5 +1,7 @@
 import importlib
+import io
 import json
+import sys
 
 import pytest
 
@@ -134,3 +136,34 @@ def test_skip_and_only_holidays_are_mutually_exclusive(workctl):
         "--skip-holidays", "--only-holidays",
     ])
     assert rc != 0
+
+
+def _cp949_stream() -> io.TextIOWrapper:
+    """Windows 한국어 로캘에서 파이프로 연결된 stdout 을 흉내낸다."""
+    return io.TextIOWrapper(io.BytesIO(), encoding="cp949")
+
+
+def test_output_is_utf8_even_with_cp949_locale_stream(workctl, monkeypatch):
+    # AI CLI 는 workctl 출력을 UTF-8 로 해석하므로 로캘 인코딩과 무관해야 한다
+    stream = _cp949_stream()
+    monkeypatch.setattr(sys, "stdout", stream)
+    assert workctl.main(["set-memo", "2026-07-02", "주간 회의"]) == 0
+    stream.flush()
+    assert "메모 저장" in stream.buffer.getvalue().decode("utf-8")
+
+
+def test_error_output_is_utf8_even_with_cp949_locale_stream(
+    workctl, monkeypatch
+):
+    stream = _cp949_stream()
+    monkeypatch.setattr(sys, "stderr", stream)
+    assert workctl.main(["set-plan", "2026-07-02", "9999"]) != 0
+    stream.flush()
+    assert "오류" in stream.buffer.getvalue().decode("utf-8")
+
+
+def test_missing_stdio_does_not_crash(workctl, monkeypatch):
+    # 콘솔 없는 GUI 실행 파일(pythonw·windowed exe)은 sys.stdout 이 None 이다
+    monkeypatch.setattr(sys, "stdout", None)
+    monkeypatch.setattr(sys, "stderr", None)
+    assert workctl.main(["clear-memo", "2026-07-02"]) == 0

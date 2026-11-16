@@ -363,7 +363,20 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _force_utf8_stdio() -> None:
+    """stdout·stderr 를 UTF-8 로 고정한다.
+
+    Windows 는 파이프 출력에 로캘 인코딩(한국어 cp949)을 써서, 출력을
+    UTF-8 로 해석하는 AI CLI 가 한글을 깨진 채 받는다. 콘솔 없는 GUI
+    실행 파일은 스트림이 None 이므로 건너뛴다.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
+    _force_utf8_stdio()
     args = _build_parser().parse_args(argv)
     return args.func(_Services(), args)
 
