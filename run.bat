@@ -3,6 +3,8 @@ rem work-widget launcher for Windows (double-click to run)
 rem   run.bat         run the widget (creates venv / installs deps if missing)
 rem   run.bat setup   (re)create venv and install deps only
 rem   run.bat test    run tests
+rem   run.bat install-startup     start the widget at Windows login (HKCU Run)
+rem   run.bat uninstall-startup   remove login autostart
 rem NOTE: keep this file ASCII-only. cmd.exe reads .bat in the OEM codepage,
 rem       so non-ASCII text (Korean) breaks batch parsing.
 setlocal
@@ -42,6 +44,14 @@ if /i "%~1"=="setup" (
 )
 if /i "%~1"=="test" (
     "%PY%" -m pytest -q
+    exit /b %errorlevel%
+)
+if /i "%~1"=="install-startup" (
+    "%PY%" "%~dp0install_autostart.py" install
+    exit /b %errorlevel%
+)
+if /i "%~1"=="uninstall-startup" (
+    "%PY%" "%~dp0install_autostart.py" uninstall
     exit /b %errorlevel%
 )
 
