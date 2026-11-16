@@ -125,6 +125,12 @@ class AppController:
         self._mode = config.get_last_mode()
         # 정상 종료 시 진행 중이면 자동 퇴근 저장 (강제 종료는 대상 아님)
         self._app.aboutToQuit.connect(self._handle_app_exit)
+        # Windows 로그오프·시스템 종료는 이벤트 루프가 끝나기 전에 프로세스가
+        # 종료돼 aboutToQuit 이 오지 않는다. 세션 종료 신호에서도 같은 훅을
+        # 실행한다 (진행 중일 때만 저장하므로 중복 호출돼도 안전).
+        self._app.commitDataRequest.connect(
+            lambda _manager: self._handle_app_exit()
+        )
 
     # --- 갱신 -----------------------------------------------------------
     def _refresh(self) -> None:
